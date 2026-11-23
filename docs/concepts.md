@@ -134,6 +134,6 @@ capturing the next press, and saved as JSON. See [rebinding](rebinding.md).
 ## Players
 
 `EnhancedInput` (the autoload) owns `InputPlayer`s; player 0 always exists
-(`EnhancedInput.DefaultPlayer`). Each player has its own contexts, raw input and action states, and
-a device filter (`AcceptKeyboardMouse`, `JoypadDevices`, `AcceptActionEvents`). Full local
-multiplayer — device assignment and joining — is stage 3.
+(`EnhancedInput.DefaultPlayer`). Each player has its own contexts, raw input, action states and
+profile, and listens to its own devices (`AcceptKeyboardMouse`, `AcceptTouch`, `AcceptActionEvents`,
+owned joypads). See [local players and touch](players-and-touch.md).

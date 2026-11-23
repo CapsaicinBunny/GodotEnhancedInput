@@ -24,10 +24,13 @@
 [ext_resource type="Script" path="res://addons/godot_enhanced_input/Triggers/ComboStep.cs" id="22"]
 [ext_resource type="Script" path="res://addons/godot_enhanced_input/Triggers/ComboTrigger.cs" id="23"]
 [ext_resource type="Resource" path="res://addons/godot_enhanced_input_demo/actions/pause.tres" id="24"]
-[ext_resource type="Script" path="res://addons/godot_enhanced_input/Resources/BindingContext.cs" id="25"]
+[ext_resource type="Resource" path="res://addons/godot_enhanced_input_demo/actions/toggle_touch.tres" id="25"]
+[ext_resource type="Script" path="res://addons/godot_enhanced_input/Resources/BindingContext.cs" id="26"]
 
-[sub_resource type="Resource" id="Resource_qg1yu"]
+[sub_resource type="Resource" id="Resource_5p18o"]
 script = ExtResource("4")
+TouchIndex = -1
+TouchChannel = 0
 VirtualName = ""
 InputMapAction = ""
 Device = -1
@@ -44,7 +47,7 @@ Key = 0
 KeyMatch = 0
 Kind = 3
 
-[sub_resource type="Resource" id="Resource_5p18o"]
+[sub_resource type="Resource" id="Resource_ubg46"]
 script = ExtResource("1")
 RebindFormerIds = PackedStringArray()
 RebindCategory = ""
@@ -52,18 +55,20 @@ RebindDisplayName = ""
 RebindId = ""
 Triggers = Array[ExtResource("5")]([])
 Modifiers = Array[ExtResource("3")]([])
-Source = SubResource("Resource_qg1yu")
+Source = SubResource("Resource_5p18o")
 Action = ExtResource("2")
 
-[sub_resource type="Resource" id="Resource_ubg46"]
+[sub_resource type="Resource" id="Resource_sffrd"]
 script = ExtResource("6")
 Upper = 1.0
 Lower = 0.2
 Shape = 1
 Enabled = true
 
-[sub_resource type="Resource" id="Resource_sffrd"]
+[sub_resource type="Resource" id="Resource_1slq7"]
 script = ExtResource("4")
+TouchIndex = -1
+TouchChannel = 0
 VirtualName = ""
 InputMapAction = ""
 Device = -1
@@ -80,19 +85,52 @@ Key = 0
 KeyMatch = 0
 Kind = 9
 
-[sub_resource type="Resource" id="Resource_1slq7"]
+[sub_resource type="Resource" id="Resource_vd4cs"]
 script = ExtResource("1")
 RebindFormerIds = PackedStringArray()
 RebindCategory = ""
 RebindDisplayName = ""
 RebindId = ""
 Triggers = Array[ExtResource("5")]([])
-Modifiers = Array[ExtResource("3")]([SubResource("Resource_ubg46")])
-Source = SubResource("Resource_sffrd")
+Modifiers = Array[ExtResource("3")]([SubResource("Resource_sffrd")])
+Source = SubResource("Resource_1slq7")
 Action = ExtResource("2")
 
-[sub_resource type="Resource" id="Resource_vd4cs"]
+[sub_resource type="Resource" id="Resource_3lhsy"]
 script = ExtResource("4")
+TouchIndex = -1
+TouchChannel = 0
+VirtualName = "touch_move"
+InputMapAction = ""
+Device = -1
+JoyStick = 0
+AxisRange = 0
+JoyAxis = 0
+JoyButton = 0
+MouseButton = 1
+DownKey = 83
+UpKey = 87
+NegativeKey = 65
+PositiveKey = 68
+Key = 0
+KeyMatch = 0
+Kind = 11
+
+[sub_resource type="Resource" id="Resource_dnau2"]
+script = ExtResource("1")
+RebindFormerIds = PackedStringArray()
+RebindCategory = ""
+RebindDisplayName = ""
+RebindId = ""
+Triggers = Array[ExtResource("5")]([])
+Modifiers = Array[ExtResource("3")]([])
+Source = SubResource("Resource_3lhsy")
+Action = ExtResource("2")
+
+[sub_resource type="Resource" id="Resource_h78wa"]
+script = ExtResource("4")
+TouchIndex = -1
+TouchChannel = 0
 VirtualName = ""
 InputMapAction = ""
 Device = -1
@@ -109,7 +147,7 @@ Key = 4194325
 KeyMatch = 0
 Kind = 1
 
-[sub_resource type="Resource" id="Resource_3lhsy"]
+[sub_resource type="Resource" id="Resource_t1lxu"]
 script = ExtResource("1")
 RebindFormerIds = PackedStringArray()
 RebindCategory = "Keyboard"
@@ -117,11 +155,13 @@ RebindDisplayName = "Sprint"
 RebindId = "sprint_key"
 Triggers = Array[ExtResource("5")]([])
 Modifiers = Array[ExtResource("3")]([])
-Source = SubResource("Resource_vd4cs")
+Source = SubResource("Resource_h78wa")
 Action = ExtResource("7")
 
-[sub_resource type="Resource" id="Resource_dnau2"]
+[sub_resource type="Resource" id="Resource_ht28f"]
 script = ExtResource("4")
+TouchIndex = -1
+TouchChannel = 0
 VirtualName = ""
 InputMapAction = ""
 Device = -1
@@ -138,7 +178,7 @@ Key = 0
 KeyMatch = 0
 Kind = 7
 
-[sub_resource type="Resource" id="Resource_h78wa"]
+[sub_resource type="Resource" id="Resource_wm4t3"]
 script = ExtResource("1")
 RebindFormerIds = PackedStringArray()
 RebindCategory = "Gamepad"
@@ -146,11 +186,13 @@ RebindDisplayName = "Sprint"
 RebindId = "sprint_pad"
 Triggers = Array[ExtResource("5")]([])
 Modifiers = Array[ExtResource("3")]([])
-Source = SubResource("Resource_dnau2")
+Source = SubResource("Resource_ht28f")
 Action = ExtResource("7")
 
-[sub_resource type="Resource" id="Resource_t1lxu"]
+[sub_resource type="Resource" id="Resource_2qc6v"]
 script = ExtResource("4")
+TouchIndex = -1
+TouchChannel = 0
 VirtualName = ""
 InputMapAction = ""
 Device = -1
@@ -167,28 +209,30 @@ Key = 32
 KeyMatch = 0
 Kind = 1
 
-[sub_resource type="Resource" id="Resource_ht28f"]
+[sub_resource type="Resource" id="Resource_vbsvs"]
 script = ExtResource("9")
 ActuationThreshold = 0.5
 
-[sub_resource type="Resource" id="Resource_wm4t3"]
+[sub_resource type="Resource" id="Resource_3dp7o"]
 script = ExtResource("10")
 ChordAction = ExtResource("7")
 ActuationThreshold = 0.5
 
-[sub_resource type="Resource" id="Resource_2qc6v"]
+[sub_resource type="Resource" id="Resource_kjbcb"]
 script = ExtResource("1")
 RebindFormerIds = PackedStringArray()
 RebindCategory = "Keyboard"
 RebindDisplayName = "Jump / Dash"
 RebindId = "jump_key"
-Triggers = Array[ExtResource("5")]([SubResource("Resource_ht28f"), SubResource("Resource_wm4t3")])
+Triggers = Array[ExtResource("5")]([SubResource("Resource_vbsvs"), SubResource("Resource_3dp7o")])
 Modifiers = Array[ExtResource("3")]([])
-Source = SubResource("Resource_t1lxu")
+Source = SubResource("Resource_2qc6v")
 Action = ExtResource("8")
 
-[sub_resource type="Resource" id="Resource_vbsvs"]
+[sub_resource type="Resource" id="Resource_xjc5g"]
 script = ExtResource("4")
+TouchIndex = -1
+TouchChannel = 0
 VirtualName = ""
 InputMapAction = ""
 Device = -1
@@ -205,23 +249,60 @@ Key = 0
 KeyMatch = 0
 Kind = 7
 
-[sub_resource type="Resource" id="Resource_3dp7o"]
+[sub_resource type="Resource" id="Resource_jfom2"]
 script = ExtResource("9")
 ActuationThreshold = 0.5
 
-[sub_resource type="Resource" id="Resource_kjbcb"]
+[sub_resource type="Resource" id="Resource_j50g0"]
 script = ExtResource("1")
 RebindFormerIds = PackedStringArray()
 RebindCategory = "Gamepad"
 RebindDisplayName = "Dash"
 RebindId = "dash_pad"
-Triggers = Array[ExtResource("5")]([SubResource("Resource_3dp7o")])
+Triggers = Array[ExtResource("5")]([SubResource("Resource_jfom2")])
 Modifiers = Array[ExtResource("3")]([])
-Source = SubResource("Resource_vbsvs")
+Source = SubResource("Resource_xjc5g")
 Action = ExtResource("8")
 
-[sub_resource type="Resource" id="Resource_xjc5g"]
+[sub_resource type="Resource" id="Resource_0heur"]
 script = ExtResource("4")
+TouchIndex = -1
+TouchChannel = 0
+VirtualName = "touch_dash"
+InputMapAction = ""
+Device = -1
+JoyStick = 0
+AxisRange = 0
+JoyAxis = 0
+JoyButton = 0
+MouseButton = 1
+DownKey = 83
+UpKey = 87
+NegativeKey = 65
+PositiveKey = 68
+Key = 0
+KeyMatch = 0
+Kind = 11
+
+[sub_resource type="Resource" id="Resource_5gxw3"]
+script = ExtResource("9")
+ActuationThreshold = 0.5
+
+[sub_resource type="Resource" id="Resource_7loet"]
+script = ExtResource("1")
+RebindFormerIds = PackedStringArray()
+RebindCategory = ""
+RebindDisplayName = ""
+RebindId = ""
+Triggers = Array[ExtResource("5")]([SubResource("Resource_5gxw3")])
+Modifiers = Array[ExtResource("3")]([])
+Source = SubResource("Resource_0heur")
+Action = ExtResource("8")
+
+[sub_resource type="Resource" id="Resource_505fh"]
+script = ExtResource("4")
+TouchIndex = -1
+TouchChannel = 0
 VirtualName = ""
 InputMapAction = ""
 Device = -1
@@ -238,28 +319,30 @@ Key = 32
 KeyMatch = 0
 Kind = 1
 
-[sub_resource type="Resource" id="Resource_jfom2"]
+[sub_resource type="Resource" id="Resource_arsym"]
 script = ExtResource("9")
 ActuationThreshold = 0.5
 
-[sub_resource type="Resource" id="Resource_j50g0"]
+[sub_resource type="Resource" id="Resource_8feab"]
 script = ExtResource("12")
 BlockingAction = ExtResource("8")
 ActuationThreshold = 0.5
 
-[sub_resource type="Resource" id="Resource_0heur"]
+[sub_resource type="Resource" id="Resource_583qp"]
 script = ExtResource("1")
 RebindFormerIds = PackedStringArray()
 RebindCategory = "Keyboard"
 RebindDisplayName = "Jump / Dash"
 RebindId = "jump_key"
-Triggers = Array[ExtResource("5")]([SubResource("Resource_jfom2"), SubResource("Resource_j50g0")])
+Triggers = Array[ExtResource("5")]([SubResource("Resource_arsym"), SubResource("Resource_8feab")])
 Modifiers = Array[ExtResource("3")]([])
-Source = SubResource("Resource_xjc5g")
+Source = SubResource("Resource_505fh")
 Action = ExtResource("11")
 
-[sub_resource type="Resource" id="Resource_5gxw3"]
+[sub_resource type="Resource" id="Resource_8jcly"]
 script = ExtResource("4")
+TouchIndex = -1
+TouchChannel = 0
 VirtualName = ""
 InputMapAction = ""
 Device = -1
@@ -276,23 +359,60 @@ Key = 0
 KeyMatch = 0
 Kind = 7
 
-[sub_resource type="Resource" id="Resource_7loet"]
+[sub_resource type="Resource" id="Resource_5momu"]
 script = ExtResource("9")
 ActuationThreshold = 0.5
 
-[sub_resource type="Resource" id="Resource_505fh"]
+[sub_resource type="Resource" id="Resource_ilvx3"]
 script = ExtResource("1")
 RebindFormerIds = PackedStringArray()
 RebindCategory = "Gamepad"
 RebindDisplayName = "Jump"
 RebindId = "jump_pad"
-Triggers = Array[ExtResource("5")]([SubResource("Resource_7loet")])
+Triggers = Array[ExtResource("5")]([SubResource("Resource_5momu")])
 Modifiers = Array[ExtResource("3")]([])
-Source = SubResource("Resource_5gxw3")
+Source = SubResource("Resource_8jcly")
 Action = ExtResource("11")
 
-[sub_resource type="Resource" id="Resource_arsym"]
+[sub_resource type="Resource" id="Resource_0ykfd"]
 script = ExtResource("4")
+TouchIndex = -1
+TouchChannel = 0
+VirtualName = "touch_jump"
+InputMapAction = ""
+Device = -1
+JoyStick = 0
+AxisRange = 0
+JoyAxis = 0
+JoyButton = 0
+MouseButton = 1
+DownKey = 83
+UpKey = 87
+NegativeKey = 65
+PositiveKey = 68
+Key = 0
+KeyMatch = 0
+Kind = 11
+
+[sub_resource type="Resource" id="Resource_td2w6"]
+script = ExtResource("9")
+ActuationThreshold = 0.5
+
+[sub_resource type="Resource" id="Resource_1l8ud"]
+script = ExtResource("1")
+RebindFormerIds = PackedStringArray()
+RebindCategory = ""
+RebindDisplayName = ""
+RebindId = ""
+Triggers = Array[ExtResource("5")]([SubResource("Resource_td2w6")])
+Modifiers = Array[ExtResource("3")]([])
+Source = SubResource("Resource_0ykfd")
+Action = ExtResource("11")
+
+[sub_resource type="Resource" id="Resource_b2s0x"]
+script = ExtResource("4")
+TouchIndex = -1
+TouchChannel = 0
 VirtualName = ""
 InputMapAction = ""
 Device = -1
@@ -309,25 +429,27 @@ Key = 69
 KeyMatch = 0
 Kind = 1
 
-[sub_resource type="Resource" id="Resource_8feab"]
+[sub_resource type="Resource" id="Resource_s2sak"]
 script = ExtResource("14")
 OneShot = true
 HoldSeconds = 0.6
 ActuationThreshold = 0.5
 
-[sub_resource type="Resource" id="Resource_583qp"]
+[sub_resource type="Resource" id="Resource_loe4k"]
 script = ExtResource("1")
 RebindFormerIds = PackedStringArray()
 RebindCategory = "Keyboard"
 RebindDisplayName = "Charge"
 RebindId = "charge_key"
-Triggers = Array[ExtResource("5")]([SubResource("Resource_8feab")])
+Triggers = Array[ExtResource("5")]([SubResource("Resource_s2sak")])
 Modifiers = Array[ExtResource("3")]([])
-Source = SubResource("Resource_arsym")
+Source = SubResource("Resource_b2s0x")
 Action = ExtResource("13")
 
-[sub_resource type="Resource" id="Resource_8jcly"]
+[sub_resource type="Resource" id="Resource_ja876"]
 script = ExtResource("4")
+TouchIndex = -1
+TouchChannel = 0
 VirtualName = ""
 InputMapAction = ""
 Device = -1
@@ -344,25 +466,27 @@ Key = 0
 KeyMatch = 0
 Kind = 7
 
-[sub_resource type="Resource" id="Resource_5momu"]
+[sub_resource type="Resource" id="Resource_j6pro"]
 script = ExtResource("14")
 OneShot = true
 HoldSeconds = 0.6
 ActuationThreshold = 0.5
 
-[sub_resource type="Resource" id="Resource_ilvx3"]
+[sub_resource type="Resource" id="Resource_3b8xl"]
 script = ExtResource("1")
 RebindFormerIds = PackedStringArray()
 RebindCategory = "Gamepad"
 RebindDisplayName = "Charge"
 RebindId = "charge_pad"
-Triggers = Array[ExtResource("5")]([SubResource("Resource_5momu")])
+Triggers = Array[ExtResource("5")]([SubResource("Resource_j6pro")])
 Modifiers = Array[ExtResource("3")]([])
-Source = SubResource("Resource_8jcly")
+Source = SubResource("Resource_ja876")
 Action = ExtResource("13")
 
-[sub_resource type="Resource" id="Resource_0ykfd"]
+[sub_resource type="Resource" id="Resource_vaxqe"]
 script = ExtResource("4")
+TouchIndex = -1
+TouchChannel = 0
 VirtualName = ""
 InputMapAction = ""
 Device = -1
@@ -379,24 +503,26 @@ Key = 70
 KeyMatch = 0
 Kind = 1
 
-[sub_resource type="Resource" id="Resource_td2w6"]
+[sub_resource type="Resource" id="Resource_u6rrq"]
 script = ExtResource("16")
 TapSeconds = 0.25
 ActuationThreshold = 0.5
 
-[sub_resource type="Resource" id="Resource_1l8ud"]
+[sub_resource type="Resource" id="Resource_7sfg7"]
 script = ExtResource("1")
 RebindFormerIds = PackedStringArray()
 RebindCategory = "Keyboard"
 RebindDisplayName = "Inspect / Pick up"
 RebindId = "interact_key"
-Triggers = Array[ExtResource("5")]([SubResource("Resource_td2w6")])
+Triggers = Array[ExtResource("5")]([SubResource("Resource_u6rrq")])
 Modifiers = Array[ExtResource("3")]([])
-Source = SubResource("Resource_0ykfd")
+Source = SubResource("Resource_vaxqe")
 Action = ExtResource("15")
 
-[sub_resource type="Resource" id="Resource_b2s0x"]
+[sub_resource type="Resource" id="Resource_teb4m"]
 script = ExtResource("4")
+TouchIndex = -1
+TouchChannel = 0
 VirtualName = ""
 InputMapAction = ""
 Device = -1
@@ -413,25 +539,27 @@ Key = 70
 KeyMatch = 0
 Kind = 1
 
-[sub_resource type="Resource" id="Resource_s2sak"]
+[sub_resource type="Resource" id="Resource_fw187"]
 script = ExtResource("14")
 OneShot = true
 HoldSeconds = 0.5
 ActuationThreshold = 0.5
 
-[sub_resource type="Resource" id="Resource_loe4k"]
+[sub_resource type="Resource" id="Resource_1o8q0"]
 script = ExtResource("1")
 RebindFormerIds = PackedStringArray()
 RebindCategory = "Keyboard"
 RebindDisplayName = "Inspect / Pick up"
 RebindId = "interact_key"
-Triggers = Array[ExtResource("5")]([SubResource("Resource_s2sak")])
+Triggers = Array[ExtResource("5")]([SubResource("Resource_fw187")])
 Modifiers = Array[ExtResource("3")]([])
-Source = SubResource("Resource_b2s0x")
+Source = SubResource("Resource_teb4m")
 Action = ExtResource("17")
 
-[sub_resource type="Resource" id="Resource_ja876"]
+[sub_resource type="Resource" id="Resource_b1bxa"]
 script = ExtResource("4")
+TouchIndex = -1
+TouchChannel = 0
 VirtualName = ""
 InputMapAction = ""
 Device = -1
@@ -448,26 +576,28 @@ Key = 0
 KeyMatch = 0
 Kind = 4
 
-[sub_resource type="Resource" id="Resource_j6pro"]
+[sub_resource type="Resource" id="Resource_ku3rd"]
 script = ExtResource("19")
 MaxPulses = 0
 TriggerOnStart = true
 IntervalSeconds = 0.15
 ActuationThreshold = 0.5
 
-[sub_resource type="Resource" id="Resource_3b8xl"]
+[sub_resource type="Resource" id="Resource_p25n0"]
 script = ExtResource("1")
 RebindFormerIds = PackedStringArray()
 RebindCategory = "Keyboard"
 RebindDisplayName = "Fire"
 RebindId = "fire_mouse"
-Triggers = Array[ExtResource("5")]([SubResource("Resource_j6pro")])
+Triggers = Array[ExtResource("5")]([SubResource("Resource_ku3rd")])
 Modifiers = Array[ExtResource("3")]([])
-Source = SubResource("Resource_ja876")
+Source = SubResource("Resource_b1bxa")
 Action = ExtResource("18")
 
-[sub_resource type="Resource" id="Resource_vaxqe"]
+[sub_resource type="Resource" id="Resource_mo218"]
 script = ExtResource("4")
+TouchIndex = -1
+TouchChannel = 0
 VirtualName = ""
 InputMapAction = ""
 Device = -1
@@ -484,26 +614,66 @@ Key = 0
 KeyMatch = 0
 Kind = 8
 
-[sub_resource type="Resource" id="Resource_u6rrq"]
+[sub_resource type="Resource" id="Resource_xs0dr"]
 script = ExtResource("19")
 MaxPulses = 0
 TriggerOnStart = true
 IntervalSeconds = 0.15
 ActuationThreshold = 0.5
 
-[sub_resource type="Resource" id="Resource_7sfg7"]
+[sub_resource type="Resource" id="Resource_ugele"]
 script = ExtResource("1")
 RebindFormerIds = PackedStringArray()
 RebindCategory = "Gamepad"
 RebindDisplayName = "Fire"
 RebindId = "fire_pad"
-Triggers = Array[ExtResource("5")]([SubResource("Resource_u6rrq")])
+Triggers = Array[ExtResource("5")]([SubResource("Resource_xs0dr")])
 Modifiers = Array[ExtResource("3")]([])
-Source = SubResource("Resource_vaxqe")
+Source = SubResource("Resource_mo218")
 Action = ExtResource("18")
 
-[sub_resource type="Resource" id="Resource_teb4m"]
+[sub_resource type="Resource" id="Resource_5vtwi"]
 script = ExtResource("4")
+TouchIndex = -1
+TouchChannel = 0
+VirtualName = "touch_fire"
+InputMapAction = ""
+Device = -1
+JoyStick = 0
+AxisRange = 0
+JoyAxis = 0
+JoyButton = 0
+MouseButton = 1
+DownKey = 83
+UpKey = 87
+NegativeKey = 65
+PositiveKey = 68
+Key = 0
+KeyMatch = 0
+Kind = 11
+
+[sub_resource type="Resource" id="Resource_r84c4"]
+script = ExtResource("19")
+MaxPulses = 0
+TriggerOnStart = true
+IntervalSeconds = 0.15
+ActuationThreshold = 0.5
+
+[sub_resource type="Resource" id="Resource_exb1c"]
+script = ExtResource("1")
+RebindFormerIds = PackedStringArray()
+RebindCategory = ""
+RebindDisplayName = ""
+RebindId = ""
+Triggers = Array[ExtResource("5")]([SubResource("Resource_r84c4")])
+Modifiers = Array[ExtResource("3")]([])
+Source = SubResource("Resource_5vtwi")
+Action = ExtResource("18")
+
+[sub_resource type="Resource" id="Resource_1mon7"]
+script = ExtResource("4")
+TouchIndex = -1
+TouchChannel = 0
 VirtualName = ""
 InputMapAction = ""
 Device = -1
@@ -520,37 +690,39 @@ Key = 0
 KeyMatch = 0
 Kind = 0
 
-[sub_resource type="Resource" id="Resource_fw187"]
+[sub_resource type="Resource" id="Resource_ub856"]
 script = ExtResource("22")
 TimeLimit = 0.5
 CompletesOn = 4
 Action = ExtResource("11")
 
-[sub_resource type="Resource" id="Resource_1o8q0"]
+[sub_resource type="Resource" id="Resource_fhbp2"]
 script = ExtResource("22")
 TimeLimit = 0.6
 CompletesOn = 4
 Action = ExtResource("8")
 
-[sub_resource type="Resource" id="Resource_b1bxa"]
+[sub_resource type="Resource" id="Resource_kuy6h"]
 script = ExtResource("23")
 CancelActions = Array[ExtResource("21")]([])
-Steps = Array[ExtResource("22")]([SubResource("Resource_fw187"), SubResource("Resource_1o8q0")])
+Steps = Array[ExtResource("22")]([SubResource("Resource_ub856"), SubResource("Resource_fhbp2")])
 ActuationThreshold = 0.5
 
-[sub_resource type="Resource" id="Resource_ku3rd"]
+[sub_resource type="Resource" id="Resource_u1h2g"]
 script = ExtResource("1")
 RebindFormerIds = PackedStringArray()
 RebindCategory = ""
 RebindDisplayName = ""
 RebindId = ""
-Triggers = Array[ExtResource("5")]([SubResource("Resource_b1bxa")])
+Triggers = Array[ExtResource("5")]([SubResource("Resource_kuy6h")])
 Modifiers = Array[ExtResource("3")]([])
-Source = SubResource("Resource_teb4m")
+Source = SubResource("Resource_1mon7")
 Action = ExtResource("20")
 
-[sub_resource type="Resource" id="Resource_p25n0"]
+[sub_resource type="Resource" id="Resource_6qxgi"]
 script = ExtResource("4")
+TouchIndex = -1
+TouchChannel = 0
 VirtualName = ""
 InputMapAction = ""
 Device = -1
@@ -567,23 +739,25 @@ Key = 4194305
 KeyMatch = 0
 Kind = 1
 
-[sub_resource type="Resource" id="Resource_mo218"]
+[sub_resource type="Resource" id="Resource_uwmal"]
 script = ExtResource("9")
 ActuationThreshold = 0.5
 
-[sub_resource type="Resource" id="Resource_xs0dr"]
+[sub_resource type="Resource" id="Resource_0lyus"]
 script = ExtResource("1")
 RebindFormerIds = PackedStringArray()
 RebindCategory = "Keyboard"
 RebindDisplayName = "Pause"
 RebindId = "pause_key"
-Triggers = Array[ExtResource("5")]([SubResource("Resource_mo218")])
+Triggers = Array[ExtResource("5")]([SubResource("Resource_uwmal")])
 Modifiers = Array[ExtResource("3")]([])
-Source = SubResource("Resource_p25n0")
+Source = SubResource("Resource_6qxgi")
 Action = ExtResource("24")
 
-[sub_resource type="Resource" id="Resource_ugele"]
+[sub_resource type="Resource" id="Resource_8amoo"]
 script = ExtResource("4")
+TouchIndex = -1
+TouchChannel = 0
 VirtualName = ""
 InputMapAction = ""
 Device = -1
@@ -600,24 +774,59 @@ Key = 0
 KeyMatch = 0
 Kind = 7
 
-[sub_resource type="Resource" id="Resource_5vtwi"]
+[sub_resource type="Resource" id="Resource_0k52b"]
 script = ExtResource("9")
 ActuationThreshold = 0.5
 
-[sub_resource type="Resource" id="Resource_r84c4"]
+[sub_resource type="Resource" id="Resource_t72cb"]
 script = ExtResource("1")
 RebindFormerIds = PackedStringArray()
 RebindCategory = ""
 RebindDisplayName = ""
 RebindId = ""
-Triggers = Array[ExtResource("5")]([SubResource("Resource_5vtwi")])
+Triggers = Array[ExtResource("5")]([SubResource("Resource_0k52b")])
 Modifiers = Array[ExtResource("3")]([])
-Source = SubResource("Resource_ugele")
+Source = SubResource("Resource_8amoo")
 Action = ExtResource("24")
 
+[sub_resource type="Resource" id="Resource_645en"]
+script = ExtResource("4")
+TouchIndex = -1
+TouchChannel = 0
+VirtualName = ""
+InputMapAction = ""
+Device = -1
+JoyStick = 0
+AxisRange = 0
+JoyAxis = 0
+JoyButton = 0
+MouseButton = 1
+DownKey = 83
+UpKey = 87
+NegativeKey = 65
+PositiveKey = 68
+Key = 4194333
+KeyMatch = 0
+Kind = 1
+
+[sub_resource type="Resource" id="Resource_l2n4y"]
+script = ExtResource("9")
+ActuationThreshold = 0.5
+
+[sub_resource type="Resource" id="Resource_lgnby"]
+script = ExtResource("1")
+RebindFormerIds = PackedStringArray()
+RebindCategory = ""
+RebindDisplayName = ""
+RebindId = ""
+Triggers = Array[ExtResource("5")]([SubResource("Resource_l2n4y")])
+Modifiers = Array[ExtResource("3")]([])
+Source = SubResource("Resource_645en")
+Action = ExtResource("25")
+
 [resource]
-script = ExtResource("25")
+script = ExtResource("26")
 Description = "On-foot controls."
 BlockLowerPriority = false
-Bindings = Array[ExtResource("1")]([SubResource("Resource_5p18o"), SubResource("Resource_1slq7"), SubResource("Resource_3lhsy"), SubResource("Resource_h78wa"), SubResource("Resource_2qc6v"), SubResource("Resource_kjbcb"), SubResource("Resource_0heur"), SubResource("Resource_505fh"), SubResource("Resource_583qp"), SubResource("Resource_ilvx3"), SubResource("Resource_1l8ud"), SubResource("Resource_loe4k"), SubResource("Resource_3b8xl"), SubResource("Resource_7sfg7"), SubResource("Resource_ku3rd"), SubResource("Resource_xs0dr"), SubResource("Resource_r84c4")])
+Bindings = Array[ExtResource("1")]([SubResource("Resource_ubg46"), SubResource("Resource_vd4cs"), SubResource("Resource_dnau2"), SubResource("Resource_t1lxu"), SubResource("Resource_wm4t3"), SubResource("Resource_kjbcb"), SubResource("Resource_j50g0"), SubResource("Resource_7loet"), SubResource("Resource_583qp"), SubResource("Resource_ilvx3"), SubResource("Resource_1l8ud"), SubResource("Resource_loe4k"), SubResource("Resource_3b8xl"), SubResource("Resource_7sfg7"), SubResource("Resource_1o8q0"), SubResource("Resource_p25n0"), SubResource("Resource_ugele"), SubResource("Resource_exb1c"), SubResource("Resource_u1h2g"), SubResource("Resource_0lyus"), SubResource("Resource_t72cb"), SubResource("Resource_lgnby")])
 Name = "gameplay"

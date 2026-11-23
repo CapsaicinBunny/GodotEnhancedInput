@@ -133,4 +133,32 @@ public class DemoTests(EngineFixture fixture)
             demo.Free();
         }
     }
+
+    [Fact]
+    public void DemoScene_SecondJoypadJoinsAsANewPlayer()
+    {
+        var demo = ResourceLoader.Load<PackedScene>(Scene).Instantiate<GodotEnhancedInput.Demo.Demo>();
+        demo.PersistBindings = false;
+        fixture.Tree.Root.AddChild(demo);
+        var system = EnhancedInput.Instance ?? demo.GetNode<EnhancedInput>("EnhancedInput");
+        try
+        {
+            system.JoinMode.Should().Be(JoinMode.OnButtonPress);
+            system.FeedEvent(new InputEventJoypadButton { ButtonIndex = JoyButton.A, Pressed = true, Device = 11 });
+            system.FeedEvent(new InputEventJoypadButton { ButtonIndex = JoyButton.A, Pressed = true, Device = 12 });
+
+            system.Players.Should().HaveCount(2);
+            system.GetJoypadOwner(11).PlayerIndex.Should().Be(0);
+            var second = system.GetJoypadOwner(12);
+            second.PlayerIndex.Should().Be(1);
+            second.HasContext(demo.Gameplay).Should().BeTrue("the demo gives joined players the gameplay context");
+        }
+        finally
+        {
+            demo.GetParent().RemoveChild(demo);
+            demo.Free();
+            system.UnassignJoypad(11);
+            if (GodotObject.IsInstanceValid(system)) system.JoinMode.Should().Be(JoinMode.Manual, "the demo restores the join mode");
+        }
+    }
 }

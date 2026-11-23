@@ -37,9 +37,19 @@ history up to 0.2.3 is in its repository.
   swallowed and marked handled); `InputSource.FromEvent` and `Overlaps`; half-axis joypad sources;
   JSON profiles (format 1) with enums by name, unknown ids kept, former ids migrated, malformed
   entries skipped and newer formats refused.
-- Demo scene with saved actions and contexts, and a rebinding panel in its pause menu.
-- Documentation: design, concepts, modifiers, triggers, rebinding, Godot integration, migration.
-- 179 headless tests.
+- Local players: exclusive joypad assignment (`AssignJoypad`, `UnassignJoypad`, `GetJoypadOwner`);
+  unowned joypads reach players without a list; join mode on button press with `MaxPlayers` and a
+  consumed joining press; `JoypadAssigned`, `PlayerJoined` and `JoypadConnectionChanged` signals;
+  assignments survive disconnects; new players listen to no keyboard, mouse, touch or
+  `InputEventAction` by default.
+- Touch: `Touch` sources (pressed / position / drag, one finger or any) with GUI-aware intake;
+  `AddToVirtualControl` for one-tick deltas; on-screen `VirtualJoystick`, `VirtualButton` and
+  `TouchZone` controls (multi-touch, optional mouse, touchscreen-only visibility).
+- Demo scene with saved actions and contexts, a rebinding panel in its pause menu, joining with more
+  joypads, and on-screen touch controls.
+- Documentation: design, concepts, modifiers, triggers, rebinding, players and touch, Godot
+  integration, migration.
+- 206 headless tests.
 
 ### Removed
 - InputForge's `EnhancedInputSystem`, `InputAction`, `InputMappingContext`, `InputMapping`, `InputKey`,

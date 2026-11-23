@@ -45,9 +45,10 @@ build events by hand, set `PhysicalKeycode`.
 ## GUI focus
 
 The system never calls `SetInputAsHandled`, so everything else still receives every event — with
-one exception: a press taken by a running [rebind capture](rebinding.md#4-capture-the-next-press)
-is marked handled, so the focused button does not also react to it. With `GuiPolicy.RespectGui`
-(default):
+two exceptions: a press taken by a running [rebind capture](rebinding.md#4-capture-the-next-press)
+(so the focused button does not also react to it), and touches or clicks used by an
+[on-screen control](players-and-touch.md#on-screen-controls) you placed in the scene. With
+`GuiPolicy.RespectGui` (default):
 
 - **presses** and movement away from zero are read in `_UnhandledInput` — when a focused `LineEdit`
   or button accepts a key, gameplay does not see it;
@@ -66,9 +67,11 @@ its actions finish.
 
 ## Virtual controls
 
-`player.SetVirtualControl("name", value)` sets a named control that `Virtual` sources read. Use it
-for on-screen sticks and buttons, network or replay input, and tests. Touch sources and ready-made
-on-screen controls are planned for stage 3.
+`player.SetVirtualControl("name", value)` sets a named control that `Virtual` sources read, until
+changed. `player.AddToVirtualControl("name", delta)` adds to it for the next tick only (drags,
+flicks). Use them for on-screen controls, network or replay input, and tests. The built-in
+`VirtualJoystick`, `VirtualButton` and `TouchZone` write virtual controls; see
+[local players and touch](players-and-touch.md).
 
 ## Signals and C# events
 

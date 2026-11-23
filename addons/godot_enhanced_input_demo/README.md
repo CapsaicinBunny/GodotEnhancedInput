@@ -14,6 +14,8 @@ A small top-down playground. Open `demo.tscn` and press F6 (Run Current Scene).
 | Hold F | Pick up | …and a hold trigger on the same key |
 | Left mouse / right trigger | Fire | pulse triggers; the analog trigger uses an actuation threshold |
 | Esc / Start | Pause, Resume | a menu context with priority 100 that blocks gameplay, added with *ignore held sources until released* so the Escape press that opened it does not close it again |
+| A button on another joypad | Join | the joypad joins as a new player with its own avatar (the first joypad pressed goes to player 1) |
+| F2, or a touchscreen | On-screen controls | a floating virtual stick and Jump / Dash / Fire buttons writing virtual controls; usable with the mouse on desktop |
 | *in the pause menu* | Rebinding | click a binding, press the new input; conflicts swap; the profile is saved to `user://godot_enhanced_input_demo/bindings.json`. Jump and Dash share one rebind id (both use Space), and so do Pause and Resume across the two contexts |
 
 The panel on the left lists every action's phase, value and elapsed time; the log at the

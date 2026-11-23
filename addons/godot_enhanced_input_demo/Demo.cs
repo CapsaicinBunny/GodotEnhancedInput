@@ -7,7 +7,9 @@ namespace GodotEnhancedInput.Demo;
 /// <summary>
 /// A small top-down playground for Godot Enhanced Input. Everything visible is built here in code;
 /// the input itself is data: the two contexts (gameplay.tres, menu.tres) and the actions they bind.
-/// The panel on the left lists every action's phase, value and timings; the log shows events.
+/// The panel on the left lists player 0's actions with phase, value and timings; the log shows events.
+/// More joypads join as more players by pressing a button; on-screen controls appear on touchscreens
+/// (or with F2).
 /// </summary>
 public partial class Demo : Node2D
 {
@@ -17,7 +19,7 @@ public partial class Demo : Node2D
     /// <summary>Pause menu. Defaults to the demo's menu.tres.</summary>
     [Export] public BindingContext Menu { get; set; }
 
-    /// <summary>Load the player's rebinding profile on start and save it after every change.</summary>
+    /// <summary>Load player 0's rebinding profile on start and save it after every change.</summary>
     [Export] public bool PersistBindings { get; set; } = true;
 
     /// <summary>Where the demo keeps its rebinding profile.</summary>
@@ -26,21 +28,34 @@ public partial class Demo : Node2D
     private const float Speed = 260f;
     private const float SprintFactor = 1.8f;
 
+    private static readonly Color[] PlayerColors = { new("4ade80"), new("60a5fa"), new("f472b6"), new("facc15") };
+
+    private sealed class Avatar
+    {
+        public InputPlayer Player;
+        public Node2D Root;
+        public Polygon2D Body;
+        public ColorRect ChargeBar;
+        public Color Color;
+        public Vector2 Facing = Vector2.Right;
+        public Vector2 DashVelocity;
+        public System.Action<ActionEventArgs> Handler;
+    }
+
+    private EnhancedInput _system;
+    private bool _ownSystem;
+    private JoinMode _previousJoinMode;
     private InputPlayer _player;
-    private EnhancedInput _ownSystem;
+    private readonly List<Avatar> _avatars = new();
     private readonly System.Collections.Generic.Dictionary<string, GameAction> _actions = new();
     private readonly List<string> _log = new();
     private readonly List<(Node2D Node, Vector2 Velocity, double Life)> _shots = new();
 
-    private Node2D _avatar;
-    private Polygon2D _body;
-    private ColorRect _chargeBar;
     private Label _panel;
     private Label _logLabel;
     private PanelContainer _menu;
     private GridContainer _slotGrid;
-    private Vector2 _facing = Vector2.Right;
-    private Vector2 _dashVelocity;
+    private Control _touchControls;
 
     public override void _Ready()
     {
@@ -50,35 +65,50 @@ public partial class Demo : Node2D
         CollectActions(Menu);
 
         // Use the autoload when the plugin is enabled; otherwise run a private instance.
-        var system = EnhancedInput.Instance;
-        if (system == null)
+        _system = EnhancedInput.Instance;
+        if (_system == null)
         {
-            _ownSystem = system = new EnhancedInput();
-            AddChild(_ownSystem);
+            _system = new EnhancedInput();
+            _ownSystem = true;
+            AddChild(_system);
         }
-        _player = system.GetPlayer(0);
-        _player.AddContext(Gameplay, priority: 0);
-        _player.ActionEventRaised += OnActionEvent;
+
+        // Another joypad pressing a button joins as a new player.
+        _previousJoinMode = _system.JoinMode;
+        _system.JoinMode = JoinMode.OnButtonPress;
+        _system.PlayerJoined += OnPlayerJoined;
+
+        _player = _system.GetPlayer(0);
+        BuildUi();
+        AddAvatar(_player);
 
         // Rebinding: list gameplay slots in the menu, keep the profile on disk.
         _player.RegisterRebindContext(Gameplay);
         if (PersistBindings) _player.LoadProfile(ProfilePath);
         _player.BindingsChanged += OnBindingsChanged;
         _player.RebindCaptureCanceled += OnCaptureCanceled;
-
-        BuildScene();
     }
 
     public override void _ExitTree()
     {
-        if (_player == null || !IsInstanceValid(_player)) return;
-        _player.ActionEventRaised -= OnActionEvent;
+        if (_system == null || !IsInstanceValid(_system)) return;
+        _system.PlayerJoined -= OnPlayerJoined;
+        _system.JoinMode = _previousJoinMode;
+
         _player.BindingsChanged -= OnBindingsChanged;
         _player.RebindCaptureCanceled -= OnCaptureCanceled;
         _player.CancelCapture();
         _player.UnregisterRebindContext(Gameplay);
-        _player.RemoveContext(Gameplay);
         _player.RemoveContext(Menu);
+
+        foreach (var avatar in _avatars)
+        {
+            if (!IsInstanceValid(avatar.Player)) continue;
+            avatar.Player.ActionEventRaised -= avatar.Handler;
+            avatar.Player.RemoveContext(Gameplay);
+            if (avatar.Player != _player && !_ownSystem) _system.RemovePlayer(avatar.Player);
+        }
+        _avatars.Clear();
     }
 
     private void CollectActions(BindingContext context)
@@ -91,26 +121,66 @@ public partial class Demo : Node2D
     private GameAction A(string name) => _actions.TryGetValue(name, out var action) ? action : null;
 
     // ------------------------------------------------------------------
+    //  Players
+    // ------------------------------------------------------------------
+
+    private void OnPlayerJoined(InputPlayer player, int device)
+    {
+        AddLog($"Joypad {device} joined as player {player.PlayerIndex + 1}");
+        foreach (var avatar in _avatars)
+            if (avatar.Player == player) return;   // player 0 picking up its first joypad
+        AddAvatar(player);
+    }
+
+    private void AddAvatar(InputPlayer player)
+    {
+        var size = GetViewportRect().Size;
+        var avatar = new Avatar
+        {
+            Player = player,
+            Color = PlayerColors[_avatars.Count % PlayerColors.Length],
+            Root = new Node2D { Position = size / 2f + new Vector2(60f * _avatars.Count, 0f) },
+        };
+        avatar.Body = new Polygon2D
+        {
+            Polygon = new[] { new Vector2(22, 0), new Vector2(-14, -14), new Vector2(-8, 0), new Vector2(-14, 14) },
+            Color = avatar.Color,
+        };
+        avatar.ChargeBar = new ColorRect { Color = new Color("f97316"), Position = new Vector2(-30, 26), Size = Vector2.Zero };
+        avatar.Root.AddChild(avatar.Body);
+        avatar.Root.AddChild(avatar.ChargeBar);
+        AddChild(avatar.Root);
+
+        avatar.Handler = e => OnActionEvent(avatar, e);
+        player.ActionEventRaised += avatar.Handler;
+        player.AddContext(Gameplay, priority: 0);
+        _avatars.Add(avatar);
+    }
+
+    // ------------------------------------------------------------------
     //  Reacting to actions
     // ------------------------------------------------------------------
 
-    private void OnActionEvent(ActionEventArgs e)
+    private void OnActionEvent(Avatar avatar, ActionEventArgs e)
     {
         if (e.Event != ActionEvents.Ongoing)
-            AddLog($"{e.Action.GetDisplayName()}: {e.Event}" + (e.Event == ActionEvents.Completed || e.Event == ActionEvents.Canceled ? $" after {e.ElapsedSeconds:0.00}s" : ""));
+            AddLog($"P{avatar.Player.PlayerIndex + 1} {e.Action.GetDisplayName()}: {e.Event}"
+                   + (e.Event is ActionEvents.Completed or ActionEvents.Canceled ? $" after {e.ElapsedSeconds:0.00}s" : ""));
 
         if (e.Event != ActionEvents.Triggered) return;
         switch (e.Action.Name)
         {
-            case "jump": Bounce(1.35f); break;
-            case "dash": _dashVelocity = _facing * 900f; break;
-            case "charge": Bounce(1.8f); break;
-            case "inspect": Flash(new Color("60a5fa")); break;
-            case "pick_up": Flash(new Color("facc15")); break;
-            case "fire": Shoot(); break;
-            case "spin": Spin(); break;
-            case "pause": OpenMenu(); break;
-            case "resume": CloseMenu(); break;
+            case "jump": Bounce(avatar, 1.35f); break;
+            case "dash": avatar.DashVelocity = avatar.Facing * 900f; break;
+            case "charge": Bounce(avatar, 1.8f); break;
+            case "inspect": Flash(avatar, new Color("60a5fa")); break;
+            case "pick_up": Flash(avatar, new Color("facc15")); break;
+            case "fire": Shoot(avatar); break;
+            case "spin": Spin(avatar); break;
+            case "toggle_touch": _touchControls.Visible = !_touchControls.Visible; break;
+            // The pause menu belongs to player 0.
+            case "pause" when avatar.Player == _player: OpenMenu(); break;
+            case "resume" when avatar.Player == _player: CloseMenu(); break;
         }
     }
 
@@ -167,21 +237,29 @@ public partial class Demo : Node2D
         RefreshMenu();
     }
 
+    // ------------------------------------------------------------------
+    //  Frame update
+    // ------------------------------------------------------------------
+
     public override void _Process(double delta)
     {
         if (_player == null) return;
+        var bounds = GetViewportRect().Size;
 
-        // Polling works as well as events: read the value every frame.
-        var move = _player.GetValue(A("move")).AsVector2();
-        if (move != Vector2.Zero) _facing = move.Normalized();
-        float speed = Speed * (_player.IsTriggered(A("sprint")) ? SprintFactor : 1f);
-        _avatar.Position += (move * speed + _dashVelocity) * (float)delta;
-        _dashVelocity = _dashVelocity.MoveToward(Vector2.Zero, 3000f * (float)delta);
-        _avatar.Position = _avatar.Position.Clamp(Vector2.Zero, GetViewportRect().Size);
-        _body.Rotation = Mathf.LerpAngle(_body.Rotation, _facing.Angle(), 0.3f);
+        foreach (var avatar in _avatars)
+        {
+            var input = avatar.Player;
+            // Polling works as well as events: read the value every frame.
+            var move = input.GetValue(A("move")).AsVector2();
+            if (move != Vector2.Zero) avatar.Facing = move.Normalized();
+            float speed = Speed * (input.IsTriggered(A("sprint")) ? SprintFactor : 1f);
+            avatar.Root.Position = (avatar.Root.Position + (move * speed + avatar.DashVelocity) * (float)delta).Clamp(Vector2.Zero, bounds);
+            avatar.DashVelocity = avatar.DashVelocity.MoveToward(Vector2.Zero, 3000f * (float)delta);
+            avatar.Body.Rotation = Mathf.LerpAngle(avatar.Body.Rotation, avatar.Facing.Angle(), 0.3f);
 
-        var charge = _player.GetState(A("charge"));
-        _chargeBar.Size = new Vector2(charge.Phase == TriggerPhase.Ongoing ? (float)(charge.ElapsedSeconds / 0.6) * 60f : 0f, 6f);
+            var charge = input.GetState(A("charge"));
+            avatar.ChargeBar.Size = new Vector2(charge.Phase == TriggerPhase.Ongoing ? (float)(charge.ElapsedSeconds / 0.6) * 60f : 0f, 6f);
+        }
 
         for (int i = _shots.Count - 1; i >= 0; i--)
         {
@@ -198,12 +276,13 @@ public partial class Demo : Node2D
     private string DescribeActions()
     {
         var text = new StringBuilder();
-        text.AppendLine("Contexts: " + string.Join(", ", _player.GetContexts().ConvertAll(c => c.Name)));
+        text.AppendLine($"Players: {_avatars.Count}   (another joypad: press a button to join)");
+        text.AppendLine("Player 1 contexts: " + string.Join(", ", _player.GetContexts().ConvertAll(c => c.Name)));
         text.AppendLine();
         foreach (var action in _actions.Values)
         {
             var state = _player.GetState(action);
-            text.Append($"{action.GetDisplayName(),-8} {state.Phase,-9} {state.Value,-16}");
+            text.Append($"{action.GetDisplayName(),-12} {state.Phase,-9} {state.Value,-16}");
             if (state.Phase != TriggerPhase.Idle) text.Append($" {state.ElapsedSeconds:0.00}s");
             text.AppendLine();
         }
@@ -214,30 +293,19 @@ public partial class Demo : Node2D
     {
         _log.Add(line);
         if (_log.Count > 12) _log.RemoveAt(0);
-        _logLabel.Text = string.Join("\n", _log);
+        if (_logLabel != null) _logLabel.Text = string.Join("\n", _log);
     }
 
     // ------------------------------------------------------------------
     //  Visuals
     // ------------------------------------------------------------------
 
-    private void BuildScene()
+    private void BuildUi()
     {
         var size = GetViewportRect().Size;
-
-        _avatar = new Node2D { Position = size / 2f };
-        AddChild(_avatar);
-        _body = new Polygon2D
-        {
-            Polygon = new[] { new Vector2(22, 0), new Vector2(-14, -14), new Vector2(-8, 0), new Vector2(-14, 14) },
-            Color = new Color("4ade80"),
-        };
-        _avatar.AddChild(_body);
-        _chargeBar = new ColorRect { Color = new Color("f97316"), Position = new Vector2(-30, 26), Size = Vector2.Zero };
-        _avatar.AddChild(_chargeBar);
-
         var ui = new CanvasLayer();
         AddChild(ui);
+
         _panel = new Label { Position = new Vector2(12, 12) };
         _panel.AddThemeFontSizeOverride("font_size", 13);
         ui.AddChild(_panel);
@@ -248,12 +316,25 @@ public partial class Demo : Node2D
 
         var help = new Label
         {
-            Text = "WASD / stick: move · Shift: sprint · Space: jump · Shift+Space: dash · Jump→Dash: spin\n" +
-                   "Hold E: charge · Tap F: inspect · Hold F: pick up · Mouse/RT: fire · Esc/Start: pause",
+            Text = "WASD / stick: move · Shift: sprint · Space: jump · Shift+Space: dash · Jump→Dash: spin · Hold E: charge\n" +
+                   "Tap F: inspect · Hold F: pick up · Mouse/RT: fire · Esc/Start: pause & rebind · F2: touch controls",
             Position = new Vector2(12, size.Y - 46),
         };
         help.AddThemeFontSizeOverride("font_size", 13);
         ui.AddChild(help);
+
+        // On-screen controls for player 0: shown on touchscreens, or with F2.
+        _touchControls = new Control { MouseFilter = Control.MouseFilterEnum.Ignore, Visible = DisplayServer.IsTouchscreenAvailable() };
+        _touchControls.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        ui.AddChild(_touchControls);
+        _touchControls.AddChild(new VirtualJoystick
+        {
+            ControlName = "touch_move", Floating = true, Radius = 60,
+            Position = new Vector2(20, size.Y * 0.45f), Size = new Vector2(size.X * 0.4f, size.Y * 0.5f),
+        });
+        AddTouchButton("touch_jump", "Jump", new Vector2(size.X - 110, size.Y - 190));
+        AddTouchButton("touch_dash", "Dash", new Vector2(size.X - 200, size.Y - 130));
+        AddTouchButton("touch_fire", "Fire", new Vector2(size.X - 110, size.Y - 290));
 
         _menu = new PanelContainer { Visible = false, Position = new Vector2(size.X / 2f - 260f, 60f) };
         ui.AddChild(_menu);
@@ -268,36 +349,39 @@ public partial class Demo : Node2D
         column.AddChild(reset);
     }
 
-    private void Bounce(float scale)
+    private void AddTouchButton(string controlName, string text, Vector2 position)
+        => _touchControls.AddChild(new VirtualButton { ControlName = controlName, Text = text, Position = position, Size = new Vector2(84, 84) });
+
+    private void Bounce(Avatar avatar, float scale)
     {
         var tween = CreateTween();
-        tween.TweenProperty(_body, "scale", Vector2.One * scale, 0.08);
-        tween.TweenProperty(_body, "scale", Vector2.One, 0.15);
+        tween.TweenProperty(avatar.Body, "scale", Vector2.One * scale, 0.08);
+        tween.TweenProperty(avatar.Body, "scale", Vector2.One, 0.15);
     }
 
-    private void Flash(Color color)
+    private void Flash(Avatar avatar, Color color)
     {
         var tween = CreateTween();
-        tween.TweenProperty(_body, "color", color, 0.05);
-        tween.TweenProperty(_body, "color", new Color("4ade80"), 0.3);
+        tween.TweenProperty(avatar.Body, "color", color, 0.05);
+        tween.TweenProperty(avatar.Body, "color", avatar.Color, 0.3);
     }
 
-    private void Spin()
+    private void Spin(Avatar avatar)
     {
         var tween = CreateTween();
-        tween.TweenProperty(_avatar, "rotation", _avatar.Rotation + Mathf.Tau, 0.35);
+        tween.TweenProperty(avatar.Root, "rotation", avatar.Root.Rotation + Mathf.Tau, 0.35);
     }
 
-    private void Shoot()
+    private void Shoot(Avatar avatar)
     {
         var shot = new Polygon2D
         {
             Polygon = new[] { new Vector2(-4, -2), new Vector2(4, -2), new Vector2(4, 2), new Vector2(-4, 2) },
             Color = new Color("fde68a"),
-            Position = _avatar.Position + _facing * 24f,
-            Rotation = _facing.Angle(),
+            Position = avatar.Root.Position + avatar.Facing * 24f,
+            Rotation = avatar.Facing.Angle(),
         };
         AddChild(shot);
-        _shots.Add((shot, _facing * 700f, 1.0));
+        _shots.Add((shot, avatar.Facing * 700f, 1.0));
     }
 }
