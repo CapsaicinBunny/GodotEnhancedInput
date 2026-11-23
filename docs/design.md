@@ -144,7 +144,7 @@ player, never in the resource.
 | GD-2 | The tick runs in `_Process` (default), `_PhysicsProcess`, or manually through `Tick(delta)`. The system processes while paused. | `PipelineTests.ManualTick_*`, `PipelineTests.System_RoutesEventsByDevice` |
 | GD-3 | Raw events can be fed directly (`FeedEvent`) for tests and replays. | used throughout |
 | GD-4 | Touch: screen touch and drag sources, virtual stick and buttons. *(stage 3)* | stage 3 |
-| GD-5 | Button-prompt names for a source and for an action's current bindings. *(stage 4)* | stage 4 |
+| GD-5 | Button-prompt names for a source and for an action's current bindings. | see PRM-1 … PRM-5 |
 | DEMO-1 | The demo's saved resources load, and the demo scene runs (chords, tap/hold, combo, blocking menu). | `DemoTests.*` |
 
 ### 3.8 Player-mappable bindings and rebinding (stage 2)
@@ -178,11 +178,17 @@ changed, so the designer's defaults stay intact and one profile can be reset at 
 | TCH-5 | **Touch zone.** `TouchZone` turns drags that start inside it into per-tick deltas on a virtual control (camera look on half the screen). | `TouchControlTests.Zone_*` |
 | TCH-6 | On-screen controls handle several fingers at once, can also be driven by the mouse for desktop testing, can hide themselves where there is no touchscreen, and mark the events they use as handled so they do not also act as gameplay touches or clicks. | `TouchControlTests.MultiTouch_*`, `TouchControlTests.Mouse_*` |
 
-### 3.10 Later stages
+### 3.10 Prompts and debugging (stage 4)
 
-| ID | Requirement | Stage |
+| ID | Requirement | Test |
 |---|---|---|
-| DBG-1 | A debug overlay per player listing contexts, actions, values, phases and timings; a text dump for logs. | 4 |
+| PRM-1 | **Source names** for on-screen prompts: keys as the current layout labels them (physical keys are translated), mouse buttons and wheel, joypad buttons, axes, half axes and sticks, key composites, InputMap actions (their first event), touch and virtual controls. | `PromptTests.Names_*` |
+| PRM-2 | **Joypad styles.** Button and axis names follow a style — generic, Xbox-like, PlayStation-like or Nintendo-like — detected from the joypad's name, or chosen per call. | `PromptTests.Style_*` |
+| PRM-3 | **Last used device.** Each player tracks the kind of device it last received a deliberate input from (keyboard and mouse, joypad, touch) and the joypad index, ignoring tiny mouse and stick movements, and raises a signal when it changes. | `PromptTests.LastDevice_*` |
+| PRM-4 | **Action prompts.** For an action, a player lists the current sources of its bindings in active contexts (rebinds applied, cleared slots skipped), each with text, an icon key, its device kind and joypad style; filtered to one device kind (by default the last used one, falling back to all when nothing matches). | `PromptTests.ActionPrompts_*` |
+| PRM-5 | **Icons.** A `PromptIconSet` resource maps icon keys to textures, trying the style-specific key before the generic one, and turns a prompt into BBCode (an image, or bold text when there is no icon). No artwork ships with the plugin. | `PromptTests.Icons_*` |
+| DBG-1 | **Text dump.** A player describes its state as text: devices and last used device, contexts in priority order with their flags and ignored sources, a running capture, profile overrides, and every action's phase, value, events and timings (optionally only active ones). The autoload describes all players. | `DebugTests.Dump_*` |
+| DBG-2 | **Overlay.** `InputDebugOverlay` (a `CanvasLayer`) shows the dump for one or all players, refreshed every frame, with a short history of recent events, toggled by a key (F3 by default) without consuming it. | `DebugTests.Overlay_*` |
 
 ## 4. Architecture
 
@@ -251,4 +257,4 @@ Stages 1, 2 and 3 are done.
 | **1 — Core** | Rename to Godot Enhanced Input; actions and typed values; sources incl. physical keys, InputMap actions and `InputEventAction`; contexts with priority, consumption and blocking; all modifiers in §3.4; all triggers in §3.5 with roles; tick-driven phase state machine with events and timings; C# callbacks, polling and signals; GUI-safe event intake; demo scene; docs. | Every stage-1 test in §3 passes; docs and migration notes written. |
 | **2 — Rebinding** | Rebindable bindings and slots, per-player profiles, conflict policies, capture-a-press rebinding, half-axis joypad sources, JSON save/load; a rebinding menu in the demo. | MAP-* tests pass. |
 | **3 — Players and touch** | Multiple players with device filters and joypad assignment; screen touch/drag sources; on-screen stick and buttons writing virtual controls. | PLR-1, GD-4 tests pass. |
-| **4 — Prompts and debug** | Prompt names (and an icon lookup hook) for sources and actions; debug overlay and text dump. | GD-5, DBG-1 tests pass. |
+| **4 — Prompts and debug** | Prompt names, joypad styles, last used device, action prompts, icon sets; debug text dump and overlay. | PRM-* and DBG-* tests pass. |

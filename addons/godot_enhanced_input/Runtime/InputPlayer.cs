@@ -341,6 +341,7 @@ public partial class InputPlayer : Node, ISourceReader
     {
         if (@event == null) return false;
         if (TryCapture(@event, stage)) return true;
+        if (stage != IntakeStage.Unhandled) TrackDevice(@event);
 
         if (@event is InputEventAction actionEvent && RouteGameActionEvents)
         {

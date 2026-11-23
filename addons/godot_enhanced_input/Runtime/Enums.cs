@@ -115,6 +115,32 @@ public enum JoinMode
     OnButtonPress,
 }
 
+/// <summary>A family of input devices, for prompts and "last used device" tracking.</summary>
+public enum InputDeviceKind
+{
+    /// <summary>Not known yet, or not tied to a device (InputMap actions).</summary>
+    Other,
+    /// <summary>Keyboard and mouse.</summary>
+    KeyboardMouse,
+    /// <summary>A joypad.</summary>
+    Joypad,
+    /// <summary>A touchscreen (including on-screen controls, which write virtual controls).</summary>
+    Touch,
+}
+
+/// <summary>How joypad buttons and axes are named in prompts.</summary>
+public enum JoypadStyle
+{
+    /// <summary>Position-based names (South, East, …), used when the pad is not recognised.</summary>
+    Generic,
+    /// <summary>A/B/X/Y, LB/RB, LT/RT, View/Menu.</summary>
+    Xbox,
+    /// <summary>Cross/Circle/Square/Triangle, L1/R1, L2/R2, Create/Options.</summary>
+    PlayStation,
+    /// <summary>B/A/Y/X by position, L/R, ZL/ZR, −/+.</summary>
+    Nintendo,
+}
+
 /// <summary>When an on-screen control is shown.</summary>
 public enum TouchControlVisibility
 {

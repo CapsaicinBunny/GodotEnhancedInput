@@ -259,6 +259,16 @@ public partial class EnhancedInput : Node
         return captured;
     }
 
+    /// <summary>Every player's <see cref="InputPlayer.DescribeState"/>, plus the system's settings.</summary>
+    public string DescribeState(bool onlyActive = false)
+    {
+        EnsureDefaultPlayer();
+        var text = new System.Text.StringBuilder();
+        text.AppendLine($"EnhancedInput  tick: {TickMode}  gui: {GuiPolicy}  join: {JoinMode} (max {MaxPlayers})  players: {_players.Count}");
+        foreach (var player in _players) text.Append(player.DescribeState(onlyActive));
+        return text.ToString();
+    }
+
     /// <summary>Ticks every player.</summary>
     public void Tick(double delta)
     {
