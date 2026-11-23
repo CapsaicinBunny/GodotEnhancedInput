@@ -219,9 +219,10 @@ public partial class InputPlayer : Node, ISourceReader
         {
             foreach (var binding in context.Bindings)
             {
-                if (binding?.Source == null) continue;
+                var source = GetEffectiveSource(binding);
+                if (source == null) continue;
                 _keyScratch.Clear();
-                binding.Source.CollectKeys(_keyScratch);
+                source.CollectKeys(_keyScratch);
                 foreach (var key in _keyScratch)
                 {
                     var plain = key.WithoutDevice();
@@ -314,13 +315,20 @@ public partial class InputPlayer : Node, ISourceReader
         _ => false,
     };
 
-    /// <summary>Applies an event to this player's raw state right away (tests, replays, custom routing).</summary>
-    public void FeedEvent(InputEvent @event) => FeedEvent(@event, IntakeStage.Direct);
+    /// <summary>
+    /// Applies an event to this player's raw state right away (tests, replays, custom routing).
+    /// Returns true when a running capture took the event instead.
+    /// </summary>
+    public bool FeedEvent(InputEvent @event) => FeedEvent(@event, IntakeStage.Direct);
 
-    /// <summary>Applies an event as offered from one stage of Godot's input propagation.</summary>
-    public void FeedEvent(InputEvent @event, IntakeStage stage)
+    /// <summary>
+    /// Applies an event as offered from one stage of Godot's input propagation. Returns true when a
+    /// running capture took the event instead (it then does not reach any action).
+    /// </summary>
+    public bool FeedEvent(InputEvent @event, IntakeStage stage)
     {
-        if (@event == null) return;
+        if (@event == null) return false;
+        if (TryCapture(@event, stage)) return true;
 
         if (@event is InputEventAction actionEvent && RouteGameActionEvents)
         {
@@ -342,6 +350,7 @@ public partial class InputPlayer : Node, ISourceReader
         }
 
         Raw.Apply(@event, stage);
+        return false;
     }
 
     /// <summary>Sets a named virtual control (on-screen sticks, touch, tests).</summary>

@@ -115,13 +115,18 @@ public partial class EnhancedInput : Node
         foreach (var player in _players) player.Raw.ClearDevice((int)device);
     }
 
-    /// <summary>Offers an event to every player that accepts its device.</summary>
-    public void FeedEvent(InputEvent @event, IntakeStage stage = IntakeStage.Direct)
+    /// <summary>
+    /// Offers an event to every player that accepts its device. Returns true when a player's running
+    /// rebind capture took it.
+    /// </summary>
+    public bool FeedEvent(InputEvent @event, IntakeStage stage = IntakeStage.Direct)
     {
-        if (@event == null) return;
+        if (@event == null) return false;
         EnsureDefaultPlayer();
+        bool captured = false;
         foreach (var player in _players)
-            if (player.Accepts(@event)) player.FeedEvent(@event, stage);
+            if (player.Accepts(@event) && player.FeedEvent(@event, stage)) captured = true;
+        return captured;
     }
 
     /// <summary>Ticks every player.</summary>
@@ -132,7 +137,13 @@ public partial class EnhancedInput : Node
     }
 
     public override void _Input(InputEvent @event)
-        => FeedEvent(@event, GuiPolicy == GuiPolicy.ReadEverything ? IntakeStage.Direct : IntakeStage.Early);
+    {
+        bool captured = FeedEvent(@event, GuiPolicy == GuiPolicy.ReadEverything ? IntakeStage.Direct : IntakeStage.Early);
+
+        // The one exception to "never mark events handled": a press captured for rebinding must not
+        // also click the focused button or reach gameplay.
+        if (captured && IsInsideTree()) GetViewport()?.SetInputAsHandled();
+    }
 
     public override void _UnhandledInput(InputEvent @event)
     {

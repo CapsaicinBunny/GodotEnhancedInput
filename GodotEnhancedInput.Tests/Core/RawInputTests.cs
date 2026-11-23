@@ -153,6 +153,21 @@ public class RawInputTests
     }
 
     [Fact]
+    public void JoyAxis_HalfRanges()
+    {
+        var right = Make.Action("Right", ActionValueKind.Axis1D);
+        var left = Make.Action("Left", ActionValueKind.Axis1D);
+        using var rig = new Rig().Add(Make.Context("C",
+            Make.Bind(right, InputSource.ForJoyAxis(JoyAxis.LeftX, range: JoyAxisRange.Positive)),
+            Make.Bind(left, InputSource.ForJoyAxis(JoyAxis.LeftX, range: JoyAxisRange.Negative))));
+
+        rig.Player.FeedEvent(new InputEventJoypadMotion { Axis = JoyAxis.LeftX, AxisValue = -0.6f });
+        rig.Tick();
+        rig.Player.GetValue(left).AsFloat().Should().BeApproximately(0.6f, 1e-6f);
+        rig.Player.GetValue(right).AsFloat().Should().Be(0f);
+    }
+
+    [Fact]
     public void JoyButton_DeviceFilter()
     {
         var any = Make.Action("Any");

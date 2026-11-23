@@ -23,6 +23,34 @@ public partial class ActionBinding : Resource
     /// <summary>Decide this binding's phase. Empty: triggered while the value is non-zero.</summary>
     [Export] public Array<InputTrigger> Triggers { get; set; } = new();
 
+    /// <summary>
+    /// Makes the binding rebindable: a player's profile can replace its source under this id. Bindings
+    /// in different contexts that share an id are rebound together. Empty: the binding is fixed.
+    /// </summary>
+    [ExportGroup("Rebinding")]
+    [Export] public string RebindId { get; set; } = string.Empty;
+
+    /// <summary>Name shown in rebinding menus. Falls back to the action's display name.</summary>
+    [Export] public string RebindDisplayName { get; set; } = string.Empty;
+
+    /// <summary>Group for rebinding menus, e.g. "Keyboard", "Gamepad", "Combat".</summary>
+    [Export] public string RebindCategory { get; set; } = string.Empty;
+
+    /// <summary>Ids this binding had before; saved profiles that use them still apply.</summary>
+    [Export] public string[] RebindFormerIds { get; set; } = System.Array.Empty<string>();
+
+    /// <summary>Whether this binding can be rebound.</summary>
+    public bool IsRebindable => !string.IsNullOrEmpty(RebindId);
+
+    /// <summary>Makes the binding rebindable and returns it (for code-built contexts).</summary>
+    public ActionBinding Rebindable(string id, string displayName = null, string category = null)
+    {
+        RebindId = id ?? string.Empty;
+        RebindDisplayName = displayName ?? string.Empty;
+        RebindCategory = category ?? string.Empty;
+        return this;
+    }
+
     /// <summary>Creates a binding in code. Extra arguments may be modifiers and triggers, in order.</summary>
     public static ActionBinding Create(GameAction action, InputSource source, params Resource[] modifiersAndTriggers)
     {

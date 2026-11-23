@@ -53,6 +53,9 @@ public partial class InputSource : Resource
     /// <summary>The joypad axis for <see cref="SourceKind.JoyAxis"/>.</summary>
     [Export] public JoyAxis JoyAxis { get; set; } = JoyAxis.LeftX;
 
+    /// <summary>Which part of the axis <see cref="SourceKind.JoyAxis"/> reads: all of it, or one half as 0…1.</summary>
+    [Export] public JoyAxisRange AxisRange { get; set; } = JoyAxisRange.Full;
+
     /// <summary>The stick for <see cref="SourceKind.JoyStick"/>.</summary>
     [Export] public JoyStickSide JoyStick { get; set; } = JoyStickSide.Left;
 
@@ -92,8 +95,8 @@ public partial class InputSource : Resource
     public static InputSource ForJoyButton(JoyButton button, int device = SourceKey.AnyDevice)
         => new() { Kind = SourceKind.JoyButton, JoyButton = button, Device = device };
 
-    public static InputSource ForJoyAxis(JoyAxis axis, int device = SourceKey.AnyDevice)
-        => new() { Kind = SourceKind.JoyAxis, JoyAxis = axis, Device = device };
+    public static InputSource ForJoyAxis(JoyAxis axis, int device = SourceKey.AnyDevice, JoyAxisRange range = JoyAxisRange.Full)
+        => new() { Kind = SourceKind.JoyAxis, JoyAxis = axis, Device = device, AxisRange = range };
 
     public static InputSource ForJoyStick(JoyStickSide side, int device = SourceKey.AnyDevice)
         => new() { Kind = SourceKind.JoyStick, JoyStick = side, Device = device };
@@ -138,7 +141,15 @@ public partial class InputSource : Resource
                 return Scalar(reader, SourceKey.ForJoyButton(JoyButton, Device));
 
             case SourceKind.JoyAxis:
-                return Scalar(reader, SourceKey.ForJoyAxis(JoyAxis, Device));
+            {
+                float v = reader.Read(SourceKey.ForJoyAxis(JoyAxis, Device)).X;
+                return new Vector3(AxisRange switch
+                {
+                    JoyAxisRange.Positive => Mathf.Max(v, 0f),
+                    JoyAxisRange.Negative => Mathf.Max(-v, 0f),
+                    _ => v,
+                }, 0f, 0f);
+            }
 
             case SourceKind.JoyStick:
             {
@@ -209,6 +220,61 @@ public partial class InputSource : Resource
         }
     }
 
+    /// <summary>
+    /// Builds a source from a press event, or returns null when the event is not a press this can
+    /// bind: a key (matched as <paramref name="keyMatch"/>), a mouse button or wheel notch, a joypad
+    /// button, or a joypad axis pushed at least <paramref name="axisThreshold"/> (as the half axis in
+    /// the pushed direction). Joypad sources take the event's device unless <paramref name="anyJoypad"/>.
+    /// </summary>
+    public static InputSource FromEvent(InputEvent @event, KeyMatch keyMatch = KeyMatch.Physical, float axisThreshold = 0.5f, bool anyJoypad = true)
+    {
+        int device = anyJoypad ? SourceKey.AnyDevice : @event?.Device ?? SourceKey.AnyDevice;
+        switch (@event)
+        {
+            case InputEventKey key when key.Pressed && !key.Echo:
+            {
+                var code = keyMatch switch
+                {
+                    KeyMatch.Logical => key.Keycode,
+                    KeyMatch.Label => key.KeyLabel,
+                    _ => key.PhysicalKeycode,
+                };
+                if (code != Key.None) return ForKey(code, keyMatch);
+                // Hand-made events may only carry the logical code.
+                return key.Keycode != Key.None ? ForKey(key.Keycode, KeyMatch.Logical) : null;
+            }
+            case InputEventMouseButton mouse when mouse.Pressed:
+                return ForMouseButton(mouse.ButtonIndex);
+            case InputEventJoypadButton button when button.Pressed:
+                return ForJoyButton(button.ButtonIndex, device);
+            case InputEventJoypadMotion motion when Mathf.Abs(motion.AxisValue) >= Mathf.Max(axisThreshold, 0.01f):
+                return ForJoyAxis(motion.Axis, device, motion.AxisValue > 0f ? JoyAxisRange.Positive : JoyAxisRange.Negative);
+            default:
+                return null;
+        }
+    }
+
+    /// <summary>
+    /// Whether two sources read any of the same input channels. Opposite halves of one joypad axis do
+    /// not overlap.
+    /// </summary>
+    public bool Overlaps(InputSource other)
+    {
+        if (other == null) return false;
+        if (_kind == SourceKind.JoyAxis && other._kind == SourceKind.JoyAxis && JoyAxis == other.JoyAxis
+            && AxisRange != JoyAxisRange.Full && other.AxisRange != JoyAxisRange.Full && AxisRange != other.AxisRange)
+            return false;
+
+        var mine = new List<SourceKey>();
+        var theirs = new List<SourceKey>();
+        CollectKeys(mine);
+        other.CollectKeys(theirs);
+        foreach (var a in mine)
+            foreach (var b in theirs)
+                if (a.WithoutDevice() == b.WithoutDevice()) return true;
+        return false;
+    }
+
     /// <summary>A short human-readable description, e.g. "Key Space" or "Joy LeftX".</summary>
     public string Describe() => _kind switch
     {
@@ -220,7 +286,12 @@ public partial class InputSource : Resource
         SourceKind.MouseMotion => "Mouse motion",
         SourceKind.MousePosition => "Mouse position",
         SourceKind.JoyButton => $"Joy {JoyButton}",
-        SourceKind.JoyAxis => $"Joy {JoyAxis}",
+        SourceKind.JoyAxis => AxisRange switch
+        {
+            JoyAxisRange.Positive => $"Joy {JoyAxis}+",
+            JoyAxisRange.Negative => $"Joy {JoyAxis}-",
+            _ => $"Joy {JoyAxis}",
+        },
         SourceKind.JoyStick => $"Joy {JoyStick} stick",
         SourceKind.InputMapAction => $"InputMap {_inputMapAction}",
         SourceKind.Virtual => $"Virtual {VirtualName}",
@@ -250,7 +321,7 @@ public partial class InputSource : Resource
             nameof(UpKey) or nameof(DownKey) => _kind == SourceKind.KeyAxis2D,
             nameof(MouseButton) => _kind == SourceKind.MouseButton,
             nameof(JoyButton) => _kind == SourceKind.JoyButton,
-            nameof(JoyAxis) => _kind == SourceKind.JoyAxis,
+            nameof(JoyAxis) or nameof(AxisRange) => _kind == SourceKind.JoyAxis,
             nameof(JoyStick) => _kind == SourceKind.JoyStick,
             nameof(Device) => joy,
             nameof(InputMapAction) => _kind == SourceKind.InputMapAction,

@@ -78,10 +78,11 @@ public partial class InputPlayer
 
                 // Consumption depends only on which contexts are active, never on this tick's results,
                 // so actions can be evaluated in any order.
-                if (action.ConsumeInput && binding.Source != null)
+                var source = GetEffectiveSource(binding);
+                if (action.ConsumeInput && source != null)
                 {
                     _keyScratch.Clear();
-                    binding.Source.CollectKeys(_keyScratch);
+                    source.CollectKeys(_keyScratch);
                     foreach (var key in _keyScratch) _consumedBy.TryAdd(key.WithoutDevice(), entry.Rank);
                 }
             }
@@ -137,7 +138,7 @@ public partial class InputPlayer
 
                     _readEntry = entry;
                     _readSilenced = silenced;
-                    var value = binding.Source?.Read(this) ?? Vector3.Zero;
+                    var value = GetEffectiveSource(binding)?.Read(this) ?? Vector3.Zero;
                     _readEntry = null;
                     _readSilenced = false;
 

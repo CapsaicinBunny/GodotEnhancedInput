@@ -111,6 +111,39 @@ public enum JoyStickSide
     Right,
 }
 
+/// <summary>Which part of a joypad axis an <see cref="InputSource"/> reads.</summary>
+public enum JoyAxisRange
+{
+    /// <summary>The whole axis, −1…1.</summary>
+    Full,
+    /// <summary>Only the positive half, as 0…1.</summary>
+    Positive,
+    /// <summary>Only the negative half, as 0…1.</summary>
+    Negative,
+}
+
+/// <summary>What happens to other bindings that use the same input when a slot is rebound.</summary>
+public enum RebindConflictPolicy
+{
+    /// <summary>Rebind anyway; conflicts are only reported.</summary>
+    Allow,
+    /// <summary>Do not rebind when there is any conflict.</summary>
+    Reject,
+    /// <summary>The first conflicting rebindable slot takes the slot's previous source.</summary>
+    Swap,
+    /// <summary>Conflicting rebindable slots are cleared (left with no source).</summary>
+    ClearOthers,
+}
+
+/// <summary>Where conflicts are looked for.</summary>
+public enum ConflictScope
+{
+    /// <summary>Only in contexts that contain the slot being rebound.</summary>
+    SameContext,
+    /// <summary>In every context the player knows (active or registered for rebinding).</summary>
+    AllContexts,
+}
+
 /// <summary>When <see cref="EnhancedInput"/> ticks its players.</summary>
 public enum TickMode
 {

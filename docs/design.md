@@ -147,13 +147,26 @@ player, never in the resource.
 | GD-5 | Button-prompt names for a source and for an action's current bindings. *(stage 4)* | stage 4 |
 | DEMO-1 | The demo's saved resources load, and the demo scene runs (chords, tap/hold, combo, blocking menu). | `DemoTests.*` |
 
-### 3.8 Later stages
+### 3.8 Player-mappable bindings and rebinding (stage 2)
+
+A binding becomes **rebindable** by giving it a rebind id. Each player has an **input profile**
+that can replace the source of any rebindable binding; the binding resources themselves are never
+changed, so the designer's defaults stay intact and one profile can be reset at any time.
+
+| ID | Requirement | Test |
+|---|---|---|
+| MAP-1 | `ActionBinding` has a rebind id (empty: not rebindable), a display name, a category and a list of former ids. A player lists its **rebind slots** — one per id, from its active contexts and any contexts registered for rebinding — with the action, the default source and the current source. | `RebindTests.Slots_*` |
+| MAP-2 | The player's profile overrides the source of every binding with a given id, in every context, from the next tick. A slot can be cleared (no source), reset to its default, or all slots reset. Changes raise a signal. | `RebindTests.Rebind_*`, `RebindTests.Clear_*`, `RebindTests.Reset_*` |
+| MAP-3 | Rebinding reports **conflicts**: other bindings whose sources read any of the same input channels — within the slot's own contexts by default, or in all known contexts. A policy decides what happens: allow, reject, swap (the first conflicting rebindable slot takes the old source) or clear the conflicting rebindable slots. Fixed bindings are reported, never changed. | `RebindTests.Conflict_*` |
+| MAP-4 | `InputSource.FromEvent` builds a source from a press: key (physical by default), mouse button or wheel, joypad button, or joypad axis past a threshold (as a half axis in the pushed direction). Joypad axis sources can read the full axis or only its positive or negative half. | `CaptureTests.FromEvent_*`, `RawInputTests.JoyAxis_HalfRanges` |
+| MAP-5 | **Capture.** `StartCapture(id, options)` turns the next qualifying press into the slot's source (through the conflict policy). Options choose the accepted devices, the cancel keys (Escape by default) and the axis threshold. The captured press never reaches actions, and is marked handled so the GUI does not also act on it — the one case where the plugin marks an event handled. Signals report the result or the cancellation. | `CaptureTests.*` |
+| MAP-6 | Profiles **save** to and **load** from JSON (default `user://input/player_<n>.json`) with a format number. Enum values are stored by name. Entries for unknown ids are kept, entries saved under a binding's former id apply to its current id, malformed entries are skipped with a warning, and a newer format is refused. | `ProfileTests.*` |
+| MAP-7 | Rebinding a source that is held lets the action finish normally on the next tick. | `RebindTests.RebindWhileHeld_CompletesAction` |
+
+### 3.9 Later stages
 
 | ID | Requirement | Stage |
 |---|---|---|
-| MAP-1 | Bindings can be marked player-mappable with a stable name and display name. | 2 |
-| MAP-2 | A player profile overrides sources per mappable binding; rebinding from a captured event; conflicts reported. | 2 |
-| MAP-3 | Profiles save to and load from `user://` (versioned, tolerant of missing/renamed bindings). | 2 |
 | PLR-1 | Several players, each with its own device filter (keyboard/mouse, a set of joypads, touch) and own contexts. | 3 |
 | DBG-1 | A debug overlay per player listing contexts, actions, values, phases and timings; a text dump for logs. | 4 |
 
@@ -220,6 +233,6 @@ player.Tick(1.0 / 60.0);
 | Stage | Content | Done when |
 |---|---|---|
 | **1 — Core** | Rename to Godot Enhanced Input; actions and typed values; sources incl. physical keys, InputMap actions and `InputEventAction`; contexts with priority, consumption and blocking; all modifiers in §3.4; all triggers in §3.5 with roles; tick-driven phase state machine with events and timings; C# callbacks, polling and signals; GUI-safe event intake; demo scene; docs. | Every stage-1 test in §3 passes; docs and migration notes written. |
-| **2 — Rebinding** | Player-mappable bindings, per-player profiles, capture-a-key rebinding, conflict detection, save/load. | MAP-* tests pass. |
+| **2 — Rebinding** | Rebindable bindings and slots, per-player profiles, conflict policies, capture-a-press rebinding, half-axis joypad sources, JSON save/load; a rebinding menu in the demo. | MAP-* tests pass. |
 | **3 — Players and touch** | Multiple players with device filters and joypad assignment; screen touch/drag sources; on-screen stick and buttons writing virtual controls. | PLR-1, GD-4 tests pass. |
 | **4 — Prompts and debug** | Prompt names (and an icon lookup hook) for sources and actions; debug overlay and text dump. | GD-5, DBG-1 tests pass. |
