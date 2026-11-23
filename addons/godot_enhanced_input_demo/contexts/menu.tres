@@ -1,0 +1,72 @@
+[gd_resource type="Resource" script_class="BindingContext" format=3]
+
+[ext_resource type="Script" path="res://addons/godot_enhanced_input/Resources/ActionBinding.cs" id="1"]
+[ext_resource type="Resource" path="res://addons/godot_enhanced_input_demo/actions/resume.tres" id="2"]
+[ext_resource type="Script" path="res://addons/godot_enhanced_input/Modifiers/InputModifier.cs" id="3"]
+[ext_resource type="Script" path="res://addons/godot_enhanced_input/Resources/InputSource.cs" id="4"]
+[ext_resource type="Script" path="res://addons/godot_enhanced_input/Triggers/InputTrigger.cs" id="5"]
+[ext_resource type="Script" path="res://addons/godot_enhanced_input/Triggers/PressedTrigger.cs" id="6"]
+[ext_resource type="Script" path="res://addons/godot_enhanced_input/Resources/BindingContext.cs" id="7"]
+
+[sub_resource type="Resource" id="Resource_mcnv4"]
+script = ExtResource("4")
+VirtualName = ""
+InputMapAction = ""
+Device = -1
+JoyStick = 0
+JoyAxis = 0
+JoyButton = 0
+MouseButton = 1
+DownKey = 83
+UpKey = 87
+NegativeKey = 65
+PositiveKey = 68
+Key = 4194305
+KeyMatch = 0
+Kind = 1
+
+[sub_resource type="Resource" id="Resource_753ie"]
+script = ExtResource("6")
+ActuationThreshold = 0.5
+
+[sub_resource type="Resource" id="Resource_y8jde"]
+script = ExtResource("1")
+Triggers = Array[ExtResource("5")]([SubResource("Resource_753ie")])
+Modifiers = Array[ExtResource("3")]([])
+Source = SubResource("Resource_mcnv4")
+Action = ExtResource("2")
+
+[sub_resource type="Resource" id="Resource_eu4xt"]
+script = ExtResource("4")
+VirtualName = ""
+InputMapAction = ""
+Device = -1
+JoyStick = 0
+JoyAxis = 0
+JoyButton = 6
+MouseButton = 1
+DownKey = 83
+UpKey = 87
+NegativeKey = 65
+PositiveKey = 68
+Key = 0
+KeyMatch = 0
+Kind = 7
+
+[sub_resource type="Resource" id="Resource_l5ggj"]
+script = ExtResource("6")
+ActuationThreshold = 0.5
+
+[sub_resource type="Resource" id="Resource_pnu8x"]
+script = ExtResource("1")
+Triggers = Array[ExtResource("5")]([SubResource("Resource_l5ggj")])
+Modifiers = Array[ExtResource("3")]([])
+Source = SubResource("Resource_eu4xt")
+Action = ExtResource("2")
+
+[resource]
+script = ExtResource("7")
+Description = "Pause menu: blocks everything below it."
+BlockLowerPriority = true
+Bindings = Array[ExtResource("1")]([SubResource("Resource_y8jde"), SubResource("Resource_pnu8x")])
+Name = "menu"

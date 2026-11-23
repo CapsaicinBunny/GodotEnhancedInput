@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="GameAction" format=3]
+
+[ext_resource type="Script" path="res://addons/godot_enhanced_input/Modifiers/InputModifier.cs" id="1"]
+[ext_resource type="Script" path="res://addons/godot_enhanced_input/Modifiers/NormalizeModifier.cs" id="2"]
+[ext_resource type="Script" path="res://addons/godot_enhanced_input/Triggers/InputTrigger.cs" id="3"]
+[ext_resource type="Script" path="res://addons/godot_enhanced_input/Resources/GameAction.cs" id="4"]
+
+[sub_resource type="Resource" id="Resource_0sjat"]
+script = ExtResource("2")
+OnlyIfLonger = true
+MinLength = 0.001
+Enabled = true
+
+[resource]
+script = ExtResource("4")
+Description = "WASD or the left stick."
+Triggers = Array[ExtResource("3")]([])
+Modifiers = Array[ExtResource("1")]([SubResource("Resource_0sjat")])
+TriggerWhenPaused = false
+ConsumeInput = true
+Accumulation = 0
+ValueKind = 2
+DisplayName = "Move"
+Name = "move"

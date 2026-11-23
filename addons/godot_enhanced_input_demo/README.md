@@ -1,26 +1,25 @@
-# InputForgeDemo
+# Godot Enhanced Input — demo
 
-A minimal scene demonstrating InputForge's core feature: the same physical key means
-different things depending on the active context, switched entirely through Inspector
-resources — no code changes to the input definitions themselves.
+A small top-down playground. Open `demo.tscn` and press F6 (Run Current Scene).
 
-## What it shows
+| Input | Action | Shows |
+|---|---|---|
+| WASD / left stick | Move | a key composite and a stick with a radial deadzone on one 2D action; normalizing at action level |
+| Shift / LB | Sprint | polling `IsTriggered` every frame |
+| Space / A | Jump | a pressed trigger, plus a chord blocker so it stays quiet while Dash fires |
+| Shift + Space / B | Dash | a chord trigger |
+| Jump, then Dash within 0.6 s | Spin | a combo trigger on a binding with no source |
+| Hold E / X | Charge | a one-shot hold trigger; the bar follows `ElapsedSeconds` |
+| Tap F | Inspect | a tap trigger… |
+| Hold F | Pick up | …and a hold trigger on the same key |
+| Left mouse / right trigger | Fire | pulse triggers; the analog trigger uses an actuation threshold |
+| Esc / Start | Pause, Resume | a menu context with priority 100 that blocks gameplay, added with *ignore held sources until released* so the Escape press that opened it does not close it again |
 
-- **WASD** moves the player via a `Digital` `InputKey` while `GameplayContext` is active.
-- **Space** toggles to `FollowContext`, where the mouse cursor's `Pointer` position
-  drives movement instead.
-- While Follow is active, `EnhancedInputSystem.PreventFallbackContext` is used so WASD
-  is fully ignored rather than falling through to Gameplay's mapping.
-- A status `Label` shows which context is active and the current input value, updated
-  live via `BindAction` callbacks.
+The panel on the left lists every action's phase, value and elapsed time; the log at the
+bottom shows the events (started, triggered, completed, canceled).
 
-## How to run
+All input lives in resources you can open in the Inspector: `actions/*.tres` and
+`contexts/gameplay.tres` / `contexts/menu.tres`. They are generated from `DemoContent.cs`
+(run the test suite with `GEI_WRITE_DEMO=1` to regenerate them after changing it).
 
-This demo is not auto-loaded — it's a standalone scene you can open and run directly.
-Open `Scenes/DemoScene.tscn` in the editor and press F6 (Run Current Scene).
-
-## Not part of the plugin
-
-This folder (`addons/input_forge_demo/`) is separate from `addons/input_forge/` — it is
-not required for InputForge to function and is not enabled as a plugin itself. It's
-included for reference only. Feel free to delete it after exploring the example.
+This folder is not needed by the plugin; delete it once you have had a look.

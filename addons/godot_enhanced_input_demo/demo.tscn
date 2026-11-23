@@ -1,0 +1,10 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://addons/godot_enhanced_input_demo/Demo.cs" id="1"]
+[ext_resource type="Resource" path="res://addons/godot_enhanced_input_demo/contexts/menu.tres" id="2"]
+[ext_resource type="Resource" path="res://addons/godot_enhanced_input_demo/contexts/gameplay.tres" id="3"]
+
+[node name="Demo" type="Node2D" unique_id=1407040107]
+script = ExtResource("1")
+Menu = ExtResource("2")
+Gameplay = ExtResource("3")

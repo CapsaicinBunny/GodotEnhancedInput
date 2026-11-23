@@ -1,0 +1,538 @@
+[gd_resource type="Resource" script_class="BindingContext" format=3]
+
+[ext_resource type="Script" path="res://addons/godot_enhanced_input/Resources/ActionBinding.cs" id="1"]
+[ext_resource type="Resource" path="res://addons/godot_enhanced_input_demo/actions/move.tres" id="2"]
+[ext_resource type="Script" path="res://addons/godot_enhanced_input/Modifiers/InputModifier.cs" id="3"]
+[ext_resource type="Script" path="res://addons/godot_enhanced_input/Resources/InputSource.cs" id="4"]
+[ext_resource type="Script" path="res://addons/godot_enhanced_input/Triggers/InputTrigger.cs" id="5"]
+[ext_resource type="Script" path="res://addons/godot_enhanced_input/Modifiers/DeadzoneModifier.cs" id="6"]
+[ext_resource type="Resource" path="res://addons/godot_enhanced_input_demo/actions/sprint.tres" id="7"]
+[ext_resource type="Resource" path="res://addons/godot_enhanced_input_demo/actions/dash.tres" id="8"]
+[ext_resource type="Script" path="res://addons/godot_enhanced_input/Triggers/PressedTrigger.cs" id="9"]
+[ext_resource type="Script" path="res://addons/godot_enhanced_input/Triggers/ChordTrigger.cs" id="10"]
+[ext_resource type="Resource" path="res://addons/godot_enhanced_input_demo/actions/jump.tres" id="11"]
+[ext_resource type="Script" path="res://addons/godot_enhanced_input/Triggers/ChordBlockerTrigger.cs" id="12"]
+[ext_resource type="Resource" path="res://addons/godot_enhanced_input_demo/actions/charge.tres" id="13"]
+[ext_resource type="Script" path="res://addons/godot_enhanced_input/Triggers/HoldTrigger.cs" id="14"]
+[ext_resource type="Resource" path="res://addons/godot_enhanced_input_demo/actions/inspect.tres" id="15"]
+[ext_resource type="Script" path="res://addons/godot_enhanced_input/Triggers/TapTrigger.cs" id="16"]
+[ext_resource type="Resource" path="res://addons/godot_enhanced_input_demo/actions/pick_up.tres" id="17"]
+[ext_resource type="Resource" path="res://addons/godot_enhanced_input_demo/actions/fire.tres" id="18"]
+[ext_resource type="Script" path="res://addons/godot_enhanced_input/Triggers/PulseTrigger.cs" id="19"]
+[ext_resource type="Resource" path="res://addons/godot_enhanced_input_demo/actions/spin.tres" id="20"]
+[ext_resource type="Script" path="res://addons/godot_enhanced_input/Resources/GameAction.cs" id="21"]
+[ext_resource type="Script" path="res://addons/godot_enhanced_input/Triggers/ComboStep.cs" id="22"]
+[ext_resource type="Script" path="res://addons/godot_enhanced_input/Triggers/ComboTrigger.cs" id="23"]
+[ext_resource type="Resource" path="res://addons/godot_enhanced_input_demo/actions/pause.tres" id="24"]
+[ext_resource type="Script" path="res://addons/godot_enhanced_input/Resources/BindingContext.cs" id="25"]
+
+[sub_resource type="Resource" id="Resource_qg1yu"]
+script = ExtResource("4")
+VirtualName = ""
+InputMapAction = ""
+Device = -1
+JoyStick = 0
+JoyAxis = 0
+JoyButton = 0
+MouseButton = 1
+DownKey = 83
+UpKey = 87
+NegativeKey = 65
+PositiveKey = 68
+Key = 0
+KeyMatch = 0
+Kind = 3
+
+[sub_resource type="Resource" id="Resource_5p18o"]
+script = ExtResource("1")
+Triggers = Array[ExtResource("5")]([])
+Modifiers = Array[ExtResource("3")]([])
+Source = SubResource("Resource_qg1yu")
+Action = ExtResource("2")
+
+[sub_resource type="Resource" id="Resource_ubg46"]
+script = ExtResource("6")
+Upper = 1.0
+Lower = 0.2
+Shape = 1
+Enabled = true
+
+[sub_resource type="Resource" id="Resource_sffrd"]
+script = ExtResource("4")
+VirtualName = ""
+InputMapAction = ""
+Device = -1
+JoyStick = 0
+JoyAxis = 0
+JoyButton = 0
+MouseButton = 1
+DownKey = 83
+UpKey = 87
+NegativeKey = 65
+PositiveKey = 68
+Key = 0
+KeyMatch = 0
+Kind = 9
+
+[sub_resource type="Resource" id="Resource_1slq7"]
+script = ExtResource("1")
+Triggers = Array[ExtResource("5")]([])
+Modifiers = Array[ExtResource("3")]([SubResource("Resource_ubg46")])
+Source = SubResource("Resource_sffrd")
+Action = ExtResource("2")
+
+[sub_resource type="Resource" id="Resource_vd4cs"]
+script = ExtResource("4")
+VirtualName = ""
+InputMapAction = ""
+Device = -1
+JoyStick = 0
+JoyAxis = 0
+JoyButton = 0
+MouseButton = 1
+DownKey = 83
+UpKey = 87
+NegativeKey = 65
+PositiveKey = 68
+Key = 4194325
+KeyMatch = 0
+Kind = 1
+
+[sub_resource type="Resource" id="Resource_3lhsy"]
+script = ExtResource("1")
+Triggers = Array[ExtResource("5")]([])
+Modifiers = Array[ExtResource("3")]([])
+Source = SubResource("Resource_vd4cs")
+Action = ExtResource("7")
+
+[sub_resource type="Resource" id="Resource_dnau2"]
+script = ExtResource("4")
+VirtualName = ""
+InputMapAction = ""
+Device = -1
+JoyStick = 0
+JoyAxis = 0
+JoyButton = 9
+MouseButton = 1
+DownKey = 83
+UpKey = 87
+NegativeKey = 65
+PositiveKey = 68
+Key = 0
+KeyMatch = 0
+Kind = 7
+
+[sub_resource type="Resource" id="Resource_h78wa"]
+script = ExtResource("1")
+Triggers = Array[ExtResource("5")]([])
+Modifiers = Array[ExtResource("3")]([])
+Source = SubResource("Resource_dnau2")
+Action = ExtResource("7")
+
+[sub_resource type="Resource" id="Resource_t1lxu"]
+script = ExtResource("4")
+VirtualName = ""
+InputMapAction = ""
+Device = -1
+JoyStick = 0
+JoyAxis = 0
+JoyButton = 0
+MouseButton = 1
+DownKey = 83
+UpKey = 87
+NegativeKey = 65
+PositiveKey = 68
+Key = 32
+KeyMatch = 0
+Kind = 1
+
+[sub_resource type="Resource" id="Resource_ht28f"]
+script = ExtResource("9")
+ActuationThreshold = 0.5
+
+[sub_resource type="Resource" id="Resource_wm4t3"]
+script = ExtResource("10")
+ChordAction = ExtResource("7")
+ActuationThreshold = 0.5
+
+[sub_resource type="Resource" id="Resource_2qc6v"]
+script = ExtResource("1")
+Triggers = Array[ExtResource("5")]([SubResource("Resource_ht28f"), SubResource("Resource_wm4t3")])
+Modifiers = Array[ExtResource("3")]([])
+Source = SubResource("Resource_t1lxu")
+Action = ExtResource("8")
+
+[sub_resource type="Resource" id="Resource_vbsvs"]
+script = ExtResource("4")
+VirtualName = ""
+InputMapAction = ""
+Device = -1
+JoyStick = 0
+JoyAxis = 0
+JoyButton = 1
+MouseButton = 1
+DownKey = 83
+UpKey = 87
+NegativeKey = 65
+PositiveKey = 68
+Key = 0
+KeyMatch = 0
+Kind = 7
+
+[sub_resource type="Resource" id="Resource_3dp7o"]
+script = ExtResource("9")
+ActuationThreshold = 0.5
+
+[sub_resource type="Resource" id="Resource_kjbcb"]
+script = ExtResource("1")
+Triggers = Array[ExtResource("5")]([SubResource("Resource_3dp7o")])
+Modifiers = Array[ExtResource("3")]([])
+Source = SubResource("Resource_vbsvs")
+Action = ExtResource("8")
+
+[sub_resource type="Resource" id="Resource_xjc5g"]
+script = ExtResource("4")
+VirtualName = ""
+InputMapAction = ""
+Device = -1
+JoyStick = 0
+JoyAxis = 0
+JoyButton = 0
+MouseButton = 1
+DownKey = 83
+UpKey = 87
+NegativeKey = 65
+PositiveKey = 68
+Key = 32
+KeyMatch = 0
+Kind = 1
+
+[sub_resource type="Resource" id="Resource_jfom2"]
+script = ExtResource("9")
+ActuationThreshold = 0.5
+
+[sub_resource type="Resource" id="Resource_j50g0"]
+script = ExtResource("12")
+BlockingAction = ExtResource("8")
+ActuationThreshold = 0.5
+
+[sub_resource type="Resource" id="Resource_0heur"]
+script = ExtResource("1")
+Triggers = Array[ExtResource("5")]([SubResource("Resource_jfom2"), SubResource("Resource_j50g0")])
+Modifiers = Array[ExtResource("3")]([])
+Source = SubResource("Resource_xjc5g")
+Action = ExtResource("11")
+
+[sub_resource type="Resource" id="Resource_5gxw3"]
+script = ExtResource("4")
+VirtualName = ""
+InputMapAction = ""
+Device = -1
+JoyStick = 0
+JoyAxis = 0
+JoyButton = 0
+MouseButton = 1
+DownKey = 83
+UpKey = 87
+NegativeKey = 65
+PositiveKey = 68
+Key = 0
+KeyMatch = 0
+Kind = 7
+
+[sub_resource type="Resource" id="Resource_7loet"]
+script = ExtResource("9")
+ActuationThreshold = 0.5
+
+[sub_resource type="Resource" id="Resource_505fh"]
+script = ExtResource("1")
+Triggers = Array[ExtResource("5")]([SubResource("Resource_7loet")])
+Modifiers = Array[ExtResource("3")]([])
+Source = SubResource("Resource_5gxw3")
+Action = ExtResource("11")
+
+[sub_resource type="Resource" id="Resource_arsym"]
+script = ExtResource("4")
+VirtualName = ""
+InputMapAction = ""
+Device = -1
+JoyStick = 0
+JoyAxis = 0
+JoyButton = 0
+MouseButton = 1
+DownKey = 83
+UpKey = 87
+NegativeKey = 65
+PositiveKey = 68
+Key = 69
+KeyMatch = 0
+Kind = 1
+
+[sub_resource type="Resource" id="Resource_8feab"]
+script = ExtResource("14")
+OneShot = true
+HoldSeconds = 0.6
+ActuationThreshold = 0.5
+
+[sub_resource type="Resource" id="Resource_583qp"]
+script = ExtResource("1")
+Triggers = Array[ExtResource("5")]([SubResource("Resource_8feab")])
+Modifiers = Array[ExtResource("3")]([])
+Source = SubResource("Resource_arsym")
+Action = ExtResource("13")
+
+[sub_resource type="Resource" id="Resource_8jcly"]
+script = ExtResource("4")
+VirtualName = ""
+InputMapAction = ""
+Device = -1
+JoyStick = 0
+JoyAxis = 0
+JoyButton = 2
+MouseButton = 1
+DownKey = 83
+UpKey = 87
+NegativeKey = 65
+PositiveKey = 68
+Key = 0
+KeyMatch = 0
+Kind = 7
+
+[sub_resource type="Resource" id="Resource_5momu"]
+script = ExtResource("14")
+OneShot = true
+HoldSeconds = 0.6
+ActuationThreshold = 0.5
+
+[sub_resource type="Resource" id="Resource_ilvx3"]
+script = ExtResource("1")
+Triggers = Array[ExtResource("5")]([SubResource("Resource_5momu")])
+Modifiers = Array[ExtResource("3")]([])
+Source = SubResource("Resource_8jcly")
+Action = ExtResource("13")
+
+[sub_resource type="Resource" id="Resource_0ykfd"]
+script = ExtResource("4")
+VirtualName = ""
+InputMapAction = ""
+Device = -1
+JoyStick = 0
+JoyAxis = 0
+JoyButton = 0
+MouseButton = 1
+DownKey = 83
+UpKey = 87
+NegativeKey = 65
+PositiveKey = 68
+Key = 70
+KeyMatch = 0
+Kind = 1
+
+[sub_resource type="Resource" id="Resource_td2w6"]
+script = ExtResource("16")
+TapSeconds = 0.25
+ActuationThreshold = 0.5
+
+[sub_resource type="Resource" id="Resource_1l8ud"]
+script = ExtResource("1")
+Triggers = Array[ExtResource("5")]([SubResource("Resource_td2w6")])
+Modifiers = Array[ExtResource("3")]([])
+Source = SubResource("Resource_0ykfd")
+Action = ExtResource("15")
+
+[sub_resource type="Resource" id="Resource_b2s0x"]
+script = ExtResource("4")
+VirtualName = ""
+InputMapAction = ""
+Device = -1
+JoyStick = 0
+JoyAxis = 0
+JoyButton = 0
+MouseButton = 1
+DownKey = 83
+UpKey = 87
+NegativeKey = 65
+PositiveKey = 68
+Key = 70
+KeyMatch = 0
+Kind = 1
+
+[sub_resource type="Resource" id="Resource_s2sak"]
+script = ExtResource("14")
+OneShot = true
+HoldSeconds = 0.5
+ActuationThreshold = 0.5
+
+[sub_resource type="Resource" id="Resource_loe4k"]
+script = ExtResource("1")
+Triggers = Array[ExtResource("5")]([SubResource("Resource_s2sak")])
+Modifiers = Array[ExtResource("3")]([])
+Source = SubResource("Resource_b2s0x")
+Action = ExtResource("17")
+
+[sub_resource type="Resource" id="Resource_ja876"]
+script = ExtResource("4")
+VirtualName = ""
+InputMapAction = ""
+Device = -1
+JoyStick = 0
+JoyAxis = 0
+JoyButton = 0
+MouseButton = 1
+DownKey = 83
+UpKey = 87
+NegativeKey = 65
+PositiveKey = 68
+Key = 0
+KeyMatch = 0
+Kind = 4
+
+[sub_resource type="Resource" id="Resource_j6pro"]
+script = ExtResource("19")
+MaxPulses = 0
+TriggerOnStart = true
+IntervalSeconds = 0.15
+ActuationThreshold = 0.5
+
+[sub_resource type="Resource" id="Resource_3b8xl"]
+script = ExtResource("1")
+Triggers = Array[ExtResource("5")]([SubResource("Resource_j6pro")])
+Modifiers = Array[ExtResource("3")]([])
+Source = SubResource("Resource_ja876")
+Action = ExtResource("18")
+
+[sub_resource type="Resource" id="Resource_vaxqe"]
+script = ExtResource("4")
+VirtualName = ""
+InputMapAction = ""
+Device = -1
+JoyStick = 0
+JoyAxis = 5
+JoyButton = 0
+MouseButton = 1
+DownKey = 83
+UpKey = 87
+NegativeKey = 65
+PositiveKey = 68
+Key = 0
+KeyMatch = 0
+Kind = 8
+
+[sub_resource type="Resource" id="Resource_u6rrq"]
+script = ExtResource("19")
+MaxPulses = 0
+TriggerOnStart = true
+IntervalSeconds = 0.15
+ActuationThreshold = 0.5
+
+[sub_resource type="Resource" id="Resource_7sfg7"]
+script = ExtResource("1")
+Triggers = Array[ExtResource("5")]([SubResource("Resource_u6rrq")])
+Modifiers = Array[ExtResource("3")]([])
+Source = SubResource("Resource_vaxqe")
+Action = ExtResource("18")
+
+[sub_resource type="Resource" id="Resource_teb4m"]
+script = ExtResource("4")
+VirtualName = ""
+InputMapAction = ""
+Device = -1
+JoyStick = 0
+JoyAxis = 0
+JoyButton = 0
+MouseButton = 1
+DownKey = 83
+UpKey = 87
+NegativeKey = 65
+PositiveKey = 68
+Key = 0
+KeyMatch = 0
+Kind = 0
+
+[sub_resource type="Resource" id="Resource_fw187"]
+script = ExtResource("22")
+TimeLimit = 0.5
+CompletesOn = 4
+Action = ExtResource("11")
+
+[sub_resource type="Resource" id="Resource_1o8q0"]
+script = ExtResource("22")
+TimeLimit = 0.6
+CompletesOn = 4
+Action = ExtResource("8")
+
+[sub_resource type="Resource" id="Resource_b1bxa"]
+script = ExtResource("23")
+CancelActions = Array[ExtResource("21")]([])
+Steps = Array[ExtResource("22")]([SubResource("Resource_fw187"), SubResource("Resource_1o8q0")])
+ActuationThreshold = 0.5
+
+[sub_resource type="Resource" id="Resource_ku3rd"]
+script = ExtResource("1")
+Triggers = Array[ExtResource("5")]([SubResource("Resource_b1bxa")])
+Modifiers = Array[ExtResource("3")]([])
+Source = SubResource("Resource_teb4m")
+Action = ExtResource("20")
+
+[sub_resource type="Resource" id="Resource_p25n0"]
+script = ExtResource("4")
+VirtualName = ""
+InputMapAction = ""
+Device = -1
+JoyStick = 0
+JoyAxis = 0
+JoyButton = 0
+MouseButton = 1
+DownKey = 83
+UpKey = 87
+NegativeKey = 65
+PositiveKey = 68
+Key = 4194305
+KeyMatch = 0
+Kind = 1
+
+[sub_resource type="Resource" id="Resource_mo218"]
+script = ExtResource("9")
+ActuationThreshold = 0.5
+
+[sub_resource type="Resource" id="Resource_xs0dr"]
+script = ExtResource("1")
+Triggers = Array[ExtResource("5")]([SubResource("Resource_mo218")])
+Modifiers = Array[ExtResource("3")]([])
+Source = SubResource("Resource_p25n0")
+Action = ExtResource("24")
+
+[sub_resource type="Resource" id="Resource_ugele"]
+script = ExtResource("4")
+VirtualName = ""
+InputMapAction = ""
+Device = -1
+JoyStick = 0
+JoyAxis = 0
+JoyButton = 6
+MouseButton = 1
+DownKey = 83
+UpKey = 87
+NegativeKey = 65
+PositiveKey = 68
+Key = 0
+KeyMatch = 0
+Kind = 7
+
+[sub_resource type="Resource" id="Resource_5vtwi"]
+script = ExtResource("9")
+ActuationThreshold = 0.5
+
+[sub_resource type="Resource" id="Resource_r84c4"]
+script = ExtResource("1")
+Triggers = Array[ExtResource("5")]([SubResource("Resource_5vtwi")])
+Modifiers = Array[ExtResource("3")]([])
+Source = SubResource("Resource_ugele")
+Action = ExtResource("24")
+
+[resource]
+script = ExtResource("25")
+Description = "On-foot controls."
+BlockLowerPriority = false
+Bindings = Array[ExtResource("1")]([SubResource("Resource_5p18o"), SubResource("Resource_1slq7"), SubResource("Resource_3lhsy"), SubResource("Resource_h78wa"), SubResource("Resource_2qc6v"), SubResource("Resource_kjbcb"), SubResource("Resource_0heur"), SubResource("Resource_505fh"), SubResource("Resource_583qp"), SubResource("Resource_ilvx3"), SubResource("Resource_1l8ud"), SubResource("Resource_loe4k"), SubResource("Resource_3b8xl"), SubResource("Resource_7sfg7"), SubResource("Resource_ku3rd"), SubResource("Resource_xs0dr"), SubResource("Resource_r84c4")])
+Name = "gameplay"

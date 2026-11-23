@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="GameAction" format=3]
+
+[ext_resource type="Script" path="res://addons/godot_enhanced_input/Modifiers/InputModifier.cs" id="1"]
+[ext_resource type="Script" path="res://addons/godot_enhanced_input/Triggers/InputTrigger.cs" id="2"]
+[ext_resource type="Script" path="res://addons/godot_enhanced_input/Resources/GameAction.cs" id="3"]
+
+[resource]
+script = ExtResource("3")
+Description = ""
+Triggers = Array[ExtResource("2")]([])
+Modifiers = Array[ExtResource("1")]([])
+TriggerWhenPaused = false
+ConsumeInput = true
+Accumulation = 0
+ValueKind = 0
+DisplayName = "Sprint"
+Name = "sprint"
