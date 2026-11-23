@@ -1,0 +1,24 @@
+using Godot;
+
+namespace GodotEnhancedInput;
+
+/// <summary>
+/// Scales the value to unit length, so diagonals are not faster than straight lines. Vectors shorter
+/// than <see cref="MinLength"/> become zero. With <see cref="OnlyIfLonger"/>, vectors up to length 1
+/// are kept as they are and only longer ones are shortened.
+/// </summary>
+[Tool]
+[GlobalClass]
+public partial class NormalizeModifier : InputModifier
+{
+    [Export] public float MinLength { get; set; } = 0.001f;
+    [Export] public bool OnlyIfLonger { get; set; }
+
+    public override Vector3 Apply(Vector3 value, in ModifierContext context)
+    {
+        float length = value.Length();
+        if (length == 0f || length < MinLength) return Vector3.Zero;
+        if (OnlyIfLonger && length <= 1f) return value;
+        return value / length;
+    }
+}
