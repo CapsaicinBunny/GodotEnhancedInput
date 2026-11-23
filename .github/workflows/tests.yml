@@ -1,13 +1,13 @@
 name: Tests
 
-# Runs the InputForge.Tests suite on every push to a non-main branch, and on pull
+# Runs the GodotEnhancedInput.Tests suite on every push to a non-main branch, and on pull
 # requests to main. Pushes to main itself are not built: main is protected and only
 # reached via PR, which already ran this suite — re-running on the merge commit would
 # just repeat a green result. The PR run is the gate (wire it up as a required check
 # in branch protection).
 # The suite executes against a REAL headless Godot runtime embedded by the 2dog
 # NuGet package — no separate Godot install step is needed; restoring the test
-# project pulls the matching Godot 4.7.1 binary down with it.
+# project pulls the matching Godot binary down with it.
 
 on:
   pull_request:
@@ -45,10 +45,10 @@ jobs:
             nuget-${{ runner.os }}-
 
       - name: Restore
-        run: dotnet restore InputForge.Tests/InputForge.Tests.csproj
+        run: dotnet restore GodotEnhancedInput.Tests/GodotEnhancedInput.Tests.csproj
 
       - name: Build
-        run: dotnet build InputForge.Tests/InputForge.Tests.csproj --configuration Debug --no-restore
+        run: dotnet build GodotEnhancedInput.Tests/GodotEnhancedInput.Tests.csproj --configuration Debug --no-restore
 
       # The tests run through Microsoft Testing Platform (xUnit v3's self-hosting runner), NOT the
       # VSTest adapter: VSTest's out-of-process launcher (vstest.console reading JSON over stdout)
@@ -56,13 +56,11 @@ jobs:
       # launches the test executable directly, sidestepping it — the process exit code gates the job.
       #
       # 2dog boots Godot headless with the dummy rendering/audio drivers (set in
-      # InputForgeTestFixture), so no real display is required; xvfb-run is a belt-and-braces wrapper
-      # in case a Godot subsystem still probes for X11 on init. Smoke/benchmark tests
-      # ([Trait("Category","Smoke")]) run too, but they only log timings (no asserts), so they don't
-      # gate CI — their numbers are meaningless on variable CI hardware anyway.
+      # EngineFixture), so no real display is required; xvfb-run is a belt-and-braces wrapper
+      # in case a Godot subsystem still probes for X11 on init.
       - name: Test
         run: >
           xvfb-run --auto-servernum
-          dotnet run --project InputForge.Tests/InputForge.Tests.csproj
+          dotnet run --project GodotEnhancedInput.Tests/GodotEnhancedInput.Tests.csproj
           --configuration Debug
           --no-build

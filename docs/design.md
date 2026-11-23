@@ -47,8 +47,8 @@ in `GodotEnhancedInput.Tests` and run headless through 2dog. Stage numbers refer
 
 | ID | Requirement | Test |
 |---|---|---|
-| ACT-1 | A `GameAction` is a resource with a name, a value kind (`Digital`, `Axis1D`, `Axis2D`, `Axis3D`), action-level modifiers and triggers, a *consume input* flag (default on), a *trigger when paused* flag (default off) and an accumulation mode. | `GameActionTests.Defaults_AreSensible` |
-| ACT-2 | An `ActionValue` carries the kind and a `Vector3`; it converts to `bool`, `float`, `Vector2` and `Vector3`. Shaping a raw value to a kind keeps only the components the kind has; a digital value holds the source's strength in X and reads as `true` when non-zero. | `ActionValueTests.*` |
+| ACT-1 | A `GameAction` is a resource with a name, a value kind (`Digital`, `Axis1D`, `Axis2D`, `Axis3D`), action-level modifiers and triggers, a *consume input* flag (default on), a *trigger when paused* flag (default off) and an accumulation mode. | `ValueTests.GameAction_Defaults_AreSensible` |
+| ACT-2 | An `ActionValue` carries the kind and a `Vector3`; it converts to `bool`, `float`, `Vector2` and `Vector3`. Shaping a raw value to a kind keeps only the components the kind has; a digital value holds the source's strength in X and reads as `true` when non-zero. | `ValueTests.*` |
 | ACT-3 | When several bindings drive one action in the same tick, their values combine by the action's accumulation mode: **strongest** (per component, the value with the largest magnitude wins) or **sum** (components add up, so opposite keys cancel). | `PipelineTests.Accumulation_Strongest_PicksLargestPerAxis`, `PipelineTests.Accumulation_Sum_OppositeKeysCancel` |
 | ACT-4 | Actions are identified by resource identity, not by name. Two different resources with the same name are two actions. | `PipelineTests.Actions_AreComparedByIdentity` |
 
@@ -74,7 +74,7 @@ in `GodotEnhancedInput.Tests` and run headless through 2dog. Stage numbers refer
 | CTX-1 | Contexts are added to a player at runtime with an integer priority and removed again; adding a context that is already active updates its priority and options. Higher priority evaluates first; ties go to the most recently added. | `ContextTests.AddRemove_ChangesWhatIsBound`, `ContextTests.ReAdd_UpdatesPriority` |
 | CTX-2 | Contexts are compared by resource identity. | `ContextTests.ContextsWithSameName_AreDistinct` |
 | CTX-3 | When a binding's action has *consume input* on, its sources read as zero for every lower-priority context while the context is active (whether or not the source is currently pressed). Bindings in the same context are not affected. | `ContextTests.HigherContext_ConsumesSharedKey`, `ContextTests.NonConsumingAction_LetsKeyThrough`, `ContextTests.SameContext_BothBindingsSeeKey` |
-| CTX-4 | A context can **block** everything below it: with *block lower priority* on, all lower contexts read zero. | `ContextTests.BlockingContext_SilencesLowerContexts` |
+| CTX-4 | A context can **block** everything below it: with its *block lower priority* setting on, all lower contexts read zero while it is active. | `ContextTests.BlockingContext_SilencesLowerContexts` |
 | CTX-5 | A context can be added with *ignore held sources until released*: sources that are actuated when it is added read as zero in that context until they have been released once. | `ContextTests.IgnoreHeldUntilRelease` |
 | CTX-6 | When an action loses all its input (context removed, source consumed or blocked) it finishes normally: `Completed` if it was triggered, `Canceled` if it was ongoing. | `ContextTests.RemovingContext_CompletesTriggeredAction` |
 | CTX-7 | Signals and C# events report contexts being added and removed. | `ContextTests.Signals_AddedRemoved` |
@@ -117,10 +117,10 @@ player, never in the resource.
 | TRG-6 | `HoldReleaseTrigger` | `Ongoing` while actuated; `Triggered` on release if held at least the hold time; otherwise `Idle` (cancel). | `TriggerTests.HoldRelease_*` |
 | TRG-7 | `TapTrigger` | `Ongoing` while actuated; `Triggered` on release if released within the tap time; held longer: `Idle` until released. | `TriggerTests.Tap_*` |
 | TRG-8 | `PulseTrigger` | While actuated: `Triggered` on the first tick (optional), then once every interval, `Ongoing` in between; an optional pulse limit after which it stays `Idle` until released. | `TriggerTests.Pulse_*` |
-| TRG-9 | `ChordTrigger` | Implicit. `Triggered` only while another named action is triggered this tick. | `TriggerTests.Chord_*`, `PipelineTests.Chord_RequiresBothActions` |
+| TRG-9 | `ChordTrigger` | Implicit. `Triggered` only while another action is triggered this tick. | `PipelineTests.Chord_*` |
 | TRG-10 | `ChordBlockerTrigger` | Blocker. Stops the set from triggering while another action is triggered, so a plain action stays quiet while its chorded variant fires. | `PipelineTests.ChordBlocker_SilencesPlainAction` |
-| TRG-11 | `ComboTrigger` | A list of steps (action + the event that completes the step + the time allowed since the previous step). `Ongoing` while partway; `Triggered` on the tick the last step completes; resets when a step times out, when a step's action is used out of order, or when a listed cancel action triggers. | `TriggerTests.Combo_*`, `PipelineTests.Combo_FiresOnSequence` |
-| TRG-12 | **Roles.** Each trigger is *explicit*, *implicit* or a *blocker*. A set of triggers is `Triggered` when (at least one explicit trigger is triggered, or there are no explicit ones) and every implicit trigger is triggered, and no blocker is triggered. Otherwise it is `Ongoing` if any trigger is ongoing or triggered, else `Idle`. A triggered blocker forces `Idle`. | `TriggerTests.Roles_*` |
+| TRG-11 | `ComboTrigger` | A list of steps (action + the event that completes the step + the time allowed since the previous step). `Ongoing` while partway; `Triggered` on the tick the last step completes; resets when a step times out, when a step's action is used out of order, or when a listed cancel action triggers. | `PipelineTests.Combo_*` |
+| TRG-12 | **Roles.** Each trigger is *explicit*, *implicit* or a *blocker*. The explicit side is satisfied when any explicit trigger is triggered, or — with no explicit triggers — when the value is non-zero. The set is `Triggered` when the explicit side is satisfied, every implicit trigger is triggered and no blocker is. Otherwise it is `Ongoing` when the explicit side shows progress (an explicit trigger ongoing or triggered, or a non-zero value with no explicit triggers) or an implicit trigger is ongoing, else `Idle`. A triggered blocker forces `Idle`. | `TriggerTests.Roles_*` |
 | TRG-13 | **Binding vs. action triggers.** An action's binding-level phase is the strongest phase of its bindings. If the action has its own triggers, the final phase is the weaker of the binding-level phase and the action-level phase. | `PipelineTests.ActionLevelTriggers_GateBindingPhase` |
 | TRG-14 | Time-based triggers advance on ticks, not on events, so holding a key without new events still completes a hold or pulses. | `PipelineTests.Hold_CompletesWithoutFurtherEvents` |
 
@@ -141,10 +141,11 @@ player, never in the resource.
 | ID | Requirement | Test |
 |---|---|---|
 | GD-1 | The system never calls `SetInputAsHandled`; GUI keeps its input. By default, presses are read from `_UnhandledInput` (so a focused `LineEdit` keeps its keys) and anything that lowers a value (releases, axes moving toward zero) from `_Input`, so a key never sticks when focus changes. A policy setting reads everything from `_Input` instead. | `GuiTests.PressConsumedByGui_IsIgnored`, `GuiTests.ReleaseIsAlwaysSeen` |
-| GD-2 | The tick runs in `_Process` (default), `_PhysicsProcess`, or manually through `Tick(delta)`. The system processes while paused. | `PipelineTests.ManualTick` |
+| GD-2 | The tick runs in `_Process` (default), `_PhysicsProcess`, or manually through `Tick(delta)`. The system processes while paused. | `PipelineTests.ManualTick_*`, `PipelineTests.System_RoutesEventsByDevice` |
 | GD-3 | Raw events can be fed directly (`FeedEvent`) for tests and replays. | used throughout |
 | GD-4 | Touch: screen touch and drag sources, virtual stick and buttons. *(stage 3)* | stage 3 |
 | GD-5 | Button-prompt names for a source and for an action's current bindings. *(stage 4)* | stage 4 |
+| DEMO-1 | The demo's saved resources load, and the demo scene runs (chords, tap/hold, combo, blocking menu). | `DemoTests.*` |
 
 ### 3.8 Later stages
 

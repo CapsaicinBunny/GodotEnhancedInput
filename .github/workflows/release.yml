@@ -45,7 +45,7 @@ jobs:
         # bump plugin.cfg, the release fails here instead of shipping a
         # mislabelled asset.
         run: |
-          CFG_VERSION=$(grep -oP 'version\s*=\s*"\K[^"]+' addons/input_forge/plugin.cfg)
+          CFG_VERSION=$(grep -oP 'version\s*=\s*"\K[^"]+' addons/godot_enhanced_input/plugin.cfg)
           if [ "$VERSION" != "$CFG_VERSION" ]; then
             echo "::error::Tag ${GITHUB_REF_NAME} (${VERSION}) does not match plugin.cfg version (${CFG_VERSION})"
             exit 1
@@ -54,14 +54,14 @@ jobs:
       - name: Package addon
         # git archive (not a manual zip) so the repo's .gitattributes export-ignore
         # rules apply and only tracked files are included — no .import / .godot
-        # junk. Passing the addons/input_forge subtree keeps its full path prefix
+        # junk. Passing the addons/godot_enhanced_input subtree keeps its full path prefix
         # in the ZIP, so extracting at a project root drops it straight into
         # addons/. The bundled LICENSE.md rides along because it lives inside that
         # folder.
         run: |
           git archive --format=zip \
-            --output="input_forge-${VERSION}.zip" \
-            "${GITHUB_REF_NAME}" addons/input_forge
+            --output="godot_enhanced_input-${VERSION}.zip" \
+            "${GITHUB_REF_NAME}" addons/godot_enhanced_input
 
       - name: Create release
         env:
@@ -72,6 +72,6 @@ jobs:
         # tag.
         run: |
           gh release create "${GITHUB_REF_NAME}" \
-            "input_forge-${VERSION}.zip" \
-            --title "InputForge ${VERSION}" \
+            "godot_enhanced_input-${VERSION}.zip" \
+            --title "Godot Enhanced Input ${VERSION}" \
             --generate-notes

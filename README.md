@@ -1,154 +1,114 @@
-# InputForge
+# Godot Enhanced Input
 
-A UE5-inspired Enhanced Input System for Godot 4 C#. Context-based input mapping with a modifier and trigger pipeline — configured entirely via the Inspector, no custom editor UI required.
+Action-based input for Godot 4 C#. Gameplay code asks for **actions** — Jump, Move, Look — and
+**binding contexts** decide which keys, buttons and sticks drive them right now. Every tick each
+action gets a typed value and a phase, and raises events your code can subscribe to or poll.
 
-> Pure C# · Inspector-based · Zero Godot InputMap dependency · Godot 4.x
+> C# · Godot 4.7+ · configured in the Inspector or in code · works with the InputMap, physical
+> keys and GUI focus · testable headless
 
----
+Status: **0.1.0, stage 1 of 4** — the core is done (see [the plan](docs/design.md#6-staged-plan)).
+Rebinding and saving, several local players with device assignment, touch controls, button
+prompts and a debug overlay come next.
 
-## Why InputForge?
+## What it does
 
-Godot's built-in input system hardcodes action names as strings. The same physical key always maps to the same action — there is no built-in way to have `Space` mean `Jump` in gameplay and `Confirm` in a menu without managing that yourself.
+- **Typed game actions.** Digital (on/off), 1D, 2D and 3D values; several bindings per action,
+  combined by strongest value or by sum.
+- **Binding contexts with priorities.** Add and remove sets of bindings at runtime. A higher
+  context can *consume* the keys it uses, or *block* everything below it (pause menus). A context
+  can ignore keys that are already held when it opens.
+- **Modifiers** shape values: axial and radial deadzones, scale, delta-time scale, negate, swizzle,
+  smoothing, exponent and `Curve` response, normalize, clamp, 2D → world axes, view-relative
+  (camera) rotation, field-of-view scaling.
+- **Triggers** decide when an action fires: down, pressed, released, hold, hold-and-release, tap,
+  pulse, chord, chord blocker and combo — with explicit, implicit and blocker roles.
+- **A per-tick state machine** turns phases (idle, ongoing, triggered) into events: started,
+  ongoing, triggered, completed, canceled — with elapsed and triggered time. Hold and pulse work
+  while nothing new arrives.
+- **Godot-friendly.** Physical key positions by default; InputMap actions as sources;
+  `InputEventAction` drives game actions directly (great for tests); never marks events handled
+  and never steals presses from a focused GUI control; C# callbacks, polling and Godot signals.
 
-InputForge solves this with **input contexts**: a stack of mappings that can be pushed and popped at runtime. The same key can mean different things in different contexts, and the topmost context always wins.
+## Install
 
----
+Copy `addons/godot_enhanced_input` into your project's `addons/` folder, build the C# solution,
+and enable **Godot Enhanced Input** in *Project → Project Settings → Plugins*. Enabling it adds the
+`EnhancedInput` autoload.
 
-## Features
+## Quick start
 
-- **Context stack** — push/pop `InputMappingContext` resources at runtime
-- **Unified `InputKey`** — keyboard, mouse, gamepad buttons and axes in one Inspector-friendly resource
-- **Modifier pipeline** — transform raw values before they reach your code (deadzone, invert, normalize, scale, swizzle)
-- **Trigger pipeline** — control when an action fires (on press, on release, on change, continuous)
-- **Type-safe callbacks** — bind `Action<bool>`, `Action<float>`, `Action<Vector2>`, or `Action<Vector3>` — no casting
-- **No Godot InputMap dependency** — bypasses hardcoded action strings entirely
+Create resources in the FileSystem dock (*New Resource…*):
 
----
+1. A `GameAction` "jump" (value kind *Digital*) and a `GameAction` "move" (*Axis2D*).
+2. A `BindingContext` "gameplay" with `ActionBinding`s:
+   - jump ← `InputSource` *Key* Space, trigger `PressedTrigger`;
+   - move ← `InputSource` *KeyAxis2D* W/S/A/D;
+   - move ← `InputSource` *JoyStick* Left, modifier `DeadzoneModifier`.
 
-## Installation
-
-### Option A — Godot Asset Library
-
-Search for **InputForge** in the Godot editor's AssetLib tab and click Install.
-
-### Option B — degit (recommended for version-controlled projects)
-
-If you have [Node.js](https://nodejs.org) installed, use [degit](https://github.com/Rich-Harris/degit) to pull only the plugin folder — no git history, no extra files:
-
-```bash
-npx degit pandoraoyun/InputForge/addons/input_forge addons/input_forge
-```
-
-Run the same command again to update to the latest version.
-
-### Option C — Manual
-
-Copy the `addons/input_forge` folder into your project's `addons/` directory.
-
----
-
-After installation, enable the plugin in Godot: **Project → Project Settings → Plugins → InputForge**.
-
-`EnhancedInputSystem` is registered as an autoload automatically.
-
----
-
-## Quick Start
-
-### 1. Create an InputAction resource
-
-In the FileSystem panel, right-click → **New Resource** → `InputAction`. Set `ActionName` to `"Jump"`.
-
-### 2. Create an InputKey resource
-
-Right-click → **New Resource** → `InputKey`. Set:
-- `InputType` → `Boolean`
-- `DeviceType` → `Keyboard`
-- `KeyboardKey` → `Space`
-
-### 3. Create an InputMapping resource
-
-Right-click → **New Resource** → `InputMapping`. Assign:
-- `TargetAction` → your `Jump` action
-- `InputSource` → your `InputKey`
-
-### 4. Create an InputMappingContext resource
-
-Right-click → **New Resource** → `InputMappingContext`. Add your `InputMapping` to the `Mappings` array.
-
-### 5. Subscribe in code
+Then in code:
 
 ```csharp
-[Export] public InputMappingContext GameplayContext { get; set; }
-[Export] public InputAction JumpAction { get; set; }
+using GodotEnhancedInput;
 
-public override void _Ready()
+public partial class Hero : CharacterBody3D
 {
-    EnhancedInputSystem.GetInstance().AddContext(GameplayContext);
-    GameplayContext.BindAction(JumpAction, OnJump);
-}
+    [Export] public BindingContext Gameplay { get; set; }
+    [Export] public GameAction Jump { get; set; }
+    [Export] public GameAction Move { get; set; }
 
-private void OnJump(bool pressed)
-{
-    if (!pressed) return;
-    GD.Print("Jumped!");
-}
+    private InputPlayer _input;
 
-public override void _ExitTree()
-{
-    EnhancedInputSystem.GetInstance().RemoveContext(GameplayContext);
-    GameplayContext.UnbindAction(JumpAction, OnJump);
+    public override void _Ready()
+    {
+        _input = EnhancedInput.DefaultPlayer;
+        _input.AddContext(Gameplay, priority: 0);
+        _input.Bind(Jump, ActionEvents.Triggered, _ => Velocity += Vector3.Up * 6f);
+    }
+
+    public override void _PhysicsProcess(double delta)
+    {
+        Vector2 move = _input.GetValue(Move).AsVector2();   // polling works too
+        // ...
+    }
+
+    public override void _ExitTree() => _input.RemoveContext(Gameplay);
 }
 ```
 
----
+Everything can also be built in code:
 
-## Benchmark / Smoke
+```csharp
+var jump = GameAction.Create("jump");
+var gameplay = BindingContext.Create("gameplay");
+gameplay.Add(jump, InputSource.ForKey(Key.Space), new PressedTrigger());
+gameplay.Add(jump, InputSource.ForJoyButton(JoyButton.A), new PressedTrigger());
+```
 
-`InputForge.Tests` includes throughput/stability smoke tests (correctness-only, no hard timing assertions — timing is logged for humans to read, not used as a CI gate).
-
-**Subscriber count × event count** — dispatch cost stays well below linear as subscriber count grows:
-
-| subscribers | events | ms/event | ms/invocation |
-|---|---|---|---|
-| 1 | 1000 | 0.00045 | 0.000890 |
-| 50 | 1000 | 0.00081 | 0.000032 |
-| 500 | 1000 | 0.00308 | 0.000012 |
-
-**InputForge vs. raw `_Input()` override** — same simple logic expression, two architectures, fixed 300-event burst:
-
-| handlers | InputForge ms/handler | Raw `_Input()` ms/handler | ratio (Raw/Forge) |
-|---|---|---|---|
-| 10 | 0.019260 | 0.028570 | 1.48x |
-| 100 | 0.002632 | 0.010652 | 4.05x |
-| 500 | 0.001606 | 0.010850 | 6.76x |
-
-InputForge pays Godot's native `_Input()` dispatch cost once per event regardless of subscriber count, then fans out in-process. N separate `_Input()` overrides pay that dispatch cost N times per event — so the gap widens as handler count grows. Note the raw column here doesn't even include Godot's own native per-node dispatch/marshalling overhead, so this is a lower bound in InputForge's favor.
-
-Full tables, methodology, and caveats: [`InputForge.Tests/SMOKE_BENCH.md`](InputForge.Tests/SMOKE_BENCH.md). Test source: [`InputForge.Tests/System/InputThroughputSmokeTests.cs`](InputForge.Tests/System/InputThroughputSmokeTests.cs).
-
-**Coverage:** the addon assembly sits at ~84% line coverage, measured against a real headless Godot runtime. See [`InputForge.Tests/README.md`](InputForge.Tests/README.md#coverage) for how that figure is computed and why an unfiltered run reports much lower (Godot's generated marshalling code inflates the raw number).
-
----
+The demo in `addons/godot_enhanced_input_demo` shows chords, tap-versus-hold on one key, a combo,
+pulses and a blocking pause menu. Open `demo.tscn` and press F6.
 
 ## Documentation
 
-- [Architecture Overview](docs/architecture.md)
-- [InputKey Reference](docs/input-key.md)
-- [Modifiers Reference](docs/modifiers.md)
-- [Triggers Reference](docs/triggers.md)
-- [Context Stack](docs/context-stack.md)
-- [Extending InputForge](docs/extending.md)
+- [Getting started](docs/getting-started.md)
+- [Concepts: actions, contexts, phases and events](docs/concepts.md)
+- [Modifiers](docs/modifiers.md) · [Triggers](docs/triggers.md)
+- [Godot integration: InputMap, `InputEventAction`, GUI, tests](docs/godot-integration.md)
+- [Design and requirements](docs/design.md)
+- [Migrating from InputForge](docs/migration.md)
 
----
+## Tests
 
-## AI Use Disclosure
+```powershell
+dotnet run --project GodotEnhancedInput.Tests/GodotEnhancedInput.Tests.csproj -c Debug
+```
 
-InputForge is human-designed and human-maintained; AI tools were used as a reviewed
-assistant for tests, docs, and tooling. See [AI_DISCLOSURE.md](AI_DISCLOSURE.md).
+The suite runs against a real headless Godot through [2dog](https://github.com/outfox/2dog);
+see [the test README](GodotEnhancedInput.Tests/README.md).
 
----
+## Credits and license
 
-## License
-
-MIT
+MIT. Godot Enhanced Input began as a fork of [InputForge](https://github.com/pandoraoyun/InputForge)
+by PandoraOyun (MIT), whose context stack, Inspector-first resources and test setup it grew from.
+Version 0.1.0 replaces InputForge's API; see [migration](docs/migration.md). AI use is described in
+[AI_DISCLOSURE.md](AI_DISCLOSURE.md).
