@@ -56,6 +56,10 @@ public static class InputSourceJson
             case SourceKind.Virtual:
                 json["virtualName"] = source.VirtualName;
                 break;
+            case SourceKind.Touch:
+                json["touchChannel"] = source.TouchChannel.ToString();
+                json["touchIndex"] = source.TouchIndex;
+                break;
         }
         return json;
     }
@@ -107,6 +111,10 @@ public static class InputSourceJson
                     break;
                 case SourceKind.Virtual:
                     source.VirtualName = (string)json["virtualName"] ?? throw new FormatException("missing virtualName");
+                    break;
+                case SourceKind.Touch:
+                    source.TouchChannel = ReadEnum<TouchChannel>(json, "touchChannel");
+                    source.TouchIndex = Int(json, "touchIndex");
                     break;
             }
             return source;

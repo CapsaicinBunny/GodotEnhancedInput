@@ -16,6 +16,9 @@ public enum RawKind
     JoyAxis,
     InputMapAction,
     Virtual,
+    TouchPressed,
+    TouchPosition,
+    TouchDrag,
 }
 
 /// <summary>
@@ -43,8 +46,19 @@ public readonly record struct SourceKey(RawKind Kind, long Code, int Device, str
     public static SourceKey ForInputMapAction(string action) => new(RawKind.InputMapAction, 0, AnyDevice, action ?? string.Empty);
     public static SourceKey ForVirtual(string name) => new(RawKind.Virtual, 0, AnyDevice, name ?? string.Empty);
 
+    /// <summary>A touch channel of one finger (its index), or of any finger with <see cref="AnyDevice"/>.</summary>
+    public static SourceKey ForTouch(TouchChannel channel, int finger = AnyDevice) => channel switch
+    {
+        TouchChannel.Position => new(RawKind.TouchPosition, 0, finger, null),
+        TouchChannel.Drag => new(RawKind.TouchDrag, 0, finger, null),
+        _ => new(RawKind.TouchPressed, 0, finger, null),
+    };
+
     /// <summary>True for joypad channels, which are stored per device.</summary>
     public bool IsJoypad => Kind is RawKind.JoyButton or RawKind.JoyAxis;
+
+    /// <summary>True for touch channels, which are stored per finger (in <see cref="Device"/>).</summary>
+    public bool IsTouch => Kind is RawKind.TouchPressed or RawKind.TouchPosition or RawKind.TouchDrag;
 
     /// <summary>The same channel with the device cleared, as used for consumption between contexts.</summary>
     public SourceKey WithoutDevice() => Device == AnyDevice ? this : this with { Device = AnyDevice };
@@ -57,6 +71,7 @@ public readonly record struct SourceKey(RawKind Kind, long Code, int Device, str
         RawKind.JoyAxis => $"Joy{(Device < 0 ? "*" : Device.ToString())}:{(JoyAxis)Code}",
         RawKind.InputMapAction => $"InputMap:{Name}",
         RawKind.Virtual => $"Virtual:{Name}",
+        RawKind.TouchPressed or RawKind.TouchPosition or RawKind.TouchDrag => $"{Kind}:{(Device < 0 ? "*" : Device.ToString())}",
         _ => Kind.ToString(),
     };
 }

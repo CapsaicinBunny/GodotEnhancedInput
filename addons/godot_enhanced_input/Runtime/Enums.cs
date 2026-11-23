@@ -91,6 +91,37 @@ public enum SourceKind
     InputMapAction,
     /// <summary>A named control set from code (on-screen controls, touch, tests).</summary>
     Virtual,
+    /// <summary>A finger on a touchscreen: pressed, position or drag.</summary>
+    Touch,
+}
+
+/// <summary>What a <see cref="SourceKind.Touch"/> source reads.</summary>
+public enum TouchChannel
+{
+    /// <summary>1 while the finger is down.</summary>
+    Pressed,
+    /// <summary>The finger's position in viewport pixels.</summary>
+    Position,
+    /// <summary>The finger's movement in pixels, summed over the tick.</summary>
+    Drag,
+}
+
+/// <summary>How joypads that nobody owns become a player's.</summary>
+public enum JoinMode
+{
+    /// <summary>Only <see cref="EnhancedInput.AssignJoypad"/> assigns joypads.</summary>
+    Manual,
+    /// <summary>A button press on an unowned joypad assigns it (creating a player if needed).</summary>
+    OnButtonPress,
+}
+
+/// <summary>When an on-screen control is shown.</summary>
+public enum TouchControlVisibility
+{
+    /// <summary>Always.</summary>
+    Always,
+    /// <summary>Only when the device has a touchscreen.</summary>
+    TouchscreenOnly,
 }
 
 /// <summary>How a key source matches keyboard events.</summary>

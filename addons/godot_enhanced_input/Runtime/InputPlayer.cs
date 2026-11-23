@@ -47,8 +47,14 @@ public partial class InputPlayer : Node, ISourceReader
     /// <summary>Whether keyboard and mouse events reach this player.</summary>
     [Export] public bool AcceptKeyboardMouse { get; set; } = true;
 
-    /// <summary>Joypad device indices this player listens to. Empty: every joypad.</summary>
+    /// <summary>
+    /// Joypad device indices this player owns. Empty: the player receives the joypads no other player
+    /// owns. Change it through <see cref="EnhancedInput.AssignJoypad"/> to keep ownership exclusive.
+    /// </summary>
     [Export] public Array<int> JoypadDevices { get; set; } = new();
+
+    /// <summary>Whether touchscreen events reach this player.</summary>
+    [Export] public bool AcceptTouch { get; set; } = true;
 
     /// <summary>Whether <see cref="InputEventAction"/> events reach this player.</summary>
     [Export] public bool AcceptActionEvents { get; set; } = true;
@@ -317,6 +323,7 @@ public partial class InputPlayer : Node, ISourceReader
         InputEventKey or InputEventMouse => AcceptKeyboardMouse,
         InputEventJoypadButton or InputEventJoypadMotion => JoypadDevices.Count == 0 || JoypadDevices.Contains(@event.Device),
         InputEventAction => AcceptActionEvents,
+        InputEventScreenTouch or InputEventScreenDrag => AcceptTouch,
         _ => false,
     };
 
@@ -366,6 +373,12 @@ public partial class InputPlayer : Node, ISourceReader
 
     /// <summary>Sets a named virtual control.</summary>
     public void SetVirtualControl(string name, float value) => SetVirtualControl(name, new Vector3(value, 0f, 0f));
+
+    /// <summary>Adds to a named virtual control for the next tick only, on top of its held value (drags, flicks).</summary>
+    public void AddToVirtualControl(string name, Vector3 delta) => Raw.AddVirtualDelta(name, delta);
+
+    /// <summary>Adds to a named virtual control for the next tick only.</summary>
+    public void AddToVirtualControl(string name, Vector2 delta) => AddToVirtualControl(name, new Vector3(delta.X, delta.Y, 0f));
 
     /// <summary>Forgets all raw input; held actions finish on the next tick.</summary>
     public void ClearRawInput()

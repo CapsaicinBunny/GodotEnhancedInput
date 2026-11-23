@@ -13,6 +13,9 @@ public sealed class RawInputState
     private readonly Dictionary<SourceKey, Vector3> _current = new();
     private readonly Dictionary<SourceKey, Vector3> _peak = new();
     private readonly HashSet<int> _joyDevices = new();
+    private readonly SortedSet<int> _fingers = new();
+    private readonly Dictionary<int, Vector2> _touchDrag = new();
+    private readonly Dictionary<string, Vector3> _virtualDelta = new(System.StringComparer.Ordinal);
     private readonly List<SourceKey> _scratch = new();
     private Vector2 _motion;
     private Vector2 _position;
@@ -30,6 +33,21 @@ public sealed class RawInputState
         if (!_peak.TryGetValue(key, out var peak) || value.LengthSquared() > peak.LengthSquared())
             _peak[key] = value;
         if (key.IsJoypad && key.Device >= 0) _joyDevices.Add(key.Device);
+        if (key.IsTouch && key.Device >= 0) _fingers.Add(key.Device);
+    }
+
+    /// <summary>Adds to a virtual control for this tick only (on top of its held value).</summary>
+    public void AddVirtualDelta(string name, Vector3 delta)
+    {
+        name ??= string.Empty;
+        _virtualDelta[name] = (_virtualDelta.TryGetValue(name, out var sum) ? sum : Vector3.Zero) + delta;
+    }
+
+    /// <summary>Adds finger movement for this tick.</summary>
+    public void AddTouchDrag(int finger, Vector2 relative)
+    {
+        _touchDrag[finger] = (_touchDrag.TryGetValue(finger, out var sum) ? sum : Vector2.Zero) + relative;
+        _fingers.Add(finger);
     }
 
     /// <summary>Sets a scalar channel's value.</summary>
@@ -55,6 +73,33 @@ public sealed class RawInputState
         {
             case RawKind.MouseMotion: return new Vector3(_motion.X, _motion.Y, 0f);
             case RawKind.MousePosition: return new Vector3(_position.X, _position.Y, 0f);
+            case RawKind.Virtual:
+                return _virtualDelta.TryGetValue(key.Name ?? string.Empty, out var delta) ? ReadExact(key) + delta : ReadExact(key);
+            case RawKind.TouchDrag:
+            {
+                if (key.Device >= 0) return _touchDrag.TryGetValue(key.Device, out var d) ? new Vector3(d.X, d.Y, 0f) : Vector3.Zero;
+                var sum = Vector2.Zero;
+                foreach (var d in _touchDrag.Values) sum += d;
+                return new Vector3(sum.X, sum.Y, 0f);
+            }
+            case RawKind.TouchPosition when key.Device == SourceKey.AnyDevice:
+                // The lowest-numbered finger that is down (or was, this tick).
+                foreach (var finger in _fingers)
+                    if (ReadExact(SourceKey.ForTouch(TouchChannel.Pressed, finger)) != Vector3.Zero)
+                        return GetCurrent(SourceKey.ForTouch(TouchChannel.Position, finger));
+                return Vector3.Zero;
+            case RawKind.TouchPosition:
+                return GetCurrent(key);
+            case RawKind.TouchPressed when key.Device == SourceKey.AnyDevice:
+            {
+                var best = Vector3.Zero;
+                foreach (var finger in _fingers)
+                {
+                    var v = ReadExact(key with { Device = finger });
+                    if (v.LengthSquared() > best.LengthSquared()) best = v;
+                }
+                return best;
+            }
         }
 
         if (key.IsJoypad && key.Device == SourceKey.AnyDevice)
@@ -83,6 +128,8 @@ public sealed class RawInputState
     {
         _peak.Clear();
         _motion = Vector2.Zero;
+        _touchDrag.Clear();
+        _virtualDelta.Clear();
     }
 
     /// <summary>Forgets everything (e.g. when the window loses focus).</summary>
@@ -91,6 +138,9 @@ public sealed class RawInputState
         _current.Clear();
         _peak.Clear();
         _joyDevices.Clear();
+        _fingers.Clear();
+        _touchDrag.Clear();
+        _virtualDelta.Clear();
         _motion = Vector2.Zero;
     }
 
@@ -156,6 +206,22 @@ public sealed class RawInputState
                 bool raising = Mathf.Abs(joyMotion.AxisValue) > Mathf.Abs(previous);
                 if (!StageAllows(stage, raising)) return false;
                 Set(key, joyMotion.AxisValue);
+                return true;
+            }
+            case InputEventScreenTouch touch:
+            {
+                bool down = touch.Pressed && !touch.Canceled;
+                if (!StageAllows(stage, raising: down)) return false;
+                Set(SourceKey.ForTouch(TouchChannel.Position, touch.Index), new Vector3(touch.Position.X, touch.Position.Y, 0f));
+                Set(SourceKey.ForTouch(TouchChannel.Pressed, touch.Index), down ? 1f : 0f);
+                return true;
+            }
+            case InputEventScreenDrag drag:
+            {
+                // Like the mouse: position is never contested; movement is "raising" input.
+                if (stage != IntakeStage.Unhandled)
+                    Set(SourceKey.ForTouch(TouchChannel.Position, drag.Index), new Vector3(drag.Position.X, drag.Position.Y, 0f));
+                if (StageAllows(stage, raising: true)) AddTouchDrag(drag.Index, drag.Relative);
                 return true;
             }
             case InputEventAction action:

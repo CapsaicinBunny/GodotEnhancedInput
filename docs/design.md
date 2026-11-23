@@ -163,11 +163,25 @@ changed, so the designer's defaults stay intact and one profile can be reset at 
 | MAP-6 | Profiles **save** to and **load** from JSON (default `user://input/player_<n>.json`) with a format number. Enum values are stored by name. Entries for unknown ids are kept, entries saved under a binding's former id apply to its current id, malformed entries are skipped with a warning, and a newer format is refused. | `ProfileTests.*` |
 | MAP-7 | Rebinding a source that is held lets the action finish normally on the next tick. | `RebindTests.RebindWhileHeld_CompletesAction` |
 
-### 3.9 Later stages
+### 3.9 Local players and touch (stage 3)
+
+| ID | Requirement | Test |
+|---|---|---|
+| PLR-1 | `EnhancedInput` holds several players, each with its own contexts, raw input, action states and profile. Player 0 always exists; players added later do not listen to keyboard, mouse, touch or `InputEventAction` unless told to. | `PlayerTests.NewPlayers_ListenOnlyToTheirDevices` |
+| PLR-2 | **Joypad assignment.** A joypad assigned to a player (`AssignJoypad`) reaches only that player; assigning it moves it from any other player. A player with no joypads listed receives the joypads nobody owns. | `PlayerTests.AssignedJoypad_ReachesOnlyItsOwner`, `PlayerTests.UnassignedJoypads_GoToPlayersWithoutAList` |
+| PLR-3 | **Joining.** With join mode *on button press*, a button press on an unowned joypad assigns it to the first player that has no joypad, or creates a new player (up to a maximum), raising `PlayerJoined`. The joining press does not reach actions unless configured to. | `PlayerTests.Join_*` |
+| PLR-4 | Disconnecting a joypad clears its state on its owner, keeps the assignment for when it comes back, and raises `JoypadConnectionChanged`. Removing a player releases its joypads and re-indexes the rest. | `PlayerTests.Disconnect_KeepsAssignment`, `PlayerTests.RemovePlayer_ReleasesJoypads` |
+| TCH-1 | **Touch sources.** A *Touch* source reads one finger or any finger: *pressed* (1 while down; a tap shorter than a tick is still seen once), *position* (viewport pixels), or *drag* (movement summed over the tick). Touch follows the same GUI rules as the mouse. | `TouchTests.TouchSource_*` |
+| TCH-2 | **Virtual deltas.** Code can add to a virtual control for the current tick only (`AddToVirtualControl`), alongside its held value. | `TouchTests.VirtualDelta_LastsOneTick` |
+| TCH-3 | **On-screen stick.** `VirtualJoystick` (a `Control`) follows one finger that starts inside it and writes a 2D value (−1…1, up is −Y) to a virtual control; optionally floating (centred where the finger lands); back to zero on release. | `TouchControlTests.Joystick_*` |
+| TCH-4 | **On-screen button.** `VirtualButton` writes 1 while any finger that started on it is down, and 0 after. | `TouchControlTests.Button_*` |
+| TCH-5 | **Touch zone.** `TouchZone` turns drags that start inside it into per-tick deltas on a virtual control (camera look on half the screen). | `TouchControlTests.Zone_*` |
+| TCH-6 | On-screen controls handle several fingers at once, can also be driven by the mouse for desktop testing, can hide themselves where there is no touchscreen, and mark the events they use as handled so they do not also act as gameplay touches or clicks. | `TouchControlTests.MultiTouch_*`, `TouchControlTests.Mouse_*` |
+
+### 3.10 Later stages
 
 | ID | Requirement | Stage |
 |---|---|---|
-| PLR-1 | Several players, each with its own device filter (keyboard/mouse, a set of joypads, touch) and own contexts. | 3 |
 | DBG-1 | A debug overlay per player listing contexts, actions, values, phases and timings; a text dump for logs. | 4 |
 
 ## 4. Architecture

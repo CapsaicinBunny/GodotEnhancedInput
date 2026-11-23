@@ -5,8 +5,9 @@ namespace GodotEnhancedInput;
 
 /// <summary>
 /// The autoload that owns the <see cref="InputPlayer"/>s: it receives Godot input events, hands each to
-/// the players whose device filter accepts it, and ticks the players. It never marks events as
-/// handled, so the GUI and other nodes keep receiving all input. Player 0 always exists.
+/// the players that own its device, and ticks the players. It never marks events as handled (except a
+/// press captured for rebinding), so the GUI and other nodes keep receiving all input. Player 0
+/// always exists.
 /// </summary>
 public partial class EnhancedInput : Node
 {
@@ -22,14 +23,34 @@ public partial class EnhancedInput : Node
     /// <summary>Raised when a player is removed.</summary>
     [Signal] public delegate void PlayerRemovedEventHandler(InputPlayer player);
 
+    /// <summary>Raised when a joypad is assigned to a player (by code or by joining).</summary>
+    [Signal] public delegate void JoypadAssignedEventHandler(InputPlayer player, int device);
+
+    /// <summary>Raised when a button press on an unowned joypad assigns it to a player (see <see cref="JoinMode"/>).</summary>
+    [Signal] public delegate void PlayerJoinedEventHandler(InputPlayer player, int device);
+
+    /// <summary>Raised when a joypad connects or disconnects. Its owner, if any, keeps it for when it returns.</summary>
+    [Signal] public delegate void JoypadConnectionChangedEventHandler(int device, bool connected);
+
     /// <summary>When players are ticked.</summary>
     [Export] public TickMode TickMode { get; set; } = TickMode.Process;
 
     /// <summary>How event intake shares input with the GUI.</summary>
     [Export] public GuiPolicy GuiPolicy { get; set; } = GuiPolicy.RespectGui;
 
+    /// <summary>How unowned joypads become a player's.</summary>
+    [Export] public JoinMode JoinMode { get; set; } = JoinMode.Manual;
+
+    /// <summary>Most players joining may create.</summary>
+    [Export(PropertyHint.Range, "1,16,1")] public int MaxPlayers { get; set; } = 4;
+
+    /// <summary>When on, the press that joins a joypad does not also reach the player's actions.</summary>
+    [Export] public bool ConsumeJoinPress { get; set; } = true;
+
     private readonly List<InputPlayer> _players = new();
+    private readonly List<InputPlayer> _targets = new();
     private bool _joySignalConnected;
+    private InputEvent _swallowedJoinPress;
 
     public EnhancedInput()
     {
@@ -37,6 +58,10 @@ public partial class EnhancedInput : Node
         // Keep receiving events and ticking while the tree is paused; actions decide for themselves.
         ProcessMode = ProcessModeEnum.Always;
     }
+
+    // ------------------------------------------------------------------
+    //  Players
+    // ------------------------------------------------------------------
 
     /// <summary>The players, by index.</summary>
     public IReadOnlyList<InputPlayer> Players
@@ -55,19 +80,26 @@ public partial class EnhancedInput : Node
         return index >= 0 && index < _players.Count ? _players[index] : null;
     }
 
-    /// <summary>Adds a player and returns it.</summary>
+    /// <summary>
+    /// Adds a player and returns it. New players listen to no keyboard, mouse, touch or
+    /// <see cref="InputEventAction"/> until told to, and receive unowned joypads until one is assigned.
+    /// </summary>
     public InputPlayer AddPlayer()
     {
         EnsureDefaultPlayer();
         return CreatePlayer();
     }
 
-    /// <summary>Removes a player other than player 0. The remaining players are re-indexed.</summary>
+    /// <summary>Removes a player other than player 0, releasing its joypads. The rest are re-indexed.</summary>
     public bool RemovePlayer(InputPlayer player)
     {
         if (player == null || _players.IndexOf(player) <= 0) return false;
         _players.Remove(player);
-        for (int i = 0; i < _players.Count; i++) _players[i].PlayerIndex = i;
+        for (int i = 0; i < _players.Count; i++)
+        {
+            _players[i].PlayerIndex = i;
+            _players[i].Name = $"Player{i}";
+        }
         if (player.GetParent() == this) RemoveChild(player);
         EmitSignal(SignalName.PlayerRemoved, player);
         player.QueueFree();
@@ -81,12 +113,79 @@ public partial class EnhancedInput : Node
 
     private InputPlayer CreatePlayer()
     {
-        var player = new InputPlayer { Name = $"Player{_players.Count}", PlayerIndex = _players.Count };
+        int index = _players.Count;
+        var player = new InputPlayer { Name = $"Player{index}", PlayerIndex = index };
+        if (index > 0)
+        {
+            player.AcceptKeyboardMouse = false;
+            player.AcceptTouch = false;
+            player.AcceptActionEvents = false;
+        }
         _players.Add(player);
         AddChild(player);
         EmitSignal(SignalName.PlayerAdded, player);
         return player;
     }
+
+    // ------------------------------------------------------------------
+    //  Joypads
+    // ------------------------------------------------------------------
+
+    /// <summary>Gives a joypad to a player, taking it from any other player.</summary>
+    public void AssignJoypad(InputPlayer player, int device)
+    {
+        if (player == null || device < 0) return;
+        foreach (var other in _players)
+            if (other != player) other.JoypadDevices.Remove(device);
+        if (!player.JoypadDevices.Contains(device)) player.JoypadDevices.Add(device);
+        // Whatever the joypad was doing belongs to its previous route.
+        foreach (var other in _players) other.Raw.ClearDevice(device);
+        EmitSignal(SignalName.JoypadAssigned, player, device);
+    }
+
+    /// <summary>Takes a joypad from whichever player owns it. Returns false if nobody did.</summary>
+    public bool UnassignJoypad(int device)
+    {
+        bool removed = false;
+        foreach (var player in _players)
+            if (player.JoypadDevices.Remove(device)) { removed = true; player.Raw.ClearDevice(device); }
+        return removed;
+    }
+
+    /// <summary>The player that owns a joypad, or null.</summary>
+    public InputPlayer GetJoypadOwner(int device)
+    {
+        foreach (var player in _players)
+            if (player.JoypadDevices.Contains(device)) return player;
+        return null;
+    }
+
+    private InputPlayer Join(int device)
+    {
+        InputPlayer target = null;
+        foreach (var player in _players)
+            if (player.JoypadDevices.Count == 0) { target = player; break; }
+        if (target == null && _players.Count < MaxPlayers) target = CreatePlayer();
+        if (target == null) return null;
+
+        AssignJoypad(target, device);
+        EmitSignal(SignalName.PlayerJoined, target, device);
+        return target;
+    }
+
+    private void OnJoyConnectionChanged(long device, bool connected)
+    {
+        if (!connected)
+            foreach (var player in _players) player.Raw.ClearDevice((int)device);
+        EmitSignal(SignalName.JoypadConnectionChanged, (int)device, connected);
+    }
+
+    /// <summary>Handles a joypad connecting or disconnecting (called from Godot's signal; public for tests and custom backends).</summary>
+    public void NotifyJoypadConnection(int device, bool connected) => OnJoyConnectionChanged(device, connected);
+
+    // ------------------------------------------------------------------
+    //  Events and ticking
+    // ------------------------------------------------------------------
 
     public override void _EnterTree()
     {
@@ -109,23 +208,54 @@ public partial class EnhancedInput : Node
         if (Instance == this) Instance = null;
     }
 
-    private void OnJoyConnectionChanged(long device, bool connected)
-    {
-        if (connected) return;
-        foreach (var player in _players) player.Raw.ClearDevice((int)device);
-    }
-
     /// <summary>
-    /// Offers an event to every player that accepts its device. Returns true when a player's running
-    /// rebind capture took it.
+    /// Offers an event to the players it belongs to: joypad events to the joypad's owner (or, for an
+    /// unowned joypad, to players with no joypads listed — or to a player it joins); other events to
+    /// players that accept that kind of device. Returns true when a player's running rebind capture
+    /// took it.
     /// </summary>
     public bool FeedEvent(InputEvent @event, IntakeStage stage = IntakeStage.Direct)
     {
         if (@event == null) return false;
         EnsureDefaultPlayer();
+
+        if (ReferenceEquals(@event, _swallowedJoinPress))
+        {
+            if (stage != IntakeStage.Early) _swallowedJoinPress = null;
+            return false;
+        }
+
+        _targets.Clear();
+        if (@event is InputEventJoypadButton or InputEventJoypadMotion)
+        {
+            int device = @event.Device;
+            var owner = GetJoypadOwner(device);
+            if (owner == null && JoinMode == JoinMode.OnButtonPress && stage != IntakeStage.Unhandled
+                && @event is InputEventJoypadButton { Pressed: true })
+            {
+                owner = Join(device);
+                if (owner != null && ConsumeJoinPress)
+                {
+                    // Early stage: the same event comes back from _UnhandledInput; drop it there too.
+                    _swallowedJoinPress = stage == IntakeStage.Early ? @event : null;
+                    return false;
+                }
+            }
+
+            if (owner != null) _targets.Add(owner);
+            else
+                foreach (var player in _players)
+                    if (player.JoypadDevices.Count == 0) _targets.Add(player);
+        }
+        else
+        {
+            foreach (var player in _players)
+                if (player.Accepts(@event)) _targets.Add(player);
+        }
+
         bool captured = false;
-        foreach (var player in _players)
-            if (player.Accepts(@event) && player.FeedEvent(@event, stage)) captured = true;
+        foreach (var player in _targets)
+            if (player.FeedEvent(@event, stage)) captured = true;
         return captured;
     }
 
@@ -133,7 +263,7 @@ public partial class EnhancedInput : Node
     public void Tick(double delta)
     {
         EnsureDefaultPlayer();
-        foreach (var player in _players) player.Tick(delta);
+        for (int i = 0; i < _players.Count; i++) _players[i].Tick(delta);
     }
 
     public override void _Input(InputEvent @event)

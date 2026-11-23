@@ -73,6 +73,12 @@ public partial class InputSource : Resource
     /// <summary>The control name for <see cref="SourceKind.Virtual"/>.</summary>
     [Export] public string VirtualName { get; set; } = string.Empty;
 
+    /// <summary>What a <see cref="SourceKind.Touch"/> source reads.</summary>
+    [Export] public TouchChannel TouchChannel { get; set; } = TouchChannel.Pressed;
+
+    /// <summary>The finger index for <see cref="SourceKind.Touch"/>, or −1 for any finger.</summary>
+    [Export(PropertyHint.Range, "-1,9,1")] public int TouchIndex { get; set; } = SourceKey.AnyDevice;
+
     internal StringName InputMapActionName => _inputMapActionName ??= new StringName(_inputMapAction);
 
     // ------------------------------------------------------------------
@@ -104,6 +110,9 @@ public partial class InputSource : Resource
     public static InputSource ForInputMapAction(string action) => new() { Kind = SourceKind.InputMapAction, InputMapAction = action };
     public static InputSource ForVirtual(string name) => new() { Kind = SourceKind.Virtual, VirtualName = name };
     public static InputSource Nothing() => new() { Kind = SourceKind.None };
+
+    public static InputSource ForTouch(TouchChannel channel, int finger = SourceKey.AnyDevice)
+        => new() { Kind = SourceKind.Touch, TouchChannel = channel, TouchIndex = finger };
 
     // ------------------------------------------------------------------
     //  Reading
@@ -166,6 +175,9 @@ public partial class InputSource : Resource
             case SourceKind.Virtual:
                 return reader.Read(SourceKey.ForVirtual(VirtualName));
 
+            case SourceKind.Touch:
+                return reader.Read(SourceKey.ForTouch(TouchChannel, TouchIndex));
+
             default:
                 return Vector3.Zero;
         }
@@ -216,6 +228,9 @@ public partial class InputSource : Resource
                 break;
             case SourceKind.Virtual:
                 keys.Add(SourceKey.ForVirtual(VirtualName));
+                break;
+            case SourceKind.Touch:
+                keys.Add(SourceKey.ForTouch(TouchChannel, TouchIndex));
                 break;
         }
     }
@@ -295,6 +310,7 @@ public partial class InputSource : Resource
         SourceKind.JoyStick => $"Joy {JoyStick} stick",
         SourceKind.InputMapAction => $"InputMap {_inputMapAction}",
         SourceKind.Virtual => $"Virtual {VirtualName}",
+        SourceKind.Touch => TouchIndex < 0 ? $"Touch {TouchChannel}" : $"Touch {TouchIndex} {TouchChannel}",
         _ => _kind.ToString(),
     };
 
@@ -326,6 +342,7 @@ public partial class InputSource : Resource
             nameof(Device) => joy,
             nameof(InputMapAction) => _kind == SourceKind.InputMapAction,
             nameof(VirtualName) => _kind == SourceKind.Virtual,
+            nameof(TouchChannel) or nameof(TouchIndex) => _kind == SourceKind.Touch,
             _ => true,
         };
 
