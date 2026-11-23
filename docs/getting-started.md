@@ -86,5 +86,22 @@ _input.AddContext(Menu, priority: 100, new ContextOptions { IgnoreHeldSourcesUnt
 While it is active, gameplay reads nothing; the Escape press that opened the menu is ignored until
 released. `RemoveContext(Menu)` returns control.
 
-Next: [concepts](concepts.md), [triggers](triggers.md), [modifiers](modifiers.md),
-[Godot integration](godot-integration.md).
+## 6. Show prompts, let players rebind
+
+```csharp
+_hint.Text = $"Press {_input.GetPromptText(Jump)} to jump";   // "Space", or "A" once a pad is used
+_input.InputDeviceChanged += (kind, pad) => _hint.Text = $"Press {_input.GetPromptText(Jump)} to jump";
+```
+
+Give a binding a *Rebind Id* (Inspector, *Rebinding* group) and players can change it from a
+settings menu; see [rebinding](rebinding.md). Add an `InputDebugOverlay` node and press F3 to see
+what every action is doing.
+
+## Next
+
+- [Concepts](concepts.md) — how contexts, the tick, phases and events fit together
+- [Triggers](triggers.md) and [modifiers](modifiers.md) — the full sets
+- [Rebinding](rebinding.md), [players and touch](players-and-touch.md),
+  [prompts and debugging](prompts-and-debugging.md)
+- [Godot integration](godot-integration.md) — InputMap, `InputEventAction`, GUI focus, headless tests
+- The demo: `addons/godot_enhanced_input_demo/demo.tscn`

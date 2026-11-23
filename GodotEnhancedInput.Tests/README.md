@@ -22,7 +22,10 @@ vstest.console) does not work with 2dog on .NET 10. Filter with xUnit's options 
 |---|---|
 | `Core/` | values, raw input and sources, InputMap / `InputEventAction`, modifiers, triggers |
 | `Pipeline/` | contexts, the whole tick (accumulation, chords, combos, pause), the phase state machine, events, GUI intake |
-| `Demo/` | the demo's saved resources and scene |
+| `Rebinding/` | rebind slots, conflicts, capture, profile JSON and files |
+| `Players/` | joypad assignment and joining, touch sources, on-screen controls |
+| `Prompts/` | prompt names, joypad styles, last used device, icon sets, the debug dump and overlay |
+| `Demo/` | the demo's saved resources and scene (pause menu, rebinding ids, joining) |
 
 Each test class names the requirement IDs from [docs/design.md](../docs/design.md) it covers.
 

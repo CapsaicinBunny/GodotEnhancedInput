@@ -35,6 +35,10 @@ Assert.True(player.WasTriggered(jump));
 
 A press and release within one tick still counts once.
 
+`InputEventAction`s have no real device, so through the autoload they reach only players with
+`AcceptActionEvents` on — player 0 by default. To drive another player in a test, feed the event to
+that player directly, or turn the flag on for it.
+
 ## Physical keys
 
 Key sources match `InputEventKey.PhysicalKeycode` by default, so bindings follow key positions

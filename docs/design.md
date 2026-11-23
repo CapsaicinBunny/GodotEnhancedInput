@@ -193,11 +193,18 @@ changed, so the designer's defaults stay intact and one profile can be reset at 
 ## 4. Architecture
 
 ```
-Godot events ──► EnhancedInput (autoload node)
-                   │ routes each event to the players whose device filter accepts it
+Godot events ──► on-screen controls (VirtualJoystick, VirtualButton, TouchZone: take their touches,
+   │              write virtual controls)
+   ▼
+                 EnhancedInput (autoload node)
+                   │ routes joypad events to the joypad's owner (joining on a button press if
+                   │ enabled), other events to the players that accept that kind of device
                    ▼
-                 InputPlayer ── RawInputState (per source: current value, peak since last tick,
-                   │                           motion accumulators, virtual controls)
+                 InputPlayer ── rebind capture (takes the next press, if running)
+                   │         ── last used device (for prompts)
+                   │         ── RawInputState (per source: current value, peak since last tick,
+                   │                           motion and touch-drag accumulators, virtual controls)
+                   │         ── InputProfile (rebind id → replacement source; JSON on disk)
                    │ Tick(delta):
                    │   1. order active contexts (priority, then most recent)
                    │   2. read each binding's sources; zero them if consumed/blocked/ignored
@@ -207,6 +214,10 @@ Godot events ──► EnhancedInput (autoload node)
                    │   5. dispatch callbacks and signals; clear per-tick raw data
                    ▼
                  ActionState (per action per player): value, phase, events, timings
+                   │
+                   ▼
+                 read by gameplay (polling, callbacks, signals), prompts (GetPrompts) and the
+                 debug dump / overlay
 ```
 
 Key decisions:
@@ -224,6 +235,12 @@ Key decisions:
 * **Value shape.** Sources yield a `Vector3`. It is shaped to the action's kind before binding
   modifiers run. A digital action keeps the source strength in X, so trigger thresholds work
   with analog triggers.
+* **Rebinding never edits resources.** A binding's source is resolved through the player's
+  profile every tick (`GetEffectiveSource`), so defaults stay intact, profiles are per player, and
+  consumption and prompts follow rebinds automatically.
+* **Few exceptions to "never handled".** The autoload never marks events handled except a press
+  taken by a rebind capture; on-screen controls mark the touches they use. Everything else reaches
+  the GUI and other nodes.
 * **Godot conventions.** Up is −Y for 2D input (as `Input.GetVector` does); `WorldAxesModifier`
   maps X/Y onto X/Z, so "up on the stick" becomes −Z, Godot's forward.
 

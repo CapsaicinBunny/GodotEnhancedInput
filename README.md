@@ -41,11 +41,32 @@ rebinding, local players and touch, prompts and debugging. Not yet released.
   `InputEventAction` drives game actions directly (great for tests); never marks events handled
   and never steals presses from a focused GUI control; C# callbacks, polling and Godot signals.
 
+## Requirements
+
+- Godot 4.7 or later, **.NET edition** (tested with 4.7.1 and 4.8-beta4)
+- A C# project (the .NET SDK your Godot version asks for)
+
 ## Install
 
-Copy `addons/godot_enhanced_input` into your project's `addons/` folder, build the C# solution,
-and enable **Godot Enhanced Input** in *Project → Project Settings → Plugins*. Enabling it adds the
-`EnhancedInput` autoload.
+1. Get the `addons/godot_enhanced_input` folder: clone or download this repository, or (once
+   releases are published) take the ZIP attached to a GitHub release.
+2. Copy it into your project's `addons/` folder. The demo (`addons/godot_enhanced_input_demo`) is
+   optional.
+3. Build the C# solution once, then enable **Godot Enhanced Input** in
+   *Project → Project Settings → Plugins*. Enabling it adds the `EnhancedInput` autoload.
+
+## Reading actions at a glance
+
+| You want | Use |
+|---|---|
+| a stick, mouse look or movement vector | `player.GetValue(move).AsVector2()` |
+| a trigger or throttle amount | `player.GetValue(throttle).AsFloat()` |
+| "pressed this frame" | `player.WasTriggered(jump)` on an action with a `PressedTrigger` |
+| "held" | `player.IsTriggered(sprint)` on an action with no trigger (or a `DownTrigger`) |
+| "released this frame" | `player.WasCompleted(sprint)` |
+| hold for N seconds, tap, double-press, pulse while held | `HoldTrigger`, `TapTrigger`, `ComboTrigger`, `PulseTrigger` |
+| a callback instead of polling | `player.Bind(jump, ActionEvents.Triggered, e => …)` |
+| a prompt such as "Press Space" | `player.GetPromptText(jump)` |
 
 ## Quick start
 
@@ -102,12 +123,27 @@ touch controls (F2 on desktop). Open `demo.tscn` and press F6.
 
 ## Documentation
 
-- [Getting started](docs/getting-started.md)
-- [Concepts: actions, contexts, phases and events](docs/concepts.md)
-- [Modifiers](docs/modifiers.md) · [Triggers](docs/triggers.md) · [Rebinding](docs/rebinding.md) · [Players and touch](docs/players-and-touch.md) · [Prompts and debugging](docs/prompts-and-debugging.md)
-- [Godot integration: InputMap, `InputEventAction`, GUI, tests](docs/godot-integration.md)
-- [Design and requirements](docs/design.md)
-- [Migrating from InputForge](docs/migration.md)
+| Guide | Covers |
+|---|---|
+| [Getting started](docs/getting-started.md) | install, first actions and context, using them, a menu on top |
+| [Concepts](docs/concepts.md) | actions and values, sources, contexts, the tick, phases and events, injected input |
+| [Modifiers](docs/modifiers.md) | every modifier, recipes, writing your own |
+| [Triggers](docs/triggers.md) | every trigger, roles, chords, combos, tap versus hold, writing your own |
+| [Rebinding](docs/rebinding.md) | rebindable bindings, slots, conflicts, capture, saving profiles |
+| [Players and touch](docs/players-and-touch.md) | local multiplayer, joypad assignment, joining, touch sources, on-screen controls |
+| [Prompts and debugging](docs/prompts-and-debugging.md) | button prompts, joypad styles, icon sets, text dump, F3 overlay |
+| [Godot integration](docs/godot-integration.md) | ticking, InputMap and `InputEventAction`, physical keys, GUI focus, signals, headless tests |
+| [Design and requirements](docs/design.md) | requirements with their tests, architecture, the staged plan |
+| [Migrating from InputForge](docs/migration.md) | old names to new, behaviour that changed |
+
+## Repository layout
+
+| Path | What |
+|---|---|
+| `addons/godot_enhanced_input/` | the plugin: `Resources/`, `Runtime/`, `Modifiers/`, `Triggers/`, `Touch/`, `Prompts/`, `Debug/` |
+| `addons/godot_enhanced_input_demo/` | the demo scene and its saved actions and contexts |
+| `GodotEnhancedInput.Tests/` | the headless test suite |
+| `docs/` | the guides above |
 
 ## Tests
 
@@ -115,8 +151,9 @@ touch controls (F2 on desktop). Open `demo.tscn` and press F6.
 dotnet run --project GodotEnhancedInput.Tests/GodotEnhancedInput.Tests.csproj -c Debug
 ```
 
-The suite runs against a real headless Godot through [2dog](https://github.com/outfox/2dog);
-see [the test README](GodotEnhancedInput.Tests/README.md).
+235 tests run against a real headless Godot through [2dog](https://github.com/outfox/2dog), one or
+more per requirement in the [design](docs/design.md); see [the test README](GodotEnhancedInput.Tests/README.md).
+The same suite runs in CI on pull requests.
 
 ## Credits and license
 

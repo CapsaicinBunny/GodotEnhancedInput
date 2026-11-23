@@ -119,6 +119,10 @@ player.ActionTriggered += action => GD.Print(action.Name);
 Typical mappings: a "pressed" flag is `WasTriggered` on an action with a `PressedTrigger`; a "held"
 flag is `IsTriggered` on an action with no trigger (or a `DownTrigger`); a release is `WasCompleted`.
 
+To tell the player which input to use, ask for the action's prompts (`player.GetPromptText(jump)`);
+see [prompts and debugging](prompts-and-debugging.md). `player.DescribeState()` prints everything
+above for every action.
+
 ## Injected input
 
 `InjectInput(action, value)` feeds a value for the next tick; `StartInjecting` / `StopInjecting`
