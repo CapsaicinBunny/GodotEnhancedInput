@@ -53,6 +53,7 @@ public partial class Demo : Node2D
 
     private Label _panel;
     private Label _logLabel;
+    private Label _help;
     private PanelContainer _menu;
     private GridContainer _slotGrid;
     private Control _touchControls;
@@ -87,6 +88,25 @@ public partial class Demo : Node2D
         if (PersistBindings) _player.LoadProfile(ProfilePath);
         _player.BindingsChanged += OnBindingsChanged;
         _player.RebindCaptureCanceled += OnCaptureCanceled;
+
+        // Prompts follow the device player 0 last used, and its rebinds.
+        _player.InputDeviceChanged += OnInputDeviceChanged;
+        UpdateHelp();
+
+        // F3 shows the full state of every player.
+        AddChild(new InputDebugOverlay { System = _system });
+    }
+
+    private void OnInputDeviceChanged(InputDeviceKind kind, int joypad) => UpdateHelp();
+
+    private void UpdateHelp()
+    {
+        if (_help == null) return;
+        string P(string action) => _player.GetPromptText(A(action), separator: " or ") is { Length: > 0 } text ? text : "—";
+        _help.Text =
+            $"Move: {P("move")} · Sprint: {P("sprint")} · Jump: {P("jump")} · Dash: {P("dash")} · Spin: Jump, then Dash\n" +
+            $"Charge: hold {P("charge")} · Inspect: tap {P("inspect")} · Pick up: hold {P("pick_up")} · Fire: {P("fire")} · " +
+            $"Pause & rebind: {P("pause")} · F2: touch controls · F3: debug overlay";
     }
 
     public override void _ExitTree()
@@ -97,6 +117,7 @@ public partial class Demo : Node2D
 
         _player.BindingsChanged -= OnBindingsChanged;
         _player.RebindCaptureCanceled -= OnCaptureCanceled;
+        _player.InputDeviceChanged -= OnInputDeviceChanged;
         _player.CancelCapture();
         _player.UnregisterRebindContext(Gameplay);
         _player.RemoveContext(Menu);
@@ -207,6 +228,7 @@ public partial class Demo : Node2D
     {
         if (PersistBindings) _player.SaveProfile(ProfilePath);
         RefreshMenu();
+        UpdateHelp();
     }
 
     private void OnCaptureCanceled(string id) => RefreshMenu();
@@ -314,14 +336,9 @@ public partial class Demo : Node2D
         _logLabel.AddThemeFontSizeOverride("font_size", 13);
         ui.AddChild(_logLabel);
 
-        var help = new Label
-        {
-            Text = "WASD / stick: move · Shift: sprint · Space: jump · Shift+Space: dash · Jump→Dash: spin · Hold E: charge\n" +
-                   "Tap F: inspect · Hold F: pick up · Mouse/RT: fire · Esc/Start: pause & rebind · F2: touch controls",
-            Position = new Vector2(12, size.Y - 46),
-        };
-        help.AddThemeFontSizeOverride("font_size", 13);
-        ui.AddChild(help);
+        _help = new Label { Position = new Vector2(12, size.Y - 46) };
+        _help.AddThemeFontSizeOverride("font_size", 13);
+        ui.AddChild(_help);
 
         // On-screen controls for player 0: shown on touchscreens, or with F2.
         _touchControls = new Control { MouseFilter = Control.MouseFilterEnum.Ignore, Visible = DisplayServer.IsTouchscreenAvailable() };

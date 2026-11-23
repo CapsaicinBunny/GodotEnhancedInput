@@ -75,9 +75,12 @@ public partial class InputPlayer
     /// listed — by default the last used one; when nothing matches, all are listed.
     /// </summary>
     public List<ActionPrompt> GetPrompts(GameAction action, InputDeviceKind? kind = null, JoypadStyle? style = null)
+        => GetPrompts(action, kind, style, depth: 0);
+
+    private List<ActionPrompt> GetPrompts(GameAction action, InputDeviceKind? kind, JoypadStyle? style, int depth)
     {
         var all = new List<ActionPrompt>();
-        if (action == null) return all;
+        if (action == null || depth > 3) return all;
         var joypadStyle = style ?? JoypadStyle;
         var seen = new HashSet<string>();
 
@@ -88,7 +91,17 @@ public partial class InputPlayer
                 if (binding?.Action != action) continue;
                 var source = GetEffectiveSource(binding);
                 if (source == null || source.Kind == SourceKind.None) continue;
-                var prompt = new ActionPrompt(action, binding, context, source, joypadStyle);
+                // A chord ("Shift + Space") is shown in front of the source, using the chord action's prompt
+                // for the same kind of device.
+                string chord = null;
+                foreach (var trigger in binding.Triggers)
+                {
+                    if (trigger is not ChordTrigger { ChordAction: { } chordAction }) continue;
+                    var chordPrompts = GetPrompts(chordAction, InputPrompts.DeviceKindOf(source), joypadStyle, depth + 1);
+                    if (chordPrompts.Count > 0) chord = chordPrompts[0].Text;
+                    break;
+                }
+                var prompt = new ActionPrompt(action, binding, context, source, joypadStyle, chord);
                 if (string.IsNullOrEmpty(prompt.Text) || !seen.Add(prompt.IconKey + "|" + prompt.Text)) continue;
                 all.Add(prompt);
             }

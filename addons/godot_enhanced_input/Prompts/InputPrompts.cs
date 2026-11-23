@@ -95,13 +95,25 @@ public static class InputPrompts
     {
         if (key == Key.None) return string.Empty;
         var shown = key;
-        if (match == KeyMatch.Physical)
+        if (match == KeyMatch.Physical && LayoutLabelsSupported)
         {
             var label = DisplayServer.KeyboardGetLabelFromPhysical(key);
             if (label != Key.None) shown = label;
         }
         var text = OS.GetKeycodeString(shown);
         return string.IsNullOrEmpty(text) ? key.ToString() : text;
+    }
+
+    private static bool? _layoutLabelsSupported;
+
+    /// <summary>
+    /// Whether the display server can say what the keyboard layout prints on a physical key. Headless
+    /// runs cannot; physical keys are then named by their position (US layout).
+    /// </summary>
+    public static bool LayoutLabelsSupported
+    {
+        get => _layoutLabelsSupported ??= DisplayServer.GetName() is not ("headless" or "dummy" or "");
+        set => _layoutLabelsSupported = value;
     }
 
     /// <summary>A mouse button's name.</summary>
@@ -243,7 +255,7 @@ public static class InputPrompts
 /// <summary>One prompt for an action: a source that currently drives it, with its text and icon key.</summary>
 public readonly struct ActionPrompt
 {
-    public ActionPrompt(GameAction action, ActionBinding binding, BindingContext context, InputSource source, JoypadStyle style)
+    public ActionPrompt(GameAction action, ActionBinding binding, BindingContext context, InputSource source, JoypadStyle style, string chordText = null)
     {
         Action = action;
         Binding = binding;
@@ -251,9 +263,17 @@ public readonly struct ActionPrompt
         Source = source;
         Style = style;
         DeviceKind = InputPrompts.DeviceKindOf(source);
-        Text = InputPrompts.GetName(source, style);
+        SourceText = InputPrompts.GetName(source, style);
+        ChordText = chordText ?? string.Empty;
+        Text = string.IsNullOrEmpty(ChordText) ? SourceText : $"{ChordText} + {SourceText}";
         IconKey = InputPrompts.GetIconKey(source);
     }
+
+    /// <summary>The source's own name, without a chord.</summary>
+    public string SourceText { get; }
+
+    /// <summary>The prompt of the action the binding is chorded with (see <see cref="ChordTrigger"/>), or empty.</summary>
+    public string ChordText { get; }
 
     public GameAction Action { get; }
     public ActionBinding Binding { get; }
@@ -267,7 +287,7 @@ public readonly struct ActionPrompt
 
     public InputDeviceKind DeviceKind { get; }
 
-    /// <summary>What to show, e.g. "Space", "LB", "W/A/S/D".</summary>
+    /// <summary>What to show, e.g. "Space", "LB", "W/A/S/D", "Shift + Space".</summary>
     public string Text { get; }
 
     /// <summary>See <see cref="InputPrompts.GetIconKey"/>.</summary>

@@ -250,7 +250,7 @@ player.Tick(1.0 / 60.0);
 
 ## 6. Staged plan
 
-Stages 1, 2 and 3 are done.
+All four stages are done.
 
 | Stage | Content | Done when |
 |---|---|---|

@@ -190,6 +190,22 @@ public class PromptTests
     }
 
     [Fact]
+    public void ActionPrompts_ShowChords()
+    {
+        var sprint = Make.Action("sprint");
+        var dash = Make.Action("dash");
+        using var rig = new Rig().Add(Make.Context("C",
+            Make.Bind(sprint, Key.Shift),
+            Make.Bind(sprint, InputSource.ForJoyButton(JoyButton.LeftShoulder)),
+            Make.Bind(dash, Key.Space, new ChordTrigger { ChordAction = sprint })));
+
+        var prompt = rig.Player.GetPrompts(dash, InputDeviceKind.KeyboardMouse).Single();
+        prompt.Text.Should().Be("Shift + Space");
+        prompt.SourceText.Should().Be("Space");
+        prompt.ChordText.Should().Be("Shift", "the chord uses the same kind of device");
+    }
+
+    [Fact]
     public void Icons_StyledKeyFirst_ThenPlain_ThenFallback()
     {
         var generic = new ImageTexture();

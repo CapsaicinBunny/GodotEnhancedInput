@@ -7,8 +7,8 @@ action gets a typed value and a phase, and raises events your code can subscribe
 > C# · Godot 4.7+ · configured in the Inspector or in code · works with the InputMap, physical
 > keys and GUI focus · testable headless
 
-Status: **0.1.0, stages 1–3 of 4** — the core, rebinding, local players and touch are done (see
-[the plan](docs/design.md#6-staged-plan)). Button prompts and a debug overlay come next.
+Status: **0.1.0** — all four stages of [the plan](docs/design.md#6-staged-plan) are done: the core,
+rebinding, local players and touch, prompts and debugging. Not yet released.
 
 ## What it does
 
@@ -32,6 +32,11 @@ Status: **0.1.0, stages 1–3 of 4** — the core, rebinding, local players and 
   assignment; players join by pressing a button on a new joypad.
 - **Touch.** Touch sources (pressed, position, drag) and on-screen controls — a virtual stick,
   buttons and a drag zone for camera look — with multi-touch.
+- **Button prompts.** "Press Space" turns into "Press A" when the player picks up a pad: prompts
+  follow the last used device, rebinds and chords, name keys as the keyboard layout labels them,
+  and name pad buttons in Xbox-, PlayStation- or Nintendo-like styles. Icon sets map prompts to your
+  own artwork.
+- **Debugging.** A text dump of every player's contexts and actions, and an F3 overlay.
 - **Godot-friendly.** Physical key positions by default; InputMap actions as sources;
   `InputEventAction` drives game actions directly (great for tests); never marks events handled
   and never steals presses from a focused GUI control; C# callbacks, polling and Godot signals.
@@ -99,7 +104,7 @@ touch controls (F2 on desktop). Open `demo.tscn` and press F6.
 
 - [Getting started](docs/getting-started.md)
 - [Concepts: actions, contexts, phases and events](docs/concepts.md)
-- [Modifiers](docs/modifiers.md) · [Triggers](docs/triggers.md) · [Rebinding](docs/rebinding.md) · [Players and touch](docs/players-and-touch.md)
+- [Modifiers](docs/modifiers.md) · [Triggers](docs/triggers.md) · [Rebinding](docs/rebinding.md) · [Players and touch](docs/players-and-touch.md) · [Prompts and debugging](docs/prompts-and-debugging.md)
 - [Godot integration: InputMap, `InputEventAction`, GUI, tests](docs/godot-integration.md)
 - [Design and requirements](docs/design.md)
 - [Migrating from InputForge](docs/migration.md)

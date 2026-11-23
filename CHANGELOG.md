@@ -47,9 +47,16 @@ history up to 0.2.3 is in its repository.
   `TouchZone` controls (multi-touch, optional mouse, touchscreen-only visibility).
 - Demo scene with saved actions and contexts, a rebinding panel in its pause menu, joining with more
   joypads, and on-screen touch controls.
-- Documentation: design, concepts, modifiers, triggers, rebinding, players and touch, Godot
-  integration, migration.
-- 206 headless tests.
+- Prompts: `InputPrompts` names for every source kind (physical keys as the layout labels them,
+  joypads in generic / Xbox-like / PlayStation-like / Nintendo-like styles detected from the pad's
+  name) and stable icon keys; `InputPlayer` tracks the last used device (`InputDeviceChanged`) and
+  lists an action's prompts (`GetPrompts`, `GetPromptText`) with rebinds and chords;
+  `PromptIconSet` resource with styled keys, fallbacks and BBCode output.
+- Debugging: `InputPlayer.DescribeState` / `EnhancedInput.DescribeState` text dumps and the
+  `InputDebugOverlay` (F3) with recent events.
+- Documentation: design, concepts, modifiers, triggers, rebinding, players and touch, prompts and
+  debugging, Godot integration, migration.
+- 235 headless tests.
 
 ### Removed
 - InputForge's `EnhancedInputSystem`, `InputAction`, `InputMappingContext`, `InputMapping`, `InputKey`,
