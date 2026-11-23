@@ -7,9 +7,9 @@ action gets a typed value and a phase, and raises events your code can subscribe
 > C# · Godot 4.7+ · configured in the Inspector or in code · works with the InputMap, physical
 > keys and GUI focus · testable headless
 
-Status: **0.1.0, stage 1 of 4** — the core is done (see [the plan](docs/design.md#6-staged-plan)).
-Rebinding and saving, several local players with device assignment, touch controls, button
-prompts and a debug overlay come next.
+Status: **0.1.0, stages 1–2 of 4** — the core and rebinding are done (see
+[the plan](docs/design.md#6-staged-plan)). Several local players with device assignment, touch
+controls, button prompts and a debug overlay come next.
 
 ## What it does
 
@@ -26,6 +26,9 @@ prompts and a debug overlay come next.
 - **A per-tick state machine** turns phases (idle, ongoing, triggered) into events: started,
   ongoing, triggered, completed, canceled — with elapsed and triggered time. Hold and pulse work
   while nothing new arrives.
+- **Player rebinding.** Mark bindings rebindable, list them as slots for a settings menu, rebind
+  in code or by capturing the next press, handle conflicts (allow, reject, swap, clear), and save
+  each player's profile as versioned JSON.
 - **Godot-friendly.** Physical key positions by default; InputMap actions as sources;
   `InputEventAction` drives game actions directly (great for tests); never marks events handled
   and never steals presses from a focused GUI control; C# callbacks, polling and Godot signals.
@@ -86,13 +89,13 @@ gameplay.Add(jump, InputSource.ForJoyButton(JoyButton.A), new PressedTrigger());
 ```
 
 The demo in `addons/godot_enhanced_input_demo` shows chords, tap-versus-hold on one key, a combo,
-pulses and a blocking pause menu. Open `demo.tscn` and press F6.
+pulses, a blocking pause menu and a rebinding panel inside it. Open `demo.tscn` and press F6.
 
 ## Documentation
 
 - [Getting started](docs/getting-started.md)
 - [Concepts: actions, contexts, phases and events](docs/concepts.md)
-- [Modifiers](docs/modifiers.md) · [Triggers](docs/triggers.md)
+- [Modifiers](docs/modifiers.md) · [Triggers](docs/triggers.md) · [Rebinding](docs/rebinding.md)
 - [Godot integration: InputMap, `InputEventAction`, GUI, tests](docs/godot-integration.md)
 - [Design and requirements](docs/design.md)
 - [Migrating from InputForge](docs/migration.md)

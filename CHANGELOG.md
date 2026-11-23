@@ -26,11 +26,20 @@ history up to 0.2.3 is in its repository.
   completed and canceled with elapsed and triggered time; C# callbacks with disposable handles,
   polling, a stream of all events, and Godot signals; injected input (one tick or continuous).
 - `EnhancedInput` autoload: routes events to players by device, ticks in process, physics or manual
-  mode, keeps running while paused, never marks events handled, and leaves presses to a focused GUI.
+  mode, keeps running while paused, leaves presses to a focused GUI, and never marks events handled
+  except a press captured for rebinding.
 - `InputEventAction` drives game actions with the same name; InputMap sources follow both
   `InputEventAction` and `Input.ActionPress`.
-- Demo scene with saved actions and contexts; design, concepts, modifier, trigger, integration and
-  migration documentation; 141 headless tests.
+- Rebinding: `ActionBinding` rebind id, display name, category and former ids; per-player
+  `InputProfile` overrides; rebind slots from active and registered contexts; clear and reset;
+  conflict detection (same context or all) with allow / reject / swap / clear policies;
+  `StartCapture` binds the next key, mouse, joypad button or axis press (the captured press is
+  swallowed and marked handled); `InputSource.FromEvent` and `Overlaps`; half-axis joypad sources;
+  JSON profiles (format 1) with enums by name, unknown ids kept, former ids migrated, malformed
+  entries skipped and newer formats refused.
+- Demo scene with saved actions and contexts, and a rebinding panel in its pause menu.
+- Documentation: design, concepts, modifiers, triggers, rebinding, Godot integration, migration.
+- 179 headless tests.
 
 ### Removed
 - InputForge's `EnhancedInputSystem`, `InputAction`, `InputMappingContext`, `InputMapping`, `InputKey`,

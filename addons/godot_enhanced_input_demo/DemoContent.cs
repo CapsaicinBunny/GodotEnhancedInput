@@ -48,36 +48,38 @@ public sealed class DemoContent
         Gameplay.Add(Move, InputSource.ForKeyAxis2D(Key.W, Key.S, Key.A, Key.D));
         Gameplay.Add(Move, InputSource.ForJoyStick(JoyStickSide.Left), new DeadzoneModifier { Shape = DeadzoneShape.Radial, Lower = 0.2f });
 
-        Gameplay.Add(Sprint, InputSource.ForKey(Key.Shift));
-        Gameplay.Add(Sprint, InputSource.ForJoyButton(JoyButton.LeftShoulder));
+        Gameplay.Add(Sprint, InputSource.ForKey(Key.Shift)).Rebindable("sprint_key", "Sprint", "Keyboard");
+        Gameplay.Add(Sprint, InputSource.ForJoyButton(JoyButton.LeftShoulder)).Rebindable("sprint_pad", "Sprint", "Gamepad");
 
-        Gameplay.Add(Dash, InputSource.ForKey(Key.Space), new PressedTrigger(), new ChordTrigger { ChordAction = Sprint });
-        Gameplay.Add(Dash, InputSource.ForJoyButton(JoyButton.B), new PressedTrigger());
+        // Jump and Dash share the Space binding id, so rebinding it moves both.
+        Gameplay.Add(Dash, InputSource.ForKey(Key.Space), new PressedTrigger(), new ChordTrigger { ChordAction = Sprint }).Rebindable("jump_key", "Jump / Dash", "Keyboard");
+        Gameplay.Add(Dash, InputSource.ForJoyButton(JoyButton.B), new PressedTrigger()).Rebindable("dash_pad", "Dash", "Gamepad");
 
-        Gameplay.Add(Jump, InputSource.ForKey(Key.Space), new PressedTrigger(), new ChordBlockerTrigger { BlockingAction = Dash });
-        Gameplay.Add(Jump, InputSource.ForJoyButton(JoyButton.A), new PressedTrigger());
+        Gameplay.Add(Jump, InputSource.ForKey(Key.Space), new PressedTrigger(), new ChordBlockerTrigger { BlockingAction = Dash }).Rebindable("jump_key", "Jump / Dash", "Keyboard");
+        Gameplay.Add(Jump, InputSource.ForJoyButton(JoyButton.A), new PressedTrigger()).Rebindable("jump_pad", "Jump", "Gamepad");
 
-        Gameplay.Add(Charge, InputSource.ForKey(Key.E), new HoldTrigger { HoldSeconds = 0.6f, OneShot = true });
-        Gameplay.Add(Charge, InputSource.ForJoyButton(JoyButton.X), new HoldTrigger { HoldSeconds = 0.6f, OneShot = true });
+        Gameplay.Add(Charge, InputSource.ForKey(Key.E), new HoldTrigger { HoldSeconds = 0.6f, OneShot = true }).Rebindable("charge_key", "Charge", "Keyboard");
+        Gameplay.Add(Charge, InputSource.ForJoyButton(JoyButton.X), new HoldTrigger { HoldSeconds = 0.6f, OneShot = true }).Rebindable("charge_pad", "Charge", "Gamepad");
 
-        Gameplay.Add(Inspect, InputSource.ForKey(Key.F), new TapTrigger { TapSeconds = 0.25f });
-        Gameplay.Add(PickUp, InputSource.ForKey(Key.F), new HoldTrigger { HoldSeconds = 0.5f, OneShot = true });
+        Gameplay.Add(Inspect, InputSource.ForKey(Key.F), new TapTrigger { TapSeconds = 0.25f }).Rebindable("interact_key", "Inspect / Pick up", "Keyboard");
+        Gameplay.Add(PickUp, InputSource.ForKey(Key.F), new HoldTrigger { HoldSeconds = 0.5f, OneShot = true }).Rebindable("interact_key", "Inspect / Pick up", "Keyboard");
 
-        Gameplay.Add(Fire, InputSource.ForMouseButton(MouseButton.Left), new PulseTrigger { IntervalSeconds = 0.15f });
-        Gameplay.Add(Fire, InputSource.ForJoyAxis(JoyAxis.TriggerRight), new PulseTrigger { IntervalSeconds = 0.15f, ActuationThreshold = 0.5f });
+        Gameplay.Add(Fire, InputSource.ForMouseButton(MouseButton.Left), new PulseTrigger { IntervalSeconds = 0.15f }).Rebindable("fire_mouse", "Fire", "Keyboard");
+        Gameplay.Add(Fire, InputSource.ForJoyAxis(JoyAxis.TriggerRight), new PulseTrigger { IntervalSeconds = 0.15f, ActuationThreshold = 0.5f }).Rebindable("fire_pad", "Fire", "Gamepad");
 
         var spin = new ComboTrigger();
         spin.Steps.Add(ComboStep.Create(Jump));
         spin.Steps.Add(ComboStep.Create(Dash, ActionEvents.Triggered, 0.6f));
         Gameplay.Add(Spin, InputSource.Nothing(), spin);
 
-        Gameplay.Add(Pause, InputSource.ForKey(Key.Escape), new PressedTrigger());
+        // Pause and Resume share an id across the two contexts.
+        Gameplay.Add(Pause, InputSource.ForKey(Key.Escape), new PressedTrigger()).Rebindable("pause_key", "Pause", "Keyboard");
         Gameplay.Add(Pause, InputSource.ForJoyButton(JoyButton.Start), new PressedTrigger());
 
         Menu = BindingContext.Create("menu");
         Menu.Description = "Pause menu: blocks everything below it.";
         Menu.BlockLowerPriority = true;
-        Menu.Add(Resume, InputSource.ForKey(Key.Escape), new PressedTrigger());
+        Menu.Add(Resume, InputSource.ForKey(Key.Escape), new PressedTrigger()).Rebindable("pause_key", "Pause", "Keyboard");
         Menu.Add(Resume, InputSource.ForJoyButton(JoyButton.Start), new PressedTrigger());
     }
 

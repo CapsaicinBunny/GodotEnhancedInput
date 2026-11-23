@@ -261,11 +261,16 @@ public partial class InputPlayer : Node, ISourceReader
     /// <summary>The active contexts in evaluation order (highest priority first).</summary>
     public List<BindingContext> GetContexts()
     {
-        OrderEntries();
-        var result = new List<BindingContext>(_ordered.Count);
-        foreach (var entry in _ordered) result.Add(entry.Context);
+        // A separate list: this may be called from callbacks while a tick walks _ordered.
+        var entries = new List<ContextEntry>(_entries);
+        entries.Sort(CompareEntries);
+        var result = new List<BindingContext>(entries.Count);
+        foreach (var entry in entries) result.Add(entry.Context);
         return result;
     }
+
+    private static int CompareEntries(ContextEntry a, ContextEntry b)
+        => a.Priority != b.Priority ? b.Priority.CompareTo(a.Priority) : b.Sequence.CompareTo(a.Sequence);
 
     private ContextEntry FindEntry(BindingContext context)
     {
@@ -279,7 +284,7 @@ public partial class InputPlayer : Node, ISourceReader
     {
         _ordered.Clear();
         _ordered.AddRange(_entries);
-        _ordered.Sort((a, b) => a.Priority != b.Priority ? b.Priority.CompareTo(a.Priority) : b.Sequence.CompareTo(a.Sequence));
+        _ordered.Sort(CompareEntries);
         for (int i = 0; i < _ordered.Count; i++) _ordered[i].Rank = i;
     }
 

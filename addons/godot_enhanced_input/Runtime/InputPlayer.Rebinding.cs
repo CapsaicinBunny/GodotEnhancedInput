@@ -28,7 +28,12 @@ public partial class InputPlayer
     {
         get
         {
-            if (_profile == null) Profile = new InputProfile();
+            if (_profile == null)
+            {
+                // Created quietly: nothing changed from the bindings' point of view.
+                _profile = new InputProfile();
+                _profile.Changed += OnProfileChanged;
+            }
             return _profile;
         }
         set

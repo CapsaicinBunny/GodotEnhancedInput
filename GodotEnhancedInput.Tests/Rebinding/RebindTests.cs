@@ -225,6 +225,20 @@ public class RebindTests
     }
 
     [Fact]
+    public void FirstTick_CreatesProfileQuietly_AndCallbacksMayReadSlots()
+    {
+        using var s = new Setup();
+        var changed = 0;
+        s.Player.BindingsChanged += () => { changed++; s.Player.GetRebindSlots(); };
+        s.Player.ActionEventRaised += _ => s.Player.GetRebindSlots();
+
+        s.Rig.Press(Key.Space).Tick().Tick();
+
+        changed.Should().Be(0);
+        s.Player.IsTriggered(s.Jump).Should().BeTrue();
+    }
+
+    [Fact]
     public void Profiles_ArePerPlayer()
     {
         using var s = new Setup();

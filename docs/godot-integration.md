@@ -44,8 +44,10 @@ build events by hand, set `PhysicalKeycode`.
 
 ## GUI focus
 
-The system never calls `SetInputAsHandled`, so everything else still receives every event. With
-`GuiPolicy.RespectGui` (default):
+The system never calls `SetInputAsHandled`, so everything else still receives every event — with
+one exception: a press taken by a running [rebind capture](rebinding.md#4-capture-the-next-press)
+is marked handled, so the focused button does not also react to it. With `GuiPolicy.RespectGui`
+(default):
 
 - **presses** and movement away from zero are read in `_UnhandledInput` — when a focused `LineEdit`
   or button accepts a key, gameplay does not see it;
@@ -72,7 +74,8 @@ on-screen controls are planned for stage 3.
 
 `InputPlayer` signals: `ActionStarted`, `ActionOngoing`, `ActionTriggered`, `ActionCompleted`,
 `ActionCanceled` (each with the `GameAction`), `ContextAdded` (context, priority),
-`ContextRemoved`. `EnhancedInput` signals: `PlayerAdded`, `PlayerRemoved`. In C#, the signals are
+`ContextRemoved`, `BindingsChanged`, `RebindCaptured` (id, source), `RebindCaptureCanceled` (id).
+`EnhancedInput` signals: `PlayerAdded`, `PlayerRemoved`. In C#, the signals are
 also events (`player.ActionTriggered += …`), and `ActionEventRaised` streams every event with its
 full `ActionEventArgs`.
 

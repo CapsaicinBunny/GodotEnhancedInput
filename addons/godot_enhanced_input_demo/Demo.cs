@@ -17,6 +17,12 @@ public partial class Demo : Node2D
     /// <summary>Pause menu. Defaults to the demo's menu.tres.</summary>
     [Export] public BindingContext Menu { get; set; }
 
+    /// <summary>Load the player's rebinding profile on start and save it after every change.</summary>
+    [Export] public bool PersistBindings { get; set; } = true;
+
+    /// <summary>Where the demo keeps its rebinding profile.</summary>
+    [Export] public string ProfilePath { get; set; } = "user://godot_enhanced_input_demo/bindings.json";
+
     private const float Speed = 260f;
     private const float SprintFactor = 1.8f;
 
@@ -31,7 +37,8 @@ public partial class Demo : Node2D
     private ColorRect _chargeBar;
     private Label _panel;
     private Label _logLabel;
-    private Label _menuLabel;
+    private PanelContainer _menu;
+    private GridContainer _slotGrid;
     private Vector2 _facing = Vector2.Right;
     private Vector2 _dashVelocity;
 
@@ -53,6 +60,12 @@ public partial class Demo : Node2D
         _player.AddContext(Gameplay, priority: 0);
         _player.ActionEventRaised += OnActionEvent;
 
+        // Rebinding: list gameplay slots in the menu, keep the profile on disk.
+        _player.RegisterRebindContext(Gameplay);
+        if (PersistBindings) _player.LoadProfile(ProfilePath);
+        _player.BindingsChanged += OnBindingsChanged;
+        _player.RebindCaptureCanceled += OnCaptureCanceled;
+
         BuildScene();
     }
 
@@ -60,6 +73,10 @@ public partial class Demo : Node2D
     {
         if (_player == null || !IsInstanceValid(_player)) return;
         _player.ActionEventRaised -= OnActionEvent;
+        _player.BindingsChanged -= OnBindingsChanged;
+        _player.RebindCaptureCanceled -= OnCaptureCanceled;
+        _player.CancelCapture();
+        _player.UnregisterRebindContext(Gameplay);
         _player.RemoveContext(Gameplay);
         _player.RemoveContext(Menu);
     }
@@ -101,13 +118,53 @@ public partial class Demo : Node2D
     {
         // The Escape press that opened the menu is still held: the menu ignores it until released.
         _player.AddContext(Menu, priority: 100, new ContextOptions { IgnoreHeldSourcesUntilReleased = true });
-        _menuLabel.Visible = true;
+        RefreshMenu();
+        _menu.Visible = true;
     }
 
     private void CloseMenu()
     {
+        _player.CancelCapture();
         _player.RemoveContext(Menu);
-        _menuLabel.Visible = false;
+        _menu.Visible = false;
+    }
+
+    // ------------------------------------------------------------------
+    //  Rebinding menu
+    // ------------------------------------------------------------------
+
+    private void OnBindingsChanged()
+    {
+        if (PersistBindings) _player.SaveProfile(ProfilePath);
+        RefreshMenu();
+    }
+
+    private void OnCaptureCanceled(string id) => RefreshMenu();
+
+    private void RefreshMenu()
+    {
+        if (_slotGrid == null) return;
+        foreach (var child in _slotGrid.GetChildren()) { _slotGrid.RemoveChild(child); child.QueueFree(); }
+
+        foreach (var slot in _player.GetRebindSlots())
+        {
+            _slotGrid.AddChild(new Label { Text = $"{slot.DisplayName}  ({slot.Category})" });
+            var id = slot.Id;
+            var button = new Button
+            {
+                Text = _player.CaptureId == id ? "press an input…  (Esc cancels)" : (slot.CurrentSource?.Describe() ?? "—") + (slot.IsOverridden ? "  *" : ""),
+                CustomMinimumSize = new Vector2(240, 0),
+            };
+            button.Pressed += () => StartRebind(id);
+            _slotGrid.AddChild(button);
+        }
+    }
+
+    private void StartRebind(string id)
+    {
+        // Swap: if the new input is already used by another slot, that slot takes this one's old input.
+        _player.StartCapture(id, new CaptureOptions { ConflictPolicy = RebindConflictPolicy.Swap });
+        RefreshMenu();
     }
 
     public override void _Process(double delta)
@@ -198,13 +255,17 @@ public partial class Demo : Node2D
         help.AddThemeFontSizeOverride("font_size", 13);
         ui.AddChild(help);
 
-        _menuLabel = new Label
-        {
-            Text = "PAUSED — the menu context blocks gameplay. Esc to resume.",
-            Position = new Vector2(size.X / 2f - 200f, size.Y / 2f - 80f),
-            Visible = false,
-        };
-        ui.AddChild(_menuLabel);
+        _menu = new PanelContainer { Visible = false, Position = new Vector2(size.X / 2f - 260f, 60f) };
+        ui.AddChild(_menu);
+        var column = new VBoxContainer();
+        _menu.AddChild(column);
+        column.AddChild(new Label { Text = "PAUSED — the menu context blocks gameplay. Esc resumes." });
+        column.AddChild(new Label { Text = "Click a binding, then press a key, mouse button or pad input. * = changed." });
+        _slotGrid = new GridContainer { Columns = 2 };
+        column.AddChild(_slotGrid);
+        var reset = new Button { Text = "Reset all to defaults" };
+        reset.Pressed += () => _player.ResetAllRebinds();
+        column.AddChild(reset);
     }
 
     private void Bounce(float scale)

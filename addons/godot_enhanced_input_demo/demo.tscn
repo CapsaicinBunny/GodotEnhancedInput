@@ -4,7 +4,9 @@
 [ext_resource type="Resource" path="res://addons/godot_enhanced_input_demo/contexts/menu.tres" id="2"]
 [ext_resource type="Resource" path="res://addons/godot_enhanced_input_demo/contexts/gameplay.tres" id="3"]
 
-[node name="Demo" type="Node2D" unique_id=1407040107]
+[node name="Demo" type="Node2D" unique_id=1681291399]
 script = ExtResource("1")
+ProfilePath = "user://godot_enhanced_input_demo/bindings.json"
+PersistBindings = true
 Menu = ExtResource("2")
 Gameplay = ExtResource("3")

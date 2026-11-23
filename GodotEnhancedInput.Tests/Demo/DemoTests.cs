@@ -84,11 +84,29 @@ public class DemoTests(EngineFixture fixture)
     }
 
     [Fact]
+    public void SavedContexts_SharedRebindIds_MoveTogether()
+    {
+        var gameplay = ResourceLoader.Load<BindingContext>(Gameplay);
+        var menu = ResourceLoader.Load<BindingContext>(Menu);
+        GameAction Find(BindingContext c, string name) => c.Bindings.First(b => b.Action.Name == name).Action;
+        using var rig = new Rig().Add(gameplay);
+        rig.Player.RegisterRebindContext(menu);
+
+        rig.Player.GetRebindSlot("jump_key").Bindings.Should().HaveCount(2, "Jump and Dash both use Space");
+        rig.Player.GetRebindSlot("pause_key").Bindings.Should().HaveCount(2, "Pause and Resume, across two contexts");
+
+        rig.Player.Rebind("jump_key", InputSource.ForKey(Key.J));
+        rig.Press(Key.Shift).Press(Key.J).Tick();
+        rig.Player.WasTriggered(Find(gameplay, "dash")).Should().BeTrue();
+    }
+
+    [Fact]
     public void DemoScene_Runs_AndOpensTheMenu()
     {
         var packed = ResourceLoader.Load<PackedScene>(Scene);
         packed.Should().NotBeNull();
         var demo = packed.Instantiate<GodotEnhancedInput.Demo.Demo>();
+        demo.PersistBindings = false;
         fixture.Tree.Root.AddChild(demo);
         try
         {

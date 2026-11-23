@@ -230,6 +230,8 @@ player.Tick(1.0 / 60.0);
 
 ## 6. Staged plan
 
+Stages 1 and 2 are done.
+
 | Stage | Content | Done when |
 |---|---|---|
 | **1 — Core** | Rename to Godot Enhanced Input; actions and typed values; sources incl. physical keys, InputMap actions and `InputEventAction`; contexts with priority, consumption and blocking; all modifiers in §3.4; all triggers in §3.5 with roles; tick-driven phase state machine with events and timings; C# callbacks, polling and signals; GUI-safe event intake; demo scene; docs. | Every stage-1 test in §3 passes; docs and migration notes written. |

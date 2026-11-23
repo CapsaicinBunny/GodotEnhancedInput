@@ -126,6 +126,11 @@ feed it every tick. Injected values skip binding modifiers and triggers but go t
 own. They work whether or not the action is in an active context — useful for AI, replays, tutorials
 and tests.
 
+## Rebinding
+
+Bindings with a rebind id can be changed per player through an input profile, by code or by
+capturing the next press, and saved as JSON. See [rebinding](rebinding.md).
+
 ## Players
 
 `EnhancedInput` (the autoload) owns `InputPlayer`s; player 0 always exists
