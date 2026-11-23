@@ -56,12 +56,21 @@ public partial class InputPlayer : Node, ISourceReader
     /// <summary>Whether touchscreen events reach this player.</summary>
     [Export] public bool AcceptTouch { get; set; } = true;
 
+    /// <summary>
+    /// When on and <see cref="JoypadDevices"/> is empty, the player receives joypads nobody owns.
+    /// On for player 0, off for players added later, so an unowned pad never drives several players.
+    /// </summary>
+    [Export] public bool ReceivesUnownedJoypads { get; set; } = true;
+
     /// <summary>Whether <see cref="InputEventAction"/> events reach this player.</summary>
     [Export] public bool AcceptActionEvents { get; set; } = true;
 
     /// <summary>
     /// When on, InputMap sources also poll <c>Input.GetActionRawStrength</c>, so
-    /// <c>Input.ActionPress</c> and InputMap-bound devices drive them even without events.
+    /// <c>Input.ActionPress</c> and InputMap-bound devices drive them even without events. That is
+    /// Godot's global input state: it ignores this player's device filter and what the GUI accepted.
+    /// On for player 0, off for players added later; turn it off to read InputMap actions only from
+    /// the <see cref="InputEventAction"/> events this player receives.
     /// </summary>
     [Export] public bool PollInputMap { get; set; } = true;
 
@@ -124,6 +133,13 @@ public partial class InputPlayer : Node, ISourceReader
         {
             EnsureArray(ref Modifiers, modifiers);
             EnsureArray(ref Triggers, triggers);
+        }
+
+        /// <summary>Forgets timers, counters and smoothing (used when the binding is suppressed).</summary>
+        public void Reset()
+        {
+            foreach (var m in Modifiers) m?.Reset();
+            foreach (var t in Triggers) t?.Reset();
         }
     }
 
@@ -231,8 +247,8 @@ public partial class InputPlayer : Node, ISourceReader
                 source.CollectKeys(_keyScratch);
                 foreach (var key in _keyScratch)
                 {
-                    var plain = key.WithoutDevice();
-                    if (ReadRaw(plain) != Vector3.Zero) entry.Ignored.Add(plain);
+                    var channel = Raw.PhysicalOf(key);
+                    if (ReadRaw(channel, null) != Vector3.Zero) entry.Ignored.Add(channel);
                 }
             }
         }
@@ -561,6 +577,32 @@ public partial class InputPlayer : Node, ISourceReader
         if (ViewFovOverride.HasValue) return ViewFovOverride.Value;
         return GetViewCamera()?.Fov;
     }
+
+    /// <summary>
+    /// The viewport whose pixels pointer positions are in (for <see cref="PointerSpaceModifier"/>).
+    /// Defaults to this player's own viewport; set it for split screen or a SubViewport.
+    /// </summary>
+    public Viewport PointerViewport { get; set; }
+
+    /// <summary>Overrides the pointer viewport's size, in pixels (tests, custom layouts).</summary>
+    public Vector2? ViewportSizeOverride { get; set; }
+
+    /// <summary>Overrides the pointer viewport's canvas transform (tests, custom layouts).</summary>
+    public Transform2D? CanvasTransformOverride { get; set; }
+
+    private Viewport GetPointerViewport()
+    {
+        if (PointerViewport != null && IsInstanceValid(PointerViewport)) return PointerViewport;
+        return IsInsideTree() ? GetViewport() : null;
+    }
+
+    /// <summary>The pointer viewport's visible size in pixels (zero when unknown).</summary>
+    public Vector2 GetViewportSize()
+        => ViewportSizeOverride ?? GetPointerViewport()?.GetVisibleRect().Size ?? Vector2.Zero;
+
+    /// <summary>The pointer viewport's canvas transform (camera and canvas offset), or identity.</summary>
+    public Transform2D GetCanvasTransform()
+        => CanvasTransformOverride ?? GetPointerViewport()?.CanvasTransform ?? Transform2D.Identity;
 
     // ------------------------------------------------------------------
     //  Helpers

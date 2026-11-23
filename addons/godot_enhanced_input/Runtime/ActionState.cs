@@ -17,8 +17,20 @@ public sealed class ActionState
     /// <summary>The action this state belongs to.</summary>
     public GameAction Action { get; }
 
-    /// <summary>The value after all modifiers, whatever the phase.</summary>
+    /// <summary>
+    /// The action's value: the combined value of the bindings that fire this tick (bindings without
+    /// triggers, and bindings whose triggers are triggered), after the action's modifiers. Bindings
+    /// held back by their triggers (a hold not reached, a chord missing, a threshold not met) do not
+    /// add to it.
+    /// </summary>
     public ActionValue Value { get; private set; }
+
+    /// <summary>
+    /// The combined value of every evaluated binding (after binding modifiers, before the action's
+    /// modifiers), whether or not its triggers fire — e.g. how far an analog trigger is pulled before it
+    /// reaches the threshold, or the progress of a charge. Suppressed bindings are not included.
+    /// </summary>
+    public ActionValue RawValue { get; private set; }
 
     /// <summary>The phase this tick.</summary>
     public TriggerPhase Phase { get; private set; }
@@ -59,12 +71,15 @@ public sealed class ActionState
     /// Ongoing→Triggered: Triggered · Triggered→Triggered: Triggered · Triggered→Ongoing: Ongoing ·
     /// Ongoing→Idle: Canceled · Triggered→Idle: Completed · Idle→Idle: nothing.
     /// </summary>
-    internal void Advance(TriggerPhase next, ActionValue value, double delta)
+    internal void Advance(TriggerPhase next, ActionValue value, double delta) => Advance(next, value, delta, value);
+
+    internal void Advance(TriggerPhase next, ActionValue value, double delta, ActionValue rawValue)
     {
         var previous = Phase;
         PreviousPhase = previous;
         Phase = next;
         Value = value;
+        RawValue = rawValue;
 
         var events = ActionEvents.None;
         if (next == TriggerPhase.Idle)
@@ -110,6 +125,13 @@ public sealed class ActionState
         ElapsedSeconds = 0;
         TriggeredSeconds = 0;
         Value = ActionValue.Zero(Action?.ValueKind ?? ActionValueKind.Digital);
+        RawValue = Value;
+        ResetMemories();
+    }
+
+    /// <summary>Forgets the action-level modifier and trigger memories (when the action loses all its input).</summary>
+    internal void ResetMemories()
+    {
         foreach (var m in ModifierMemories) m?.Reset();
         foreach (var m in TriggerMemories) m?.Reset();
     }

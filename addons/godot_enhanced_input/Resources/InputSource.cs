@@ -162,11 +162,10 @@ public partial class InputSource : Resource
 
             case SourceKind.JoyStick:
             {
+                // Both axes from the same pad: two pads never combine into a direction neither points.
                 var (x, y) = StickAxes(JoyStick);
-                return new Vector3(
-                    reader.Read(SourceKey.ForJoyAxis(x, Device)).X,
-                    reader.Read(SourceKey.ForJoyAxis(y, Device)).X,
-                    0f);
+                var stick = reader.ReadStick(x, y, Device);
+                return new Vector3(stick.X, stick.Y, 0f);
             }
 
             case SourceKind.InputMapAction:
@@ -270,8 +269,8 @@ public partial class InputSource : Resource
     }
 
     /// <summary>
-    /// Whether two sources read any of the same input channels. Opposite halves of one joypad axis do
-    /// not overlap.
+    /// Whether two sources read any of the same input channels on the same device (a source reading
+    /// any device overlaps every device). Opposite halves of one joypad axis do not overlap.
     /// </summary>
     public bool Overlaps(InputSource other)
     {
@@ -284,9 +283,12 @@ public partial class InputSource : Resource
         var theirs = new List<SourceKey>();
         CollectKeys(mine);
         other.CollectKeys(theirs);
+        // Same channel on the same device (or finger); "any device" overlaps every device.
         foreach (var a in mine)
             foreach (var b in theirs)
-                if (a.WithoutDevice() == b.WithoutDevice()) return true;
+                if (a.WithoutDevice() == b.WithoutDevice()
+                    && (a.Device == SourceKey.AnyDevice || b.Device == SourceKey.AnyDevice || a.Device == b.Device))
+                    return true;
         return false;
     }
 

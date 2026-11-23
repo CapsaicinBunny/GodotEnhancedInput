@@ -23,6 +23,9 @@ public sealed class TriggerMemory
     /// <summary>The phase this trigger reported last tick.</summary>
     public TriggerPhase LastPhase;
 
+    /// <summary>A value remembered from an earlier tick (e.g. the previous value).</summary>
+    public Vector3 PreviousValue;
+
     /// <summary>Free slot for custom triggers.</summary>
     public object Custom;
 
@@ -34,6 +37,7 @@ public sealed class TriggerMemory
         Flag = false;
         WasActuated = false;
         LastPhase = TriggerPhase.Idle;
+        PreviousValue = Vector3.Zero;
         Custom = null;
     }
 }

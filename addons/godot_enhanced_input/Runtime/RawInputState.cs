@@ -3,20 +3,34 @@ using Godot;
 
 namespace GodotEnhancedInput;
 
+/// <summary>Decides whether one exact raw channel (with its device or finger) is hidden from the reader.</summary>
+public interface IChannelMask
+{
+    /// <summary>True when the channel must read as zero.</summary>
+    bool IsMasked(in SourceKey exactKey);
+}
+
 /// <summary>
-/// The raw input one player has received: the current value of every channel, the strongest value
-/// each channel reached since the last tick, the mouse motion summed over the tick, and the mouse
-/// position. Events only write here; all evaluation happens when the player ticks.
+/// The raw input one player has received. Events only write here; all evaluation happens when the
+/// player ticks.
+///
+/// Every on/off change of a channel (press, release, an axis leaving or returning to zero) is kept in
+/// order in a per-channel queue, and each tick observes at most one of them. So no press is lost: two
+/// presses that arrive between the same two ticks are seen as press, release, press, release on four
+/// consecutive ticks, in the order they happened. Changes that do not cross zero (an axis moving from
+/// 0.4 to 0.7) simply update the latest value.
 /// </summary>
 public sealed class RawInputState
 {
     private readonly Dictionary<SourceKey, Vector3> _current = new();
-    private readonly Dictionary<SourceKey, Vector3> _peak = new();
-    private readonly HashSet<int> _joyDevices = new();
+    private readonly Dictionary<SourceKey, List<Vector3>> _pending = new();
+    private readonly SortedSet<int> _joyDevices = new();
     private readonly SortedSet<int> _fingers = new();
     private readonly Dictionary<int, Vector2> _touchDrag = new();
     private readonly Dictionary<string, Vector3> _virtualDelta = new(System.StringComparer.Ordinal);
+    private readonly Dictionary<SourceKey, SourceKey> _physicalOf = new();
     private readonly List<SourceKey> _scratch = new();
+    private readonly Stack<List<Vector3>> _listPool = new();
     private Vector2 _motion;
     private Vector2 _position;
 
@@ -26,15 +40,42 @@ public sealed class RawInputState
     /// <summary>Last known mouse position in viewport pixels.</summary>
     public Vector2 MousePosition => _position;
 
-    /// <summary>Sets a channel's value. The strongest value since the last tick is remembered.</summary>
+    /// <summary>Joypad devices this state has seen.</summary>
+    public IReadOnlyCollection<int> JoypadDevices => _joyDevices;
+
+    /// <summary>Touch fingers this state has seen.</summary>
+    public IReadOnlyCollection<int> Fingers => _fingers;
+
+    /// <summary>Sets a channel's value. On/off changes are queued so each tick sees at most one.</summary>
     public void Set(in SourceKey key, Vector3 value)
     {
+        bool on = value != Vector3.Zero;
+        if (_pending.TryGetValue(key, out var queue) && queue.Count > 0)
+        {
+            if ((queue[^1] != Vector3.Zero) == on) queue[^1] = value;   // same side of zero: just the latest value
+            else queue.Add(value);
+        }
+        else
+        {
+            bool wasOn = GetCurrent(key) != Vector3.Zero;
+            if (wasOn != on)
+            {
+                if (queue == null)
+                {
+                    queue = _listPool.Count > 0 ? _listPool.Pop() : new List<Vector3>(4);
+                    _pending[key] = queue;
+                }
+                queue.Add(value);
+            }
+        }
+
         _current[key] = value;
-        if (!_peak.TryGetValue(key, out var peak) || value.LengthSquared() > peak.LengthSquared())
-            _peak[key] = value;
         if (key.IsJoypad && key.Device >= 0) _joyDevices.Add(key.Device);
         if (key.IsTouch && key.Device >= 0) _fingers.Add(key.Device);
     }
+
+    /// <summary>Sets a scalar channel's value.</summary>
+    public void Set(in SourceKey key, float value) => Set(key, new Vector3(value, 0f, 0f));
 
     /// <summary>Adds to a virtual control for this tick only (on top of its held value).</summary>
     public void AddVirtualDelta(string name, Vector3 delta)
@@ -50,10 +91,7 @@ public sealed class RawInputState
         _fingers.Add(finger);
     }
 
-    /// <summary>Sets a scalar channel's value.</summary>
-    public void Set(in SourceKey key, float value) => Set(key, new Vector3(value, 0f, 0f));
-
-    /// <summary>The value last written to a channel, ignoring what happened earlier in the tick.</summary>
+    /// <summary>The value last written to a channel, ignoring changes not yet observed by a tick.</summary>
     public Vector3 GetCurrent(in SourceKey key) => _current.TryGetValue(key, out var v) ? v : Vector3.Zero;
 
     /// <summary>Adds mouse movement for this tick.</summary>
@@ -63,70 +101,108 @@ public sealed class RawInputState
     public void SetMousePosition(Vector2 position) => _position = position;
 
     /// <summary>
-    /// The value a channel has for this tick. If a channel was released before the tick but had been
-    /// actuated since the previous one, its peak is returned, so a press shorter than a tick is
-    /// still seen once. Joypad channels with <see cref="SourceKey.AnyDevice"/> read the strongest device.
+    /// The physical key behind a logical or label key, as learned from the key events received (so
+    /// that consuming "Space" means the same key whichever way a binding names it). Other channels
+    /// are returned unchanged.
     /// </summary>
-    public Vector3 Read(in SourceKey key)
+    public SourceKey PhysicalOf(in SourceKey key)
+        => key.Kind is RawKind.LogicalKey or RawKind.KeyLabel && _physicalOf.TryGetValue(key, out var physical) ? physical : key;
+
+    /// <summary>The value a channel has for this tick (see the class summary). Nothing is masked.</summary>
+    public Vector3 Read(in SourceKey key) => Read(key, null);
+
+    /// <summary>
+    /// The value a channel has for this tick. Channels with <see cref="SourceKey.AnyDevice"/> read the
+    /// strongest unmasked device (joypads) or finger (touch); a masked exact channel reads zero.
+    /// </summary>
+    public Vector3 Read(in SourceKey key, IChannelMask mask)
     {
         switch (key.Kind)
         {
-            case RawKind.MouseMotion: return new Vector3(_motion.X, _motion.Y, 0f);
-            case RawKind.MousePosition: return new Vector3(_position.X, _position.Y, 0f);
+            case RawKind.MouseMotion:
+                return Masked(mask, key) ? Vector3.Zero : new Vector3(_motion.X, _motion.Y, 0f);
+            case RawKind.MousePosition:
+                return Masked(mask, key) ? Vector3.Zero : new Vector3(_position.X, _position.Y, 0f);
             case RawKind.Virtual:
-                return _virtualDelta.TryGetValue(key.Name ?? string.Empty, out var delta) ? ReadExact(key) + delta : ReadExact(key);
+            {
+                if (Masked(mask, key)) return Vector3.Zero;
+                var held = Observed(key);
+                return _virtualDelta.TryGetValue(key.Name ?? string.Empty, out var delta) ? held + delta : held;
+            }
             case RawKind.TouchDrag:
             {
-                if (key.Device >= 0) return _touchDrag.TryGetValue(key.Device, out var d) ? new Vector3(d.X, d.Y, 0f) : Vector3.Zero;
+                if (key.Device >= 0)
+                    return Masked(mask, key) || !_touchDrag.TryGetValue(key.Device, out var d) ? Vector3.Zero : new Vector3(d.X, d.Y, 0f);
                 var sum = Vector2.Zero;
-                foreach (var d in _touchDrag.Values) sum += d;
+                foreach (var pair in _touchDrag)
+                    if (!Masked(mask, key with { Device = pair.Key })) sum += pair.Value;
                 return new Vector3(sum.X, sum.Y, 0f);
             }
             case RawKind.TouchPosition when key.Device == SourceKey.AnyDevice:
-                // The lowest-numbered finger that is down (or was, this tick).
-                foreach (var finger in _fingers)
-                    if (ReadExact(SourceKey.ForTouch(TouchChannel.Pressed, finger)) != Vector3.Zero)
-                        return GetCurrent(SourceKey.ForTouch(TouchChannel.Position, finger));
-                return Vector3.Zero;
-            case RawKind.TouchPosition:
-                return GetCurrent(key);
-            case RawKind.TouchPressed when key.Device == SourceKey.AnyDevice:
-            {
-                var best = Vector3.Zero;
+                // The lowest-numbered finger that is down this tick.
                 foreach (var finger in _fingers)
                 {
-                    var v = ReadExact(key with { Device = finger });
-                    if (v.LengthSquared() > best.LengthSquared()) best = v;
+                    var position = key with { Device = finger };
+                    if (Masked(mask, position)) continue;
+                    if (Observed(SourceKey.ForTouch(TouchChannel.Pressed, finger)) != Vector3.Zero) return GetCurrent(position);
                 }
-                return best;
-            }
+                return Vector3.Zero;
+            case RawKind.TouchPosition:
+                return Masked(mask, key) ? Vector3.Zero : GetCurrent(key);
         }
 
-        if (key.IsJoypad && key.Device == SourceKey.AnyDevice)
+        if (key.Device == SourceKey.AnyDevice && (key.IsJoypad || key.IsTouch))
         {
+            var devices = key.IsTouch ? (IEnumerable<int>)_fingers : _joyDevices;
             var best = Vector3.Zero;
-            foreach (var device in _joyDevices)
+            foreach (var device in devices)
             {
-                var v = ReadExact(key with { Device = device });
+                var exact = key with { Device = device };
+                if (Masked(mask, exact)) continue;
+                var v = Observed(exact);
                 if (v.LengthSquared() > best.LengthSquared()) best = v;
             }
             return best;
         }
 
-        return ReadExact(key);
+        return Masked(mask, key) ? Vector3.Zero : Observed(key);
     }
 
-    private Vector3 ReadExact(in SourceKey key)
+    /// <summary>
+    /// Both axes of a joypad stick, taken together from one device: the given one, or — for
+    /// <see cref="SourceKey.AnyDevice"/> — the unmasked device whose stick is pushed furthest. Two pads
+    /// never combine into a direction neither of them points.
+    /// </summary>
+    public Vector2 ReadStick(JoyAxis x, JoyAxis y, int device, IChannelMask mask = null)
     {
-        var current = _current.TryGetValue(key, out var c) ? c : Vector3.Zero;
-        if (current == Vector3.Zero && _peak.TryGetValue(key, out var peak)) return peak;
-        return current;
+        if (device >= 0) return StickOf(x, y, device, mask);
+        var best = Vector2.Zero;
+        foreach (var d in _joyDevices)
+        {
+            var v = StickOf(x, y, d, mask);
+            if (v.LengthSquared() > best.LengthSquared()) best = v;
+        }
+        return best;
     }
 
-    /// <summary>Called by the player after each tick: forgets peaks and this tick's mouse motion.</summary>
+    private Vector2 StickOf(JoyAxis x, JoyAxis y, int device, IChannelMask mask)
+    {
+        var kx = SourceKey.ForJoyAxis(x, device);
+        var ky = SourceKey.ForJoyAxis(y, device);
+        return new Vector2(Masked(mask, kx) ? 0f : Observed(kx).X, Masked(mask, ky) ? 0f : Observed(ky).X);
+    }
+
+    private static bool Masked(IChannelMask mask, in SourceKey key) => mask != null && mask.IsMasked(key);
+
+    /// <summary>The value this tick observes: the oldest unobserved change, or the current value.</summary>
+    private Vector3 Observed(in SourceKey key)
+        => _pending.TryGetValue(key, out var queue) && queue.Count > 0 ? queue[0] : GetCurrent(key);
+
+    /// <summary>Called by the player after each tick: moves every channel on by one queued change and clears per-tick data.</summary>
     public void EndTick()
     {
-        _peak.Clear();
+        foreach (var queue in _pending.Values)
+            if (queue.Count > 0) queue.RemoveAt(0);
         _motion = Vector2.Zero;
         _touchDrag.Clear();
         _virtualDelta.Clear();
@@ -136,7 +212,8 @@ public sealed class RawInputState
     public void Clear()
     {
         _current.Clear();
-        _peak.Clear();
+        foreach (var queue in _pending.Values) { queue.Clear(); _listPool.Push(queue); }
+        _pending.Clear();
         _joyDevices.Clear();
         _fingers.Clear();
         _touchDrag.Clear();
@@ -153,7 +230,7 @@ public sealed class RawInputState
         foreach (var key in _scratch)
         {
             _current.Remove(key);
-            _peak.Remove(key);
+            if (_pending.Remove(key, out var queue)) { queue.Clear(); _listPool.Push(queue); }
         }
         _joyDevices.Remove(device);
     }
@@ -173,9 +250,22 @@ public sealed class RawInputState
                 if (!StageAllows(stage, raising: key.Pressed)) return false;
                 float v = key.Pressed ? 1f : 0f;
                 bool any = false;
-                if (key.PhysicalKeycode != Key.None) { Set(SourceKey.ForKey(key.PhysicalKeycode, KeyMatch.Physical), v); any = true; }
-                if (key.Keycode != Key.None) { Set(SourceKey.ForKey(key.Keycode, KeyMatch.Logical), v); any = true; }
-                if (key.KeyLabel != Key.None) { Set(SourceKey.ForKey(key.KeyLabel, KeyMatch.Label), v); any = true; }
+                var physical = SourceKey.ForKey(key.PhysicalKeycode, KeyMatch.Physical);
+                if (key.PhysicalKeycode != Key.None) { Set(physical, v); any = true; }
+                if (key.Keycode != Key.None)
+                {
+                    var logical = SourceKey.ForKey(key.Keycode, KeyMatch.Logical);
+                    if (key.PhysicalKeycode != Key.None) _physicalOf[logical] = physical;
+                    Set(logical, v);
+                    any = true;
+                }
+                if (key.KeyLabel != Key.None)
+                {
+                    var label = SourceKey.ForKey(key.KeyLabel, KeyMatch.Label);
+                    if (key.PhysicalKeycode != Key.None) _physicalOf[label] = physical;
+                    Set(label, v);
+                    any = true;
+                }
                 return any;
             }
             case InputEventMouseButton mouseButton:
@@ -203,7 +293,8 @@ public sealed class RawInputState
             {
                 var key = SourceKey.ForJoyAxis(joyMotion.Axis, joyMotion.Device);
                 float previous = GetCurrent(key).X;
-                bool raising = Mathf.Abs(joyMotion.AxisValue) > Mathf.Abs(previous);
+                // Toward zero, or across it, lowers the current direction: never let the GUI hold it back.
+                bool raising = Mathf.Abs(joyMotion.AxisValue) > Mathf.Abs(previous) && Mathf.Sign(joyMotion.AxisValue) != -Mathf.Sign(previous);
                 if (!StageAllows(stage, raising)) return false;
                 Set(key, joyMotion.AxisValue);
                 return true;

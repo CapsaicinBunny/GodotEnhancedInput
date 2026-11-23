@@ -29,6 +29,9 @@ public partial class EnhancedInput : Node
     /// <summary>Raised when a button press on an unowned joypad assigns it to a player (see <see cref="JoinMode"/>).</summary>
     [Signal] public delegate void PlayerJoinedEventHandler(InputPlayer player, int device);
 
+    /// <summary>Raised when a joypad is taken from a player (by code, or because another pad took its device index).</summary>
+    [Signal] public delegate void JoypadUnassignedEventHandler(InputPlayer player, int device);
+
     /// <summary>Raised when a joypad connects or disconnects. Its owner, if any, keeps it for when it returns.</summary>
     [Signal] public delegate void JoypadConnectionChangedEventHandler(int device, bool connected);
 
@@ -49,6 +52,8 @@ public partial class EnhancedInput : Node
 
     private readonly List<InputPlayer> _players = new();
     private readonly List<InputPlayer> _targets = new();
+    private readonly Dictionary<int, string> _joypadGuids = new();
+    private int _profileCounter;
     private bool _joySignalConnected;
     private InputEvent _swallowedJoinPress;
 
@@ -114,12 +119,15 @@ public partial class EnhancedInput : Node
     private InputPlayer CreatePlayer()
     {
         int index = _players.Count;
-        var player = new InputPlayer { Name = $"Player{index}", PlayerIndex = index };
+        var player = new InputPlayer { Name = $"Player{index}", PlayerIndex = index, ProfileId = NextProfileId() };
         if (index > 0)
         {
+            // Added players only hear the devices they are given.
             player.AcceptKeyboardMouse = false;
             player.AcceptTouch = false;
             player.AcceptActionEvents = false;
+            player.ReceivesUnownedJoypads = false;
+            player.PollInputMap = false;   // the InputMap is global state: one player reads it
         }
         _players.Add(player);
         AddChild(player);
@@ -131,13 +139,35 @@ public partial class EnhancedInput : Node
     //  Joypads
     // ------------------------------------------------------------------
 
-    /// <summary>Gives a joypad to a player, taking it from any other player.</summary>
-    public void AssignJoypad(InputPlayer player, int device)
+    /// <summary>A connected joypad's identity, or null (never asks Godot about a device that is not connected).</summary>
+    private static string GuidOf(int device)
+        => device >= 0 && Input.GetConnectedJoypads().Contains(device) ? Input.GetJoyGuid(device) : null;
+
+    private string NextProfileId()
+    {
+        // Stable for the player's lifetime: re-indexing after a removal does not move anyone's profile.
+        string id;
+        do id = $"player_{_profileCounter++}";
+        while (_players.Exists(p => p.ProfileId == id));
+        return id;
+    }
+
+    /// <summary>Gives a joypad to a player, taking it from any other player. The joypad's identity is remembered.</summary>
+    public void AssignJoypad(InputPlayer player, int device) => AssignJoypad(player, device, GuidOf(device));
+
+    /// <summary>
+    /// Gives a joypad to a player and remembers its identity (<paramref name="guid"/>, as from
+    /// <c>Input.GetJoyGuid</c>), so a different pad that later receives the same device index does not
+    /// inherit the assignment.
+    /// </summary>
+    public void AssignJoypad(InputPlayer player, int device, string guid)
     {
         if (player == null || device < 0) return;
         foreach (var other in _players)
             if (other != player) other.JoypadDevices.Remove(device);
         if (!player.JoypadDevices.Contains(device)) player.JoypadDevices.Add(device);
+        if (string.IsNullOrEmpty(guid)) _joypadGuids.Remove(device);
+        else _joypadGuids[device] = guid;
         // Whatever the joypad was doing belongs to its previous route.
         foreach (var other in _players) other.Raw.ClearDevice(device);
         EmitSignal(SignalName.JoypadAssigned, player, device);
@@ -147,8 +177,14 @@ public partial class EnhancedInput : Node
     public bool UnassignJoypad(int device)
     {
         bool removed = false;
+        _joypadGuids.Remove(device);
         foreach (var player in _players)
-            if (player.JoypadDevices.Remove(device)) { removed = true; player.Raw.ClearDevice(device); }
+            if (player.JoypadDevices.Remove(device))
+            {
+                removed = true;
+                player.Raw.ClearDevice(device);
+                EmitSignal(SignalName.JoypadUnassigned, player, device);
+            }
         return removed;
     }
 
@@ -174,14 +210,42 @@ public partial class EnhancedInput : Node
     }
 
     private void OnJoyConnectionChanged(long device, bool connected)
+        => NotifyJoypadConnection((int)device, connected, connected ? GuidOf((int)device) : null);
+
+    /// <summary>
+    /// Handles a joypad connecting or disconnecting (called from Godot's signal; public for tests and
+    /// custom backends). A disconnected pad keeps its owner. When a pad connects under a device index
+    /// whose remembered identity differs (<paramref name="guid"/>), the old assignment is dropped instead
+    /// of being inherited by the new pad.
+    /// </summary>
+    public void NotifyJoypadConnection(int device, bool connected, string guid = null)
     {
         if (!connected)
-            foreach (var player in _players) player.Raw.ClearDevice((int)device);
-        EmitSignal(SignalName.JoypadConnectionChanged, (int)device, connected);
+        {
+            foreach (var player in _players) player.Raw.ClearDevice(device);
+        }
+        else if (!string.IsNullOrEmpty(guid) && _joypadGuids.TryGetValue(device, out var known) && known != guid)
+        {
+            UnassignJoypad(device);
+        }
+        EmitSignal(SignalName.JoypadConnectionChanged, device, connected);
     }
 
-    /// <summary>Handles a joypad connecting or disconnecting (called from Godot's signal; public for tests and custom backends).</summary>
-    public void NotifyJoypadConnection(int device, bool connected) => OnJoyConnectionChanged(device, connected);
+    /// <summary>When on (default), losing window or application focus releases all held input of every player.</summary>
+    [Export] public bool ResetInputOnFocusLoss { get; set; } = true;
+
+    /// <summary>Releases all held input of every player (their actions finish on the next tick).</summary>
+    public void ResetAllInput()
+    {
+        foreach (var player in _players) player.ClearRawInput();
+    }
+
+    public override void _Notification(int what)
+    {
+        if (!ResetInputOnFocusLoss) return;
+        if (what == NotificationApplicationFocusOut || what == NotificationWMWindowFocusOut || what == NotificationApplicationPaused)
+            ResetAllInput();
+    }
 
     // ------------------------------------------------------------------
     //  Events and ticking
@@ -245,7 +309,7 @@ public partial class EnhancedInput : Node
             if (owner != null) _targets.Add(owner);
             else
                 foreach (var player in _players)
-                    if (player.JoypadDevices.Count == 0) _targets.Add(player);
+                    if (player.JoypadDevices.Count == 0 && player.ReceivesUnownedJoypads) _targets.Add(player);
         }
         else
         {

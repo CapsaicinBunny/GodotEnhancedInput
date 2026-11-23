@@ -53,7 +53,10 @@ public abstract partial class TouchControl : Control
 
     public override void _Notification(int what)
     {
-        if (what == NotificationVisibilityChanged && !IsVisibleInTree() || what == NotificationExitTree) ReleaseAll();
+        // Hidden, removed, or the app lost focus / was suspended: fingers may never send their release.
+        if (what == NotificationVisibilityChanged && !IsVisibleInTree() || what == NotificationExitTree
+            || what == NotificationApplicationFocusOut || what == NotificationWMWindowFocusOut || what == NotificationApplicationPaused)
+            ReleaseAll();
     }
 
     /// <summary>

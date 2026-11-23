@@ -93,7 +93,8 @@ public class EventTests
         rig.Tick();
         rig.Player.WasTriggered(jump).Should().BeFalse();
         rig.Player.WasCompleted(jump).Should().BeTrue();
-        rig.Player.GetValue(jump).AsBool().Should().BeTrue("the value is reported whatever the phase");
+        rig.Player.GetState(jump).RawValue.AsBool().Should().BeTrue("the raw value is reported whatever the triggers");
+        rig.Player.GetValue(jump).AsBool().Should().BeFalse("a binding held back by its trigger adds no value");
 
         rig.Tick();
         rig.Player.GetEvents(jump).Should().Be(ActionEvents.None);

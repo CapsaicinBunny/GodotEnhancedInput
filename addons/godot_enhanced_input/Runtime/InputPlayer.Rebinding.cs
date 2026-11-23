@@ -48,7 +48,19 @@ public partial class InputPlayer
     private void OnProfileChanged() => EmitSignal(SignalName.BindingsChanged);
 
     /// <summary>The default file for this player's profile.</summary>
-    public string DefaultProfilePath => $"user://input/player_{PlayerIndex}.json";
+    public string DefaultProfilePath => $"user://input/{ProfileId}.json";
+
+    private string _profileId;
+
+    /// <summary>
+    /// A stable id for this player's saved profile (default <c>player_&lt;n&gt;</c>, given when the player
+    /// is created and never changed by re-indexing). Set it to tie a profile to a user or save slot.
+    /// </summary>
+    public string ProfileId
+    {
+        get => string.IsNullOrEmpty(_profileId) ? $"player_{PlayerIndex}" : _profileId;
+        set => _profileId = value;
+    }
 
     /// <summary>Saves the profile (to <see cref="DefaultProfilePath"/> when no path is given).</summary>
     public Error SaveProfile(string path = null) => Profile.Save(path ?? DefaultProfilePath);

@@ -267,7 +267,8 @@ public class PipelineTests(EngineFixture fixture)
         rig.Player.FeedEvent(new InputEventJoypadMotion { Axis = JoyAxis.TriggerRight, AxisValue = 0.3f });
         rig.Tick();
         rig.Player.IsTriggered(shoot).Should().BeFalse();
-        rig.Player.GetValue(shoot).AsFloat().Should().BeApproximately(0.3f, 1e-6f, "a digital value keeps the strength");
+        rig.Player.GetState(shoot).RawValue.AsFloat().Should().BeApproximately(0.3f, 1e-6f, "the raw value keeps the strength");
+        rig.Player.GetValue(shoot).AsFloat().Should().Be(0f, "below the threshold the binding does not fire");
 
         rig.Player.FeedEvent(new InputEventJoypadMotion { Axis = JoyAxis.TriggerRight, AxisValue = 0.8f });
         rig.Tick();

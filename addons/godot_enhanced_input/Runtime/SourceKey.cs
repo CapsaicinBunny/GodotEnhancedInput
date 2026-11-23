@@ -81,4 +81,7 @@ public interface ISourceReader
 {
     /// <summary>The current value of a channel (scalar channels use X).</summary>
     Vector3 Read(in SourceKey key);
+
+    /// <summary>Both axes of a stick from one device (for any device: the one pushed furthest).</summary>
+    Vector2 ReadStick(JoyAxis x, JoyAxis y, int device);
 }
