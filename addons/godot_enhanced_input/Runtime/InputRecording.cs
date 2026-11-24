@@ -224,7 +224,7 @@ public sealed class InputRecording
                 WriteMods(node, m);
                 break;
             case InputEventJoypadButton jb:
-                node = new JsonObject { ["t"] = "pad_button", ["button"] = (long)jb.ButtonIndex, ["down"] = jb.Pressed, ["pressure"] = jb.Pressure };
+                node = new JsonObject { ["t"] = "pad_button", ["button"] = (long)jb.ButtonIndex, ["down"] = jb.Pressed };
                 break;
             case InputEventJoypadMotion jm:
                 node = new JsonObject { ["t"] = "pad_axis", ["axis"] = (long)jm.Axis, ["value"] = jm.AxisValue };
@@ -308,7 +308,7 @@ public sealed class InputRecording
                 e = m;
                 break;
             case "pad_button":
-                e = new InputEventJoypadButton { ButtonIndex = (JoyButton)((long?)n["button"] ?? 0), Pressed = down, Pressure = (float?)n["pressure"] ?? 0f };
+                e = new InputEventJoypadButton { ButtonIndex = (JoyButton)((long?)n["button"] ?? 0), Pressed = down };
                 break;
             case "pad_axis":
                 e = new InputEventJoypadMotion { Axis = (JoyAxis)((long?)n["axis"] ?? 0), AxisValue = (float?)n["value"] ?? 0f };

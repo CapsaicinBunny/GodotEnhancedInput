@@ -22,8 +22,13 @@ concurrency:
 
 jobs:
   test:
-    name: Test (.NET 10 + headless Godot)
-    runs-on: ubuntu-latest
+    name: Test (.NET 10 + headless Godot, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # One failing platform should not hide the result of the others.
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, windows-latest, macos-latest ]
 
     steps:
       - name: Checkout
@@ -56,11 +61,19 @@ jobs:
       # launches the test executable directly, sidestepping it — the process exit code gates the job.
       #
       # 2dog boots Godot headless with the dummy rendering/audio drivers (set in
-      # EngineFixture), so no real display is required; xvfb-run is a belt-and-braces wrapper
-      # in case a Godot subsystem still probes for X11 on init.
-      - name: Test
+      # EngineFixture), so no real display is required; on Linux xvfb-run is a belt-and-braces
+      # wrapper in case a Godot subsystem still probes for X11 on init.
+      - name: Test (Linux)
+        if: runner.os == 'Linux'
         run: >
           xvfb-run --auto-servernum
+          dotnet run --project GodotEnhancedInput.Tests/GodotEnhancedInput.Tests.csproj
+          --configuration Debug
+          --no-build
+
+      - name: Test (Windows, macOS)
+        if: runner.os != 'Linux'
+        run: >
           dotnet run --project GodotEnhancedInput.Tests/GodotEnhancedInput.Tests.csproj
           --configuration Debug
           --no-build
