@@ -93,6 +93,53 @@ public enum SourceKind
     Virtual,
     /// <summary>A finger on a touchscreen: pressed, position or drag.</summary>
     Touch,
+    /// <summary>Scrolling (mouse wheel notches and trackpad pans) as a 2D amount per tick, down and right positive.</summary>
+    MouseWheel,
+    /// <summary>A pen or stylus: pressure, tilt or eraser.</summary>
+    Pen,
+    /// <summary>A motion sensor of a joypad or of the handheld device itself.</summary>
+    Motion,
+    /// <summary>Several sources combined (an axis from two inputs, a vector from four, a press that needs held modifiers, or the strongest of several).</summary>
+    Composite,
+    /// <summary>A named control of a device registered by a custom backend (wheels, flight sticks, XR controllers, anything).</summary>
+    DeviceControl,
+}
+
+/// <summary>What a <see cref="SourceKind.Pen"/> source reads.</summary>
+public enum PenChannel
+{
+    /// <summary>Pressure 0…1.</summary>
+    Pressure,
+    /// <summary>Tilt in X and Y, −1…1.</summary>
+    Tilt,
+    /// <summary>1 while the eraser end touches.</summary>
+    Eraser,
+}
+
+/// <summary>Which motion sensor a <see cref="SourceKind.Motion"/> source reads.</summary>
+public enum MotionSensor
+{
+    /// <summary>Acceleration including gravity, m/s².</summary>
+    Accelerometer,
+    /// <summary>Rotation rate, rad/s.</summary>
+    Gyroscope,
+    /// <summary>Gravity direction, m/s².</summary>
+    Gravity,
+    /// <summary>Magnetic field (handheld only).</summary>
+    Magnetometer,
+}
+
+/// <summary>How a <see cref="SourceKind.Composite"/> source combines its parts.</summary>
+public enum CompositeMode
+{
+    /// <summary>Parts: negative, positive. X = strength of positive − strength of negative.</summary>
+    Axis1D,
+    /// <summary>Parts: up, down, left, right (Godot screen convention, up = −Y).</summary>
+    Axis2D,
+    /// <summary>The last part is the value; it only counts while every other part is held (Ctrl + S, Shift + click).</summary>
+    WithModifiers,
+    /// <summary>The strongest part.</summary>
+    AnyOf,
 }
 
 /// <summary>
@@ -139,8 +186,12 @@ public enum InputDeviceKind
     KeyboardMouse,
     /// <summary>A joypad.</summary>
     Joypad,
-    /// <summary>A touchscreen (including on-screen controls, which write virtual controls).</summary>
+    /// <summary>A touchscreen (including on-screen controls, which write virtual controls) and the handheld device's own sensors.</summary>
     Touch,
+    /// <summary>A pen or stylus.</summary>
+    Pen,
+    /// <summary>A device provided by a custom backend (see <see cref="InputBackend"/>).</summary>
+    Custom,
 }
 
 /// <summary>How joypad buttons and axes are named in prompts.</summary>

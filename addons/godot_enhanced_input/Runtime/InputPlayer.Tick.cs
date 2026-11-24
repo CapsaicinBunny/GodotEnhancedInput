@@ -55,6 +55,7 @@ public partial class InputPlayer : IChannelMask
         _tickActions.Clear();
         _tickActionSet.Clear();
         _consumedBy.Clear();
+        _polledSensors.Clear();
         _blockRank = int.MaxValue;
 
         foreach (var entry in _ordered)
@@ -80,6 +81,7 @@ public partial class InputPlayer : IChannelMask
                 // so actions can be evaluated in any order. Channels keep their device or finger; a
                 // source reading "any device" consumes the channel on every device.
                 var source = GetEffectiveSource(binding);
+                if (source != null) PollSensors(source);
                 if (action.ConsumeInput && source != null)
                 {
                     _keyScratch.Clear();

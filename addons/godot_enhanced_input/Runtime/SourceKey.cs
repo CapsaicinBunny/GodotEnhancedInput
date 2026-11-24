@@ -19,6 +19,12 @@ public enum RawKind
     TouchPressed,
     TouchPosition,
     TouchDrag,
+    MouseWheel,
+    PenPressure,
+    PenTilt,
+    PenEraser,
+    Motion,
+    DeviceControl,
 }
 
 /// <summary>
@@ -30,6 +36,9 @@ public readonly record struct SourceKey(RawKind Kind, long Code, int Device, str
 {
     /// <summary>Device value meaning "any device the player owns".</summary>
     public const int AnyDevice = -1;
+
+    /// <summary>Device value for the handheld device itself (phone or tablet sensors).</summary>
+    public const int Handheld = -2;
 
     public static SourceKey ForKey(Key key, KeyMatch match = KeyMatch.Physical) => match switch
     {
@@ -46,6 +55,22 @@ public readonly record struct SourceKey(RawKind Kind, long Code, int Device, str
     public static SourceKey ForInputMapAction(string action) => new(RawKind.InputMapAction, 0, AnyDevice, action ?? string.Empty);
     public static SourceKey ForVirtual(string name) => new(RawKind.Virtual, 0, AnyDevice, name ?? string.Empty);
 
+    public static SourceKey MouseWheel => new(RawKind.MouseWheel, 0, AnyDevice, null);
+
+    public static SourceKey ForPen(PenChannel channel) => channel switch
+    {
+        PenChannel.Tilt => new(RawKind.PenTilt, 0, AnyDevice, null),
+        PenChannel.Eraser => new(RawKind.PenEraser, 0, AnyDevice, null),
+        _ => new(RawKind.PenPressure, 0, AnyDevice, null),
+    };
+
+    /// <summary>A motion sensor of a joypad (its index, or any) or of the handheld device (<see cref="Handheld"/>).</summary>
+    public static SourceKey ForMotion(MotionSensor sensor, int device = Handheld) => new(RawKind.Motion, (long)sensor, device, null);
+
+    /// <summary>A named control of a custom device: "<c>deviceType/control</c>", on one device index or any.</summary>
+    public static SourceKey ForDeviceControl(string deviceType, string control, int device = AnyDevice)
+        => new(RawKind.DeviceControl, 0, device, $"{deviceType}/{control}");
+
     /// <summary>A touch channel of one finger (its index), or of any finger with <see cref="AnyDevice"/>.</summary>
     public static SourceKey ForTouch(TouchChannel channel, int finger = AnyDevice) => channel switch
     {
@@ -55,7 +80,10 @@ public readonly record struct SourceKey(RawKind Kind, long Code, int Device, str
     };
 
     /// <summary>True for joypad channels, which are stored per device.</summary>
-    public bool IsJoypad => Kind is RawKind.JoyButton or RawKind.JoyAxis;
+    public bool IsJoypad => Kind is RawKind.JoyButton or RawKind.JoyAxis || (Kind == RawKind.Motion && Device != Handheld);
+
+    /// <summary>True for channels stored per device or finger, which "any device" reads iterate.</summary>
+    public bool IsPerDevice => IsJoypad || IsTouch || Kind == RawKind.DeviceControl;
 
     /// <summary>True for touch channels, which are stored per finger (in <see cref="Device"/>).</summary>
     public bool IsTouch => Kind is RawKind.TouchPressed or RawKind.TouchPosition or RawKind.TouchDrag;
@@ -72,6 +100,8 @@ public readonly record struct SourceKey(RawKind Kind, long Code, int Device, str
         RawKind.InputMapAction => $"InputMap:{Name}",
         RawKind.Virtual => $"Virtual:{Name}",
         RawKind.TouchPressed or RawKind.TouchPosition or RawKind.TouchDrag => $"{Kind}:{(Device < 0 ? "*" : Device.ToString())}",
+        RawKind.Motion => $"Motion:{(MotionSensor)Code}@{(Device == Handheld ? "handheld" : Device < 0 ? "*" : Device.ToString())}",
+        RawKind.DeviceControl => $"Device{(Device < 0 ? "*" : Device.ToString())}:{Name}",
         _ => Kind.ToString(),
     };
 }

@@ -220,6 +220,7 @@ public partial class EnhancedInput : Node
     /// </summary>
     public void NotifyJoypadConnection(int device, bool connected, string guid = null)
     {
+        EnsureBuiltinDevices();
         if (!connected)
         {
             foreach (var player in _players) player.Raw.ClearDevice(device);
@@ -228,6 +229,7 @@ public partial class EnhancedInput : Node
         {
             UnassignJoypad(device);
         }
+        UpdateJoypadDevice(device, connected, guid);
         EmitSignal(SignalName.JoypadConnectionChanged, device, connected);
     }
 
@@ -282,6 +284,7 @@ public partial class EnhancedInput : Node
     {
         if (@event == null) return false;
         EnsureDefaultPlayer();
+        @event = ApplyDeviceProfile(@event);
 
         if (ReferenceEquals(@event, _swallowedJoinPress))
         {
@@ -337,6 +340,7 @@ public partial class EnhancedInput : Node
     public void Tick(double delta)
     {
         EnsureDefaultPlayer();
+        PollBackends(delta);
         for (int i = 0; i < _players.Count; i++) _players[i].Tick(delta);
     }
 

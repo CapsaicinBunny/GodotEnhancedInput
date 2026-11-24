@@ -24,8 +24,10 @@ public sealed class RawInputState
 {
     private readonly Dictionary<SourceKey, Vector3> _current = new();
     private readonly Dictionary<SourceKey, List<Vector3>> _pending = new();
+    private readonly Dictionary<RawKind, SortedSet<int>> _devices = new();
     private readonly SortedSet<int> _joyDevices = new();
     private readonly SortedSet<int> _fingers = new();
+    private Vector2 _wheel;
     private readonly Dictionary<int, Vector2> _touchDrag = new();
     private readonly Dictionary<string, Vector3> _virtualDelta = new(System.StringComparer.Ordinal);
     private readonly Dictionary<SourceKey, SourceKey> _physicalOf = new();
@@ -39,6 +41,15 @@ public sealed class RawInputState
 
     /// <summary>Last known mouse position in viewport pixels.</summary>
     public Vector2 MousePosition => _position;
+
+    /// <summary>Scrolling summed since the last tick (wheel notches and trackpad pans), down and right positive.</summary>
+    public Vector2 MouseWheel => _wheel;
+
+    /// <summary>
+    /// Ignore mouse events that Godot generates from touches (Emulate Mouse From Touch), so one touch is
+    /// not also a click. On by default.
+    /// </summary>
+    public bool IgnoreTouchEmulatedMouse { get; set; } = true;
 
     /// <summary>Joypad devices this state has seen.</summary>
     public IReadOnlyCollection<int> JoypadDevices => _joyDevices;
@@ -70,8 +81,24 @@ public sealed class RawInputState
         }
 
         _current[key] = value;
-        if (key.IsJoypad && key.Device >= 0) _joyDevices.Add(key.Device);
-        if (key.IsTouch && key.Device >= 0) _fingers.Add(key.Device);
+        if (key.Device >= 0 && key.IsPerDevice)
+        {
+            if (!_devices.TryGetValue(key.Kind, out var set)) _devices[key.Kind] = set = new SortedSet<int>();
+            set.Add(key.Device);
+            if (key.IsJoypad) _joyDevices.Add(key.Device);
+            if (key.IsTouch) _fingers.Add(key.Device);
+        }
+    }
+
+    /// <summary>Adds scrolling for this tick.</summary>
+    public void AddWheel(Vector2 amount) => _wheel += amount;
+
+    private static readonly SortedSet<int> NoDevices = new();
+
+    private SortedSet<int> DevicesOf(RawKind kind)
+    {
+        if (kind is RawKind.TouchPressed or RawKind.TouchPosition or RawKind.TouchDrag) return _fingers;
+        return _devices.TryGetValue(kind, out var set) ? set : NoDevices;
     }
 
     /// <summary>Sets a scalar channel's value.</summary>
@@ -121,6 +148,8 @@ public sealed class RawInputState
         {
             case RawKind.MouseMotion:
                 return Masked(mask, key) ? Vector3.Zero : new Vector3(_motion.X, _motion.Y, 0f);
+            case RawKind.MouseWheel:
+                return Masked(mask, key) ? Vector3.Zero : new Vector3(_wheel.X, _wheel.Y, 0f);
             case RawKind.MousePosition:
                 return Masked(mask, key) ? Vector3.Zero : new Vector3(_position.X, _position.Y, 0f);
             case RawKind.Virtual:
@@ -151,9 +180,9 @@ public sealed class RawInputState
                 return Masked(mask, key) ? Vector3.Zero : GetCurrent(key);
         }
 
-        if (key.Device == SourceKey.AnyDevice && (key.IsJoypad || key.IsTouch))
+        if (key.Device == SourceKey.AnyDevice && key.IsPerDevice)
         {
-            var devices = key.IsTouch ? (IEnumerable<int>)_fingers : _joyDevices;
+            var devices = DevicesOf(key.Kind);
             var best = Vector3.Zero;
             foreach (var device in devices)
             {
@@ -177,7 +206,7 @@ public sealed class RawInputState
     {
         if (device >= 0) return StickOf(x, y, device, mask);
         var best = Vector2.Zero;
-        foreach (var d in _joyDevices)
+        foreach (var d in DevicesOf(RawKind.JoyAxis))
         {
             var v = StickOf(x, y, d, mask);
             if (v.LengthSquared() > best.LengthSquared()) best = v;
@@ -204,6 +233,7 @@ public sealed class RawInputState
         foreach (var queue in _pending.Values)
             if (queue.Count > 0) queue.RemoveAt(0);
         _motion = Vector2.Zero;
+        _wheel = Vector2.Zero;
         _touchDrag.Clear();
         _virtualDelta.Clear();
     }
@@ -215,7 +245,9 @@ public sealed class RawInputState
         foreach (var queue in _pending.Values) { queue.Clear(); _listPool.Push(queue); }
         _pending.Clear();
         _joyDevices.Clear();
+        _devices.Clear();
         _fingers.Clear();
+        _wheel = Vector2.Zero;
         _touchDrag.Clear();
         _virtualDelta.Clear();
         _motion = Vector2.Zero;
@@ -233,6 +265,23 @@ public sealed class RawInputState
             if (_pending.Remove(key, out var queue)) { queue.Clear(); _listPool.Push(queue); }
         }
         _joyDevices.Remove(device);
+        foreach (var pair in _devices)
+            if (pair.Key is RawKind.JoyButton or RawKind.JoyAxis or RawKind.Motion) pair.Value.Remove(device);
+    }
+
+    /// <summary>Forgets all channels of one custom device (e.g. when its backend removes it).</summary>
+    public void ClearCustomDevice(string deviceType, int device)
+    {
+        _scratch.Clear();
+        var prefix = deviceType + "/";
+        foreach (var key in _current.Keys)
+            if (key.Kind == RawKind.DeviceControl && key.Device == device && key.Name != null && key.Name.StartsWith(prefix, System.StringComparison.Ordinal))
+                _scratch.Add(key);
+        foreach (var key in _scratch)
+        {
+            _current.Remove(key);
+            if (_pending.Remove(key, out var queue)) { queue.Clear(); _listPool.Push(queue); }
+        }
     }
 
     /// <summary>
@@ -268,19 +317,44 @@ public sealed class RawInputState
                 }
                 return any;
             }
+            case InputEventMouse emulated when IgnoreTouchEmulatedMouse && emulated.Device == InputEvent.DeviceIdEmulation:
+                return false;
             case InputEventMouseButton mouseButton:
             {
                 if (!StageAllows(stage, raising: mouseButton.Pressed)) return false;
-                float strength = mouseButton.Factor > 0f && IsWheel(mouseButton.ButtonIndex) ? mouseButton.Factor : 1f;
+                bool wheel = IsWheel(mouseButton.ButtonIndex);
+                float strength = mouseButton.Factor > 0f && wheel ? mouseButton.Factor : 1f;
                 Set(SourceKey.ForMouseButton(mouseButton.ButtonIndex), mouseButton.Pressed ? strength : 0f);
+                if (wheel && mouseButton.Pressed) _wheel += WheelDirection(mouseButton.ButtonIndex) * strength;
                 if (stage != IntakeStage.Unhandled) _position = mouseButton.Position;
+                if (mouseButton.ButtonIndex == MouseButton.Left && !mouseButton.Pressed)
+                {
+                    Set(SourceKey.ForPen(PenChannel.Pressure), 0f);
+                    Set(SourceKey.ForPen(PenChannel.Eraser), 0f);
+                }
                 return true;
             }
             case InputEventMouseMotion motion:
             {
                 // Position is never contested by the GUI; movement is "raising" input.
-                if (stage != IntakeStage.Unhandled) _position = motion.Position;
+                if (stage != IntakeStage.Unhandled)
+                {
+                    _position = motion.Position;
+                    // Pen data rides on motion events (a plain mouse reports zero pressure and no tilt).
+                    if (motion.Pressure > 0f || motion.Tilt != Vector2.Zero || motion.PenInverted || GetCurrent(SourceKey.ForPen(PenChannel.Pressure)) != Vector3.Zero)
+                    {
+                        Set(SourceKey.ForPen(PenChannel.Pressure), motion.Pressure);
+                        Set(SourceKey.ForPen(PenChannel.Tilt), new Vector3(motion.Tilt.X, motion.Tilt.Y, 0f));
+                        Set(SourceKey.ForPen(PenChannel.Eraser), motion.PenInverted && motion.Pressure > 0f ? 1f : 0f);
+                    }
+                }
                 if (StageAllows(stage, raising: true)) _motion += motion.Relative;
+                return true;
+            }
+            case InputEventPanGesture pan:
+            {
+                if (!StageAllows(stage, raising: true)) return false;
+                _wheel += pan.Delta;
                 return true;
             }
             case InputEventJoypadButton joyButton:
@@ -330,6 +404,14 @@ public sealed class RawInputState
         IntakeStage.Early => !raising,
         IntakeStage.Unhandled => raising,
         _ => true,
+    };
+
+    private static Vector2 WheelDirection(MouseButton button) => button switch
+    {
+        MouseButton.WheelUp => new Vector2(0f, -1f),
+        MouseButton.WheelDown => new Vector2(0f, 1f),
+        MouseButton.WheelLeft => new Vector2(-1f, 0f),
+        _ => new Vector2(1f, 0f),
     };
 
     private static bool IsWheel(MouseButton button)

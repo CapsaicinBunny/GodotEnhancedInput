@@ -79,6 +79,41 @@ public partial class InputSource : Resource
     /// <summary>The finger index for <see cref="SourceKind.Touch"/>, or −1 for any finger.</summary>
     [Export(PropertyHint.Range, "-1,9,1")] public int TouchIndex { get; set; } = SourceKey.AnyDevice;
 
+    /// <summary>
+    /// Joypad button or axis by number (0…127 buttons, 0…9 axes) instead of by name, for wheels, pedals,
+    /// flight sticks and other pads whose controls have no standard name. −1: use the named one.
+    /// </summary>
+    [Export(PropertyHint.Range, "-1,127,1")] public int RawIndex { get; set; } = -1;
+
+    /// <summary>What a <see cref="SourceKind.Pen"/> source reads.</summary>
+    [Export] public PenChannel PenChannel { get; set; } = PenChannel.Pressure;
+
+    /// <summary>Which sensor a <see cref="SourceKind.Motion"/> source reads.</summary>
+    [Export] public MotionSensor MotionSensor { get; set; } = MotionSensor.Gyroscope;
+
+    /// <summary>Read the handheld device's own sensor (phone, tablet) instead of a joypad's.</summary>
+    [Export] public bool MotionOfHandheld { get; set; } = true;
+
+    /// <summary>How a <see cref="SourceKind.Composite"/> source combines <see cref="Parts"/>.</summary>
+    [Export] public CompositeMode CompositeMode { get; set; } = CompositeMode.WithModifiers;
+
+    /// <summary>The parts of a <see cref="SourceKind.Composite"/> source, in the order the mode describes.</summary>
+    [Export] public Godot.Collections.Array<InputSource> Parts { get; set; } = new();
+
+    /// <summary>The device type of a <see cref="SourceKind.DeviceControl"/> source, as its backend registers it (e.g. "wheel", "xr").</summary>
+    [Export] public string DeviceType { get; set; } = string.Empty;
+
+    /// <summary>The control name of a <see cref="SourceKind.DeviceControl"/> source (e.g. "steering", "left_hand/trigger").</summary>
+    [Export] public string ControlName { get; set; } = string.Empty;
+
+    /// <summary>The joypad button read, honouring <see cref="RawIndex"/>.</summary>
+    public JoyButton EffectiveJoyButton => RawIndex >= 0 ? (JoyButton)RawIndex : JoyButton;
+
+    /// <summary>The joypad axis read, honouring <see cref="RawIndex"/>.</summary>
+    public JoyAxis EffectiveJoyAxis => RawIndex >= 0 ? (JoyAxis)RawIndex : JoyAxis;
+
+    private int MotionDevice => MotionOfHandheld ? SourceKey.Handheld : Device;
+
     internal StringName InputMapActionName => _inputMapActionName ??= new StringName(_inputMapAction);
 
     // ------------------------------------------------------------------
@@ -114,7 +149,8 @@ public partial class InputSource : Resource
     /// <summary>What kind of quantity this source produces.</summary>
     public ValueNature Nature => _kind switch
     {
-        SourceKind.MouseMotion => ValueNature.Delta,
+        SourceKind.MouseMotion or SourceKind.MouseWheel => ValueNature.Delta,
+        SourceKind.Composite => Parts.Count > 0 && Parts[^1] != null ? Parts[^1].Nature : ValueNature.State,
         SourceKind.MousePosition => ValueNature.Absolute,
         SourceKind.Touch => TouchChannel switch
         {
@@ -127,6 +163,42 @@ public partial class InputSource : Resource
 
     public static InputSource ForTouch(TouchChannel channel, int finger = SourceKey.AnyDevice)
         => new() { Kind = SourceKind.Touch, TouchChannel = channel, TouchIndex = finger };
+
+    public static InputSource ForMouseWheel() => new() { Kind = SourceKind.MouseWheel };
+    public static InputSource ForPen(PenChannel channel) => new() { Kind = SourceKind.Pen, PenChannel = channel };
+
+    /// <summary>A motion sensor of the handheld device (<paramref name="joypad"/> null) or of a joypad (an index, or −1 for any).</summary>
+    public static InputSource ForMotion(MotionSensor sensor, int? joypad = null)
+        => new() { Kind = SourceKind.Motion, MotionSensor = sensor, MotionOfHandheld = joypad == null, Device = joypad ?? SourceKey.AnyDevice };
+
+    /// <summary>A joypad button by number (any pad, or one).</summary>
+    public static InputSource ForJoyButtonIndex(int index, int device = SourceKey.AnyDevice)
+        => new() { Kind = SourceKind.JoyButton, RawIndex = index, Device = device };
+
+    /// <summary>A joypad axis by number (any pad, or one).</summary>
+    public static InputSource ForJoyAxisIndex(int index, int device = SourceKey.AnyDevice, JoyAxisRange range = JoyAxisRange.Full)
+        => new() { Kind = SourceKind.JoyAxis, RawIndex = index, Device = device, AxisRange = range };
+
+    /// <summary>A named control of a custom device (see <see cref="InputBackend"/>).</summary>
+    public static InputSource ForDeviceControl(string deviceType, string control, int device = SourceKey.AnyDevice)
+        => new() { Kind = SourceKind.DeviceControl, DeviceType = deviceType, ControlName = control, Device = device };
+
+    /// <summary>A composite of other sources.</summary>
+    public static InputSource Composite(CompositeMode mode, params InputSource[] parts)
+    {
+        var source = new InputSource { Kind = SourceKind.Composite, CompositeMode = mode };
+        foreach (var part in parts) source.Parts.Add(part);
+        return source;
+    }
+
+    /// <summary>A key that only counts while modifier keys are held: <c>WithModifiers(Key.S, Key.Ctrl)</c>.</summary>
+    public static InputSource WithModifiers(Key key, params Key[] modifiers)
+    {
+        var parts = new InputSource[modifiers.Length + 1];
+        for (int i = 0; i < modifiers.Length; i++) parts[i] = ForKey(modifiers[i]);
+        parts[^1] = ForKey(key);
+        return Composite(CompositeMode.WithModifiers, parts);
+    }
 
     // ------------------------------------------------------------------
     //  Reading
@@ -161,11 +233,11 @@ public partial class InputSource : Resource
                 return reader.Read(SourceKey.MousePosition);
 
             case SourceKind.JoyButton:
-                return Scalar(reader, SourceKey.ForJoyButton(JoyButton, Device));
+                return Scalar(reader, SourceKey.ForJoyButton(EffectiveJoyButton, Device));
 
             case SourceKind.JoyAxis:
             {
-                float v = reader.Read(SourceKey.ForJoyAxis(JoyAxis, Device)).X;
+                float v = reader.Read(SourceKey.ForJoyAxis(EffectiveJoyAxis, Device)).X;
                 return new Vector3(AxisRange switch
                 {
                     JoyAxisRange.Positive => Mathf.Max(v, 0f),
@@ -190,6 +262,21 @@ public partial class InputSource : Resource
 
             case SourceKind.Touch:
                 return reader.Read(SourceKey.ForTouch(TouchChannel, TouchIndex));
+
+            case SourceKind.MouseWheel:
+                return reader.Read(SourceKey.MouseWheel);
+
+            case SourceKind.Pen:
+                return reader.Read(SourceKey.ForPen(PenChannel));
+
+            case SourceKind.Motion:
+                return reader.Read(SourceKey.ForMotion(MotionSensor, MotionDevice));
+
+            case SourceKind.DeviceControl:
+                return reader.Read(SourceKey.ForDeviceControl(DeviceType, ControlName, Device));
+
+            case SourceKind.Composite:
+                return ReadComposite(reader, 0);
 
             default:
                 return Vector3.Zero;
@@ -224,10 +311,25 @@ public partial class InputSource : Resource
                 keys.Add(SourceKey.MousePosition);
                 break;
             case SourceKind.JoyButton:
-                keys.Add(SourceKey.ForJoyButton(JoyButton, Device));
+                keys.Add(SourceKey.ForJoyButton(EffectiveJoyButton, Device));
                 break;
             case SourceKind.JoyAxis:
-                keys.Add(SourceKey.ForJoyAxis(JoyAxis, Device));
+                keys.Add(SourceKey.ForJoyAxis(EffectiveJoyAxis, Device));
+                break;
+            case SourceKind.MouseWheel:
+                keys.Add(SourceKey.MouseWheel);
+                break;
+            case SourceKind.Pen:
+                keys.Add(SourceKey.ForPen(PenChannel));
+                break;
+            case SourceKind.Motion:
+                keys.Add(SourceKey.ForMotion(MotionSensor, MotionDevice));
+                break;
+            case SourceKind.DeviceControl:
+                keys.Add(SourceKey.ForDeviceControl(DeviceType, ControlName, Device));
+                break;
+            case SourceKind.Composite:
+                foreach (var part in Parts) part?.CollectKeys(keys);
                 break;
             case SourceKind.JoyStick:
             {
@@ -327,10 +429,58 @@ public partial class InputSource : Resource
         SourceKind.InputMapAction => $"InputMap {_inputMapAction}",
         SourceKind.Virtual => $"Virtual {VirtualName}",
         SourceKind.Touch => TouchIndex < 0 ? $"Touch {TouchChannel}" : $"Touch {TouchIndex} {TouchChannel}",
+        SourceKind.MouseWheel => "Mouse wheel",
+        SourceKind.Pen => $"Pen {PenChannel}",
+        SourceKind.Motion => MotionOfHandheld ? $"Device {MotionSensor}" : $"Joy {MotionSensor}",
+        SourceKind.DeviceControl => $"{DeviceType} {ControlName}",
+        SourceKind.Composite => DescribeComposite(),
         _ => _kind.ToString(),
     };
 
     private static Vector3 Scalar(ISourceReader reader, in SourceKey key) => reader.Read(key);
+
+    private Vector3 ReadComposite(ISourceReader reader, int depth)
+    {
+        if (depth > 8 || Parts.Count == 0) return Vector3.Zero;
+        Vector3 Part(int i) => i < Parts.Count && Parts[i] != null
+            ? (Parts[i].Kind == SourceKind.Composite ? Parts[i].ReadComposite(reader, depth + 1) : Parts[i].Read(reader))
+            : Vector3.Zero;
+        float Strength(int i) => Part(i).Length();
+
+        switch (CompositeMode)
+        {
+            case CompositeMode.Axis1D:
+                return new Vector3(Strength(1) - Strength(0), 0f, 0f);
+            case CompositeMode.Axis2D:
+                return new Vector3(Strength(3) - Strength(2), Strength(1) - Strength(0), 0f);
+            case CompositeMode.AnyOf:
+            {
+                var best = Vector3.Zero;
+                for (int i = 0; i < Parts.Count; i++)
+                {
+                    var v = Part(i);
+                    if (v.LengthSquared() > best.LengthSquared()) best = v;
+                }
+                return best;
+            }
+            default:   // WithModifiers
+                for (int i = 0; i < Parts.Count - 1; i++)
+                    if (Part(i) == Vector3.Zero) return Vector3.Zero;
+                return Part(Parts.Count - 1);
+        }
+    }
+
+    private string DescribeComposite()
+    {
+        var names = new System.Collections.Generic.List<string>();
+        foreach (var part in Parts) names.Add(part?.Describe() ?? "None");
+        return CompositeMode switch
+        {
+            CompositeMode.WithModifiers => string.Join(" + ", names),
+            CompositeMode.AnyOf => string.Join(" or ", names),
+            _ => string.Join("/", names),
+        };
+    }
 
     internal static (JoyAxis X, JoyAxis Y) StickAxes(JoyStickSide side)
         => side == JoyStickSide.Right ? (JoyAxis.RightX, JoyAxis.RightY) : (JoyAxis.LeftX, JoyAxis.LeftY);
@@ -343,7 +493,8 @@ public partial class InputSource : Resource
     {
         string name = property["name"].AsString();
         bool keys = _kind is SourceKind.Key or SourceKind.KeyAxis1D or SourceKind.KeyAxis2D;
-        bool joy = _kind is SourceKind.JoyButton or SourceKind.JoyAxis or SourceKind.JoyStick;
+        bool joy = _kind is SourceKind.JoyButton or SourceKind.JoyAxis or SourceKind.JoyStick or SourceKind.DeviceControl
+                   || _kind == SourceKind.Motion && !MotionOfHandheld;
 
         bool visible = name switch
         {
@@ -359,6 +510,11 @@ public partial class InputSource : Resource
             nameof(InputMapAction) => _kind == SourceKind.InputMapAction,
             nameof(VirtualName) => _kind == SourceKind.Virtual,
             nameof(TouchChannel) or nameof(TouchIndex) => _kind == SourceKind.Touch,
+            nameof(RawIndex) => _kind is SourceKind.JoyButton or SourceKind.JoyAxis,
+            nameof(PenChannel) => _kind == SourceKind.Pen,
+            nameof(MotionSensor) or nameof(MotionOfHandheld) => _kind == SourceKind.Motion,
+            nameof(CompositeMode) or nameof(Parts) => _kind == SourceKind.Composite,
+            nameof(DeviceType) or nameof(ControlName) => _kind == SourceKind.DeviceControl,
             _ => true,
         };
 

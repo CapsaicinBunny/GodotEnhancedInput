@@ -101,7 +101,7 @@ public partial class InputPlayer
                     if (chordPrompts.Count > 0) chord = chordPrompts[0].Text;
                     break;
                 }
-                var prompt = new ActionPrompt(action, binding, context, source, joypadStyle, chord);
+                var prompt = new ActionPrompt(action, binding, context, source, joypadStyle, chord, ProfileNameOf(source));
                 if (string.IsNullOrEmpty(prompt.Text) || !seen.Add(prompt.IconKey + "|" + prompt.Text)) continue;
                 all.Add(prompt);
             }
@@ -111,6 +111,18 @@ public partial class InputPlayer
         if (wanted == InputDeviceKind.Other) return all;
         var filtered = all.FindAll(p => p.DeviceKind == wanted);
         return filtered.Count > 0 ? filtered : all;
+    }
+
+    /// <summary>A device profile's name for a numbered joypad control of this player's pad, or null.</summary>
+    private string ProfileNameOf(InputSource source)
+    {
+        if (source.RawIndex < 0 || source.Kind is not (SourceKind.JoyButton or SourceKind.JoyAxis)) return null;
+        var system = GetParent() as EnhancedInput;
+        if (system == null) return null;
+        int pad = source.Device >= 0 ? source.Device : LastJoypad >= 0 ? LastJoypad : JoypadDevices.Count > 0 ? JoypadDevices[0] : -1;
+        var profile = pad >= 0 ? system.GetJoypadDevice(pad)?.Profile : null;
+        if (profile == null) return null;
+        return source.Kind == SourceKind.JoyButton ? profile.ButtonName(source.RawIndex) : profile.AxisName(source.RawIndex);
     }
 
     /// <summary>The prompt texts for an action joined with <paramref name="separator"/> (see <see cref="GetPrompts"/>).</summary>

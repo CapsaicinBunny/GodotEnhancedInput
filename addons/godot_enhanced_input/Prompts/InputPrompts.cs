@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using Godot;
 
@@ -23,6 +24,11 @@ public static class InputPrompts
             or SourceKind.MouseMotion or SourceKind.MousePosition => InputDeviceKind.KeyboardMouse,
         SourceKind.JoyButton or SourceKind.JoyAxis or SourceKind.JoyStick => InputDeviceKind.Joypad,
         SourceKind.Touch or SourceKind.Virtual => InputDeviceKind.Touch,
+        SourceKind.MouseWheel => InputDeviceKind.KeyboardMouse,
+        SourceKind.Pen => InputDeviceKind.Pen,
+        SourceKind.Motion => source.MotionOfHandheld ? InputDeviceKind.Touch : InputDeviceKind.Joypad,
+        SourceKind.DeviceControl => InputDeviceKind.Custom,
+        SourceKind.Composite => source.Parts.Count > 0 ? DeviceKindOf(source.Parts[^1]) : InputDeviceKind.Other,
         _ => InputDeviceKind.Other,
     };
 
@@ -66,9 +72,34 @@ public static class InputPrompts
             case SourceKind.MousePosition:
                 return "Pointer";
             case SourceKind.JoyButton:
-                return JoyButtonName(source.JoyButton, style);
+                return source.RawIndex >= 0 && source.RawIndex > (int)JoyButton.Touchpad ? $"Button {source.RawIndex}" : JoyButtonName(source.EffectiveJoyButton, style);
             case SourceKind.JoyAxis:
-                return JoyAxisName(source.JoyAxis, source.AxisRange, style);
+                return source.RawIndex > (int)JoyAxis.TriggerRight ? $"Axis {source.RawIndex}" : JoyAxisName(source.EffectiveJoyAxis, source.AxisRange, style);
+            case SourceKind.MouseWheel:
+                return "Mouse Wheel";
+            case SourceKind.Pen:
+                return source.PenChannel switch { PenChannel.Tilt => "Pen Tilt", PenChannel.Eraser => "Eraser", _ => "Pen" };
+            case SourceKind.Motion:
+                return source.MotionSensor switch
+                {
+                    MotionSensor.Gyroscope => source.MotionOfHandheld ? "Tilt Device" : "Gyro",
+                    MotionSensor.Accelerometer => "Shake",
+                    MotionSensor.Gravity => source.MotionOfHandheld ? "Tilt Device" : "Tilt Controller",
+                    _ => "Compass",
+                };
+            case SourceKind.DeviceControl:
+                return source.ControlName.Replace('_', ' ');
+            case SourceKind.Composite:
+            {
+                var names = new List<string>();
+                foreach (var part in source.Parts) names.Add(GetName(part, style));
+                return source.CompositeMode switch
+                {
+                    CompositeMode.WithModifiers => string.Join(" + ", names),
+                    CompositeMode.AnyOf => string.Join(" / ", names),
+                    _ => string.Join("/", names),
+                };
+            }
             case SourceKind.JoyStick:
                 return source.JoyStick == JoyStickSide.Right ? "Right Stick" : "Left Stick";
             case SourceKind.InputMapAction:
@@ -225,6 +256,11 @@ public static class InputPrompts
             SourceKind.Touch => source.TouchChannel == TouchChannel.Drag ? "touch_drag" : "touch",
             SourceKind.Virtual => "virtual_" + Snake(source.VirtualName),
             SourceKind.InputMapAction => "action_" + Snake(source.InputMapAction),
+            SourceKind.MouseWheel => "mouse_wheel",
+            SourceKind.Pen => "pen_" + Snake(source.PenChannel.ToString()),
+            SourceKind.Motion => (source.MotionOfHandheld ? "device_" : "joy_") + Snake(source.MotionSensor.ToString()),
+            SourceKind.DeviceControl => Snake(source.DeviceType) + "_" + Snake(source.ControlName),
+            SourceKind.Composite => string.Join("+", source.Parts.Select(GetIconKey)),
             _ => string.Empty,
         };
     }
@@ -255,7 +291,7 @@ public static class InputPrompts
 /// <summary>One prompt for an action: a source that currently drives it, with its text and icon key.</summary>
 public readonly struct ActionPrompt
 {
-    public ActionPrompt(GameAction action, ActionBinding binding, BindingContext context, InputSource source, JoypadStyle style, string chordText = null)
+    public ActionPrompt(GameAction action, ActionBinding binding, BindingContext context, InputSource source, JoypadStyle style, string chordText = null, string sourceText = null)
     {
         Action = action;
         Binding = binding;
@@ -263,7 +299,7 @@ public readonly struct ActionPrompt
         Source = source;
         Style = style;
         DeviceKind = InputPrompts.DeviceKindOf(source);
-        SourceText = InputPrompts.GetName(source, style);
+        SourceText = sourceText ?? InputPrompts.GetName(source, style);
         ChordText = chordText ?? string.Empty;
         Text = string.IsNullOrEmpty(ChordText) ? SourceText : $"{ChordText} + {SourceText}";
         IconKey = InputPrompts.GetIconKey(source);

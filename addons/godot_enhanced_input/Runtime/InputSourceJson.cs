@@ -40,8 +40,10 @@ public static class InputSourceJson
             case SourceKind.JoyButton:
                 json["joyButton"] = source.JoyButton.ToString();
                 json["device"] = source.Device;
+                if (source.RawIndex >= 0) json["rawIndex"] = source.RawIndex;
                 break;
             case SourceKind.JoyAxis:
+                if (source.RawIndex >= 0) json["rawIndex"] = source.RawIndex;
                 json["joyAxis"] = source.JoyAxis.ToString();
                 json["axisRange"] = source.AxisRange.ToString();
                 json["device"] = source.Device;
@@ -60,6 +62,27 @@ public static class InputSourceJson
                 json["touchChannel"] = source.TouchChannel.ToString();
                 json["touchIndex"] = source.TouchIndex;
                 break;
+            case SourceKind.Pen:
+                json["penChannel"] = source.PenChannel.ToString();
+                break;
+            case SourceKind.Motion:
+                json["motionSensor"] = source.MotionSensor.ToString();
+                json["handheld"] = source.MotionOfHandheld;
+                json["device"] = source.Device;
+                break;
+            case SourceKind.DeviceControl:
+                json["deviceType"] = source.DeviceType;
+                json["control"] = source.ControlName;
+                json["device"] = source.Device;
+                break;
+            case SourceKind.Composite:
+            {
+                json["mode"] = source.CompositeMode.ToString();
+                var parts = new JsonArray();
+                foreach (var part in source.Parts) parts.Add(ToJson(part));
+                json["parts"] = parts;
+                break;
+            }
         }
         return json;
     }
@@ -94,11 +117,13 @@ public static class InputSourceJson
                     source.MouseButton = ReadEnum<MouseButton>(json, "mouseButton");
                     break;
                 case SourceKind.JoyButton:
-                    source.JoyButton = ReadEnum<JoyButton>(json, "joyButton");
+                    source.RawIndex = IntOr(json, "rawIndex", -1);
+                    if (source.RawIndex < 0) source.JoyButton = ReadEnum<JoyButton>(json, "joyButton");
                     source.Device = Int(json, "device");
                     break;
                 case SourceKind.JoyAxis:
-                    source.JoyAxis = ReadEnum<JoyAxis>(json, "joyAxis");
+                    source.RawIndex = IntOr(json, "rawIndex", -1);
+                    if (source.RawIndex < 0) source.JoyAxis = ReadEnum<JoyAxis>(json, "joyAxis");
                     source.AxisRange = ReadEnum<JoyAxisRange>(json, "axisRange", JoyAxisRange.Full);
                     source.Device = Int(json, "device");
                     break;
@@ -116,6 +141,31 @@ public static class InputSourceJson
                     source.TouchChannel = ReadEnum<TouchChannel>(json, "touchChannel");
                     source.TouchIndex = Int(json, "touchIndex");
                     break;
+                case SourceKind.Pen:
+                    source.PenChannel = ReadEnum<PenChannel>(json, "penChannel");
+                    break;
+                case SourceKind.Motion:
+                    source.MotionSensor = ReadEnum<MotionSensor>(json, "motionSensor");
+                    source.MotionOfHandheld = json["handheld"] is JsonValue h && h.TryGetValue<bool>(out var handheld) ? handheld : true;
+                    source.Device = Int(json, "device");
+                    break;
+                case SourceKind.DeviceControl:
+                    source.DeviceType = (string)json["deviceType"] ?? throw new FormatException("missing deviceType");
+                    source.ControlName = (string)json["control"] ?? throw new FormatException("missing control");
+                    source.Device = Int(json, "device");
+                    break;
+                case SourceKind.Composite:
+                {
+                    source.CompositeMode = ReadEnum<CompositeMode>(json, "mode");
+                    if (json["parts"] is not JsonArray parts) throw new FormatException("missing parts");
+                    foreach (var partNode in parts)
+                    {
+                        var part = FromJson(partNode, out var partError);
+                        if (part == null) throw new FormatException($"bad part: {partError}");
+                        source.Parts.Add(part);
+                    }
+                    break;
+                }
             }
             return source;
         }
@@ -142,6 +192,8 @@ public static class InputSourceJson
         throw new FormatException($"unknown {name} '{text}'");
     }
 
-    private static int Int(JsonObject json, string name)
-        => json[name] is JsonValue v && v.TryGetValue<int>(out var i) ? i : SourceKey.AnyDevice;
+    private static int Int(JsonObject json, string name) => IntOr(json, name, SourceKey.AnyDevice);
+
+    private static int IntOr(JsonObject json, string name, int fallback)
+        => json[name] is JsonValue v && v.TryGetValue<int>(out var i) ? i : fallback;
 }
