@@ -100,7 +100,7 @@ conversion if you capture input yourself.
 ## 5. Save and load
 
 ```csharp
-player.LoadProfile();          // user://input/player_<index>.json, if it exists
+player.LoadProfile();          // user://input/<ProfileId>.json, if it exists
 player.BindingsChanged += () => player.SaveProfile();
 ```
 

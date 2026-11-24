@@ -17,6 +17,8 @@ second.AddContext(gameplay);
 | `AcceptKeyboardMouse` | on | off |
 | `AcceptTouch` | on | off |
 | `AcceptActionEvents` (`InputEventAction`) | on | off |
+| `PollInputMap` (Godot's global InputMap state) | on | off |
+| `ReceivesUnownedJoypads` | on | off |
 | `JoypadDevices` | empty | empty |
 
 Turn the flags on for whichever player should use the keyboard (for example, two players sharing
@@ -33,10 +35,13 @@ InputPlayer owner = system.GetJoypadOwner(1);
 ```
 
 - A joypad that a player owns reaches only that player.
-- A joypad nobody owns reaches every player whose `JoypadDevices` list is empty — so a single-player
+- A joypad nobody owns reaches players whose `JoypadDevices` list is empty and that accept unowned
+  pads (`ReceivesUnownedJoypads`: player 0 only, by default) — so a single-player
   game needs no setup at all.
 - When a joypad disconnects, its state is cleared (its actions complete) but its owner keeps it,
-  so it works again when it reconnects. `JoypadConnectionChanged(device, connected)` reports both.
+  so it works again when it reconnects. If a *different* pad (by its identity) connects under that
+  device index, the assignment is dropped (`JoypadUnassigned`) instead of being inherited.
+  `JoypadConnectionChanged(device, connected)` reports connections.
 - `RemovePlayer` releases the player's joypads and re-indexes the others (player 0 cannot be removed).
 
 Joypad sources with device −1 read any joypad the player owns, so the same context works for every
@@ -62,7 +67,8 @@ The demo uses this: press a button on a second joypad and a second avatar appear
 
 View-dependent modifiers use each player's own view: set `player.ViewCamera` (or
 `ViewBasisOverride`) per player. Rebinding profiles are per player too; the default file is
-`user://input/player_<index>.json`.
+`user://input/<ProfileId>.json`; the profile id is given when the player is created and does not
+change when other players leave.
 
 ## Touch
 
@@ -72,7 +78,7 @@ An `InputSource` of kind `Touch` reads a finger:
 
 | `TouchChannel` | Value |
 |---|---|
-| `Pressed` | 1 while the finger is down (a tap shorter than a tick still counts once) |
+| `Pressed` | 1 while the finger is down (no tap is lost between ticks) |
 | `Position` | the finger's position in viewport pixels |
 | `Drag` | the finger's movement in pixels, summed over the tick |
 

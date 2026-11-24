@@ -61,10 +61,10 @@ in `GodotEnhancedInput.Tests` and run headless through 2dog. Stage numbers refer
 | SRC-3 | Two convenience composites map keys onto axes: a key pair onto one axis and four keys onto a 2D vector, using Godot's screen convention (up is −Y), so a composite and a stick give the same sign. | `RawInputTests.KeyAxis2D_FollowsGodotScreenConvention` |
 | SRC-4 | A source of kind *InputMap action* reads a Godot InputMap action: from `InputEventAction` events and from `Input.GetActionRawStrength`, taking the stronger. | `InputMapTests.InputMapSource_FollowsInputEventAction`, `InputMapTests.InputMapSource_FollowsInputActionPress` |
 | SRC-5 | An `InputEventAction` whose action name equals a `GameAction`'s name drives that game action directly (as injected input), so tests and tools can press game actions without knowing their keys. Can be turned off. | `InputMapTests.InputEventAction_WithGameActionName_DrivesAction` |
-| SRC-6 | A press and release that both arrive between two ticks still produce one actuated tick. | `RawInputTests.TapWithinOneTick_IsSeenForOneTick` |
+| SRC-6 | No press is lost between ticks: every on/off change of a channel is queued in order and each tick observes one, so two presses that arrive between the same two ticks are seen as two presses on consecutive ticks. Changes that do not cross zero only update the latest value. | `RawInputTests.TapWithinOneTick_IsSeenForOneTick`, `RobustnessTests.TwoPressesBetweenTicks_*`, `RobustnessTests.WheelNotches_*`, `RobustnessTests.AxisMovesWithinATick_*` |
 | SRC-7 | Key echo (OS auto-repeat) events are ignored. | `RawInputTests.EchoEvents_AreIgnored` |
 | SRC-8 | Named **virtual controls** can be set from code (`SetVirtualControl`), for on-screen sticks, touch and tests. | `RawInputTests.VirtualControl_IsReadBySource` |
-| SRC-9 | Joypad sources can be limited to one device or accept any device the player owns; disconnecting a joypad clears its state. | `RawInputTests.JoyButton_DeviceFilter`, `RawInputTests.JoyDisconnect_ClearsState` |
+| SRC-9 | Joypad sources can be limited to one device or accept any device the player owns; disconnecting a joypad clears its state. | `RawInputTests.JoyButton_DeviceFilter`, `RawInputTests.JoyDisconnect_ClearsState`, `RobustnessTests.TwoPads_NeverCombineIntoADiagonal` |
 | SRC-10 | Source resources hold no runtime state, so one resource can be shared by many bindings and players. | `PipelineTests.SharedSourceResource_IsIndependentPerPlayer` |
 
 ### 3.3 Contexts, priority and consumption (stage 1)
@@ -73,10 +73,10 @@ in `GodotEnhancedInput.Tests` and run headless through 2dog. Stage numbers refer
 |---|---|---|
 | CTX-1 | Contexts are added to a player at runtime with an integer priority and removed again; adding a context that is already active updates its priority and options. Higher priority evaluates first; ties go to the most recently added. | `ContextTests.AddRemove_ChangesWhatIsBound`, `ContextTests.ReAdd_UpdatesPriority` |
 | CTX-2 | Contexts are compared by resource identity. | `ContextTests.ContextsWithSameName_AreDistinct` |
-| CTX-3 | When a binding's action has *consume input* on, its sources read as zero for every lower-priority context while the context is active (whether or not the source is currently pressed). Bindings in the same context are not affected. | `ContextTests.HigherContext_ConsumesSharedKey`, `ContextTests.NonConsumingAction_LetsKeyThrough`, `ContextTests.SameContext_BothBindingsSeeKey` |
+| CTX-3 | When a binding's action has *consume input* on, its sources are hidden from every lower-priority context while the context is active (whether or not the source is currently pressed). Consumption keeps the device or finger: a source on one pad hides that pad only, a source on any pad hides every pad; logical and label keys consume as their physical key. Bindings in the same context are not affected. | `ContextTests.HigherContext_ConsumesSharedKey`, `ContextTests.NonConsumingAction_LetsKeyThrough`, `ContextTests.SameContext_BothBindingsSeeKey`, `RobustnessTests.Consuming*`, `RobustnessTests.LogicalAndPhysical*` |
 | CTX-4 | A context can **block** everything below it: with its *block lower priority* setting on, all lower contexts read zero while it is active. | `ContextTests.BlockingContext_SilencesLowerContexts` |
 | CTX-5 | A context can be added with *ignore held sources until released*: sources that are actuated when it is added read as zero in that context until they have been released once. | `ContextTests.IgnoreHeldUntilRelease` |
-| CTX-6 | When an action loses all its input (context removed, source consumed or blocked) it finishes normally: `Completed` if it was triggered, `Canceled` if it was ongoing. | `ContextTests.RemovingContext_CompletesTriggeredAction` |
+| CTX-6 | **Suppression cancels.** A binding whose context is blocked, whose sources are all consumed or ignored, or whose action does not run while paused is not evaluated: its trigger and modifier memories are reset and it adds neither value nor phase. An action left with nothing to evaluate goes idle — `Completed` if it was triggered, `Canceled` if it was ongoing — and never fires a release-type trigger because of it. | `ContextTests.RemovingContext_CompletesTriggeredAction`, `RobustnessTests.Blocking_*`, `RobustnessTests.Consumption_And_ContextRemoval_*`, `RobustnessTests.Suppression_ResetsSmoothing`, `RobustnessTests.BlockedCombo_*` |
 | CTX-7 | Signals and C# events report contexts being added and removed. | `ContextTests.Signals_AddedRemoved` |
 
 ### 3.4 Modifiers (stage 1)
@@ -121,7 +121,7 @@ player, never in the resource.
 | TRG-10 | `ChordBlockerTrigger` | Blocker. Stops the set from triggering while another action is triggered, so a plain action stays quiet while its chorded variant fires. | `PipelineTests.ChordBlocker_SilencesPlainAction` |
 | TRG-11 | `ComboTrigger` | A list of steps (action + the event that completes the step + the time allowed since the previous step). `Ongoing` while partway; `Triggered` on the tick the last step completes; resets when a step times out, when a step's action is used out of order, or when a listed cancel action triggers. | `PipelineTests.Combo_*` |
 | TRG-12 | **Roles.** Each trigger is *explicit*, *implicit* or a *blocker*. The explicit side is satisfied when any explicit trigger is triggered, or — with no explicit triggers — when the value is non-zero. The set is `Triggered` when the explicit side is satisfied, every implicit trigger is triggered and no blocker is. Otherwise it is `Ongoing` when the explicit side shows progress (an explicit trigger ongoing or triggered, or a non-zero value with no explicit triggers) or an implicit trigger is ongoing, else `Idle`. A triggered blocker forces `Idle`. | `TriggerTests.Roles_*` |
-| TRG-13 | **Binding vs. action triggers.** An action's binding-level phase is the strongest phase of its bindings. If the action has its own triggers, the final phase is the weaker of the binding-level phase and the action-level phase. | `PipelineTests.ActionLevelTriggers_GateBindingPhase` |
+| TRG-13 | **Binding vs. action triggers.** A binding *fires* when it has no triggers or its triggers are triggered; only firing bindings add to the action's value (the unfiltered value is `RawValue`). Without action triggers, the phase is the strongest binding phase (a trigger-less binding counts as triggered while non-zero). With action triggers, they decide on the combined value — so release, tap and hold-release work at action level — and the action shows ongoing while a binding is partway. | `PipelineTests.ActionLevelTriggers_GateBindingPhase`, `RobustnessTests.ActionLevel_*`, `RobustnessTests.UnsatisfiedChord_AddsNoValue` |
 | TRG-14 | Time-based triggers advance on ticks, not on events, so holding a key without new events still completes a hold or pulses. | `PipelineTests.Hold_CompletesWithoutFurtherEvents` |
 
 ### 3.6 Phase state machine and events (stage 1)
@@ -160,7 +160,7 @@ changed, so the designer's defaults stay intact and one profile can be reset at 
 | MAP-3 | Rebinding reports **conflicts**: other bindings whose sources read any of the same input channels — within the slot's own contexts by default, or in all known contexts. A policy decides what happens: allow, reject, swap (the first conflicting rebindable slot takes the old source) or clear the conflicting rebindable slots. Fixed bindings are reported, never changed. | `RebindTests.Conflict_*` |
 | MAP-4 | `InputSource.FromEvent` builds a source from a press: key (physical by default), mouse button or wheel, joypad button, or joypad axis past a threshold (as a half axis in the pushed direction). Joypad axis sources can read the full axis or only its positive or negative half. | `CaptureTests.FromEvent_*`, `RawInputTests.JoyAxis_HalfRanges` |
 | MAP-5 | **Capture.** `StartCapture(id, options)` turns the next qualifying press into the slot's source (through the conflict policy). Options choose the accepted devices, the cancel keys (Escape by default) and the axis threshold. The captured press never reaches actions, and is marked handled so the GUI does not also act on it — the one case where the plugin marks an event handled. Signals report the result or the cancellation. | `CaptureTests.*` |
-| MAP-6 | Profiles **save** to and **load** from JSON (default `user://input/player_<n>.json`) with a format number. Enum values are stored by name. Entries for unknown ids are kept, entries saved under a binding's former id apply to its current id, malformed entries are skipped with a warning, and a newer format is refused. | `ProfileTests.*` |
+| MAP-6 | Profiles **save** to and **load** from JSON (default `user://input/<ProfileId>.json`, where the profile id is given when a player is created and never changes with re-indexing) with a format number. Enum values are stored by name. Entries for unknown ids are kept, entries saved under a binding's former id apply to its current id, malformed entries are skipped with a warning, and a newer format is refused. | `ProfileTests.*`, `RobustnessTests.ProfileIds_SurviveReindexing` |
 | MAP-7 | Rebinding a source that is held lets the action finish normally on the next tick. | `RebindTests.RebindWhileHeld_CompletesAction` |
 
 ### 3.9 Local players and touch (stage 3)
@@ -168,9 +168,9 @@ changed, so the designer's defaults stay intact and one profile can be reset at 
 | ID | Requirement | Test |
 |---|---|---|
 | PLR-1 | `EnhancedInput` holds several players, each with its own contexts, raw input, action states and profile. Player 0 always exists; players added later do not listen to keyboard, mouse, touch or `InputEventAction` unless told to. | `PlayerTests.NewPlayers_ListenOnlyToTheirDevices` |
-| PLR-2 | **Joypad assignment.** A joypad assigned to a player (`AssignJoypad`) reaches only that player; assigning it moves it from any other player. A player with no joypads listed receives the joypads nobody owns. | `PlayerTests.AssignedJoypad_ReachesOnlyItsOwner`, `PlayerTests.UnassignedJoypads_GoToPlayersWithoutAList` |
+| PLR-2 | **Joypad assignment.** A joypad assigned to a player (`AssignJoypad`) reaches only that player; assigning it moves it from any other player. Joypads nobody owns reach only players with no joypads listed that accept unowned pads (player 0 by default). | `PlayerTests.AssignedJoypad_ReachesOnlyItsOwner`, `PlayerTests.UnassignedJoypads_GoToPlayersWithoutAList`, `RobustnessTests.AddedPlayers_*` |
 | PLR-3 | **Joining.** With join mode *on button press*, a button press on an unowned joypad assigns it to the first player that has no joypad, or creates a new player (up to a maximum), raising `PlayerJoined`. The joining press does not reach actions unless configured to. | `PlayerTests.Join_*` |
-| PLR-4 | Disconnecting a joypad clears its state on its owner, keeps the assignment for when it comes back, and raises `JoypadConnectionChanged`. Removing a player releases its joypads and re-indexes the rest. | `PlayerTests.Disconnect_KeepsAssignment`, `PlayerTests.RemovePlayer_ReleasesJoypads` |
+| PLR-4 | Disconnecting a joypad clears its state on its owner and keeps the assignment for when it comes back; a *different* pad (by identity) that reconnects under the same device index does not inherit it. `JoypadConnectionChanged` and `JoypadUnassigned` report this. Removing a player releases its joypads and re-indexes the rest. | `PlayerTests.Disconnect_KeepsAssignment`, `PlayerTests.RemovePlayer_ReleasesJoypads`, `RobustnessTests.ReconnectedPad*` |
 | TCH-1 | **Touch sources.** A *Touch* source reads one finger or any finger: *pressed* (1 while down; a tap shorter than a tick is still seen once), *position* (viewport pixels), or *drag* (movement summed over the tick). Touch follows the same GUI rules as the mouse. | `TouchTests.TouchSource_*` |
 | TCH-2 | **Virtual deltas.** Code can add to a virtual control for the current tick only (`AddToVirtualControl`), alongside its held value. | `TouchTests.VirtualDelta_LastsOneTick` |
 | TCH-3 | **On-screen stick.** `VirtualJoystick` (a `Control`) follows one finger that starts inside it and writes a 2D value (−1…1, up is −Y) to a virtual control; optionally floating (centred where the finger lands); back to zero on release. | `TouchControlTests.Joystick_*` |
@@ -178,7 +178,18 @@ changed, so the designer's defaults stay intact and one profile can be reset at 
 | TCH-5 | **Touch zone.** `TouchZone` turns drags that start inside it into per-tick deltas on a virtual control (camera look on half the screen). | `TouchControlTests.Zone_*` |
 | TCH-6 | On-screen controls handle several fingers at once, can also be driven by the mouse for desktop testing, can hide themselves where there is no touchscreen, and mark the events they use as handled so they do not also act as gameplay touches or clicks. | `TouchControlTests.MultiTouch_*`, `TouchControlTests.Mouse_*` |
 
-### 3.10 Prompts and debugging (stage 4)
+### 3.10 Robustness (after review)
+
+| ID | Requirement | Test |
+|---|---|---|
+| ROB-1 | Two-axis joypad sticks take both axes from one pad (for "any pad": the pad pushed furthest), never a mix of two pads. | `RobustnessTests.TwoPads_NeverCombineIntoADiagonal` |
+| ROB-2 | Only player 0 polls Godot's global InputMap state by default (it bypasses device filters and the GUI); players added later read InputMap actions only from the events they receive. | `RobustnessTests.AddedPlayers_DoNotPollTheInputMap_OrTakeUnownedPads` |
+| ROB-3 | Losing window or application focus, or being suspended, releases every player's held input and every on-screen control. | `RobustnessTests.FocusLoss_*` |
+| ROB-4 | A stick crossing zero is read before the GUI, like any movement toward zero, so a GUI never holds back a reversal. | `RobustnessTests.StickReversal_IsReadBeforeTheGui` |
+| ROB-5 | Rebind conflicts tell devices and fingers apart. | `RobustnessTests.Overlaps_RespectsDevices` |
+| ROB-6 | `ChangedTrigger` fires on ticks the value changes (with an optional tolerance); `PointerSpaceModifier` converts pointer positions to normalized, centred, rect or 2D-world coordinates of the player's pointer viewport. | `RobustnessTests.ChangedTrigger_*`, `RobustnessTests.PointerSpace_Conversions` |
+
+### 3.11 Prompts and debugging (stage 4)
 
 | ID | Requirement | Test |
 |---|---|---|
@@ -202,7 +213,7 @@ Godot events ──► on-screen controls (VirtualJoystick, VirtualButton, Touch
                    ▼
                  InputPlayer ── rebind capture (takes the next press, if running)
                    │         ── last used device (for prompts)
-                   │         ── RawInputState (per source: current value, peak since last tick,
+                   │         ── RawInputState (per source: current value, queued on/off changes,
                    │                           motion and touch-drag accumulators, virtual controls)
                    │         ── InputProfile (rebind id → replacement source; JSON on disk)
                    │ Tick(delta):

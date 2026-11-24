@@ -18,12 +18,12 @@ and behaviour change.
 | `ContextualInputEvent` | `ActionEventArgs` | Carries event, value, phase and timings. |
 | `TriggerOnKeyDown` | `PressedTrigger` | |
 | `TriggerOnKeyUp` | `ReleasedTrigger` | Now also ongoing while held. |
-| `TriggerOnChange` (default for axes) | no trigger | Axes are triggered while non-zero and complete when they return to zero. |
+| `TriggerOnChange` (default for axes) | no trigger, or `ChangedTrigger` | Without a trigger, axes are triggered while non-zero and complete when they return to zero; `ChangedTrigger` fires on each change. |
 | `TriggerContinuous` | `DownTrigger`; pulse mode → `PulseTrigger` | Pulses now run on ticks, not events. |
 | `InvertModifier` | `NegateModifier` | |
 | `DeadzoneModifier` (cut-off) | `DeadzoneModifier` (cut-off and rescale, axial or radial) | |
 | `NormalizeModifier`, `ScaleModifier`, `SwizzleModifier` | same names | Swizzle gained `XYZ`; settings renamed slightly. |
-| `PointerSpaceModifier` | — | Convert positions in game code, or write a custom modifier. |
+| `PointerSpaceModifier` | `PointerSpaceModifier` | Spaces are now viewport-normalized, centred, rect-normalized and 2D world. |
 | `ActiveContextChanged`, `ContextPushed`, `ContextPopped` signals | `ContextAdded`, `ContextRemoved` on the player | |
 | `Pushed`, `Popped`, `PriorityChanged` on contexts | — | Contexts are plain data; listen on the player. |
 

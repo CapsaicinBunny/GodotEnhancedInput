@@ -20,6 +20,7 @@ one modifier resource can be shared.
 | `ClampModifier` | Clamps each component to a range. | `Min`, `Max` |
 | `WorldAxesModifier` | Places a 2D input in 3D: `GroundXZ` maps (x, y) → (x, 0, y), so up on a stick (−Y) becomes −Z, Godot's forward; `UprightXY` maps to (x, −y, 0). Use on an `Axis3D` action. | `Plane` |
 | `ViewRelativeModifier` | Rotates a world direction by the player's view, so forward is "away from the camera". `YawOnly` uses only the heading (stays on the ground). The view is `InputPlayer.ViewCamera`, the viewport's current `Camera3D`, or `ViewBasisOverride`. | `YawOnly` |
+| `PointerSpaceModifier` | Converts a pointer position (viewport pixels, from `MousePosition` or a touch position) to 0…1 viewport coordinates, −1…1 centred coordinates, 0…1 within a rect, or 2D world coordinates through the viewport's canvas transform. Uses the player's `PointerViewport` (its own by default) for split screen and SubViewports. | `Space`, `Rect` |
 | `FovScaleModifier` | Multiplies by `tan(fov/2) / tan(reference/2)` of the view camera, so aiming feels the same when zoomed. | `ReferenceFov` (75°) |
 
 ## Recipes

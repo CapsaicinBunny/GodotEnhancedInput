@@ -72,15 +72,25 @@ Events only record raw input. Once per tick (by default in `_Process`) each play
    **triggers**;
 3. moves the action's phase and records events and timings;
 4. calls callbacks and emits signals;
-5. forgets per-tick data (mouse motion, presses shorter than a tick, one-tick injections).
+5. moves every channel on by one queued change and forgets per-tick data (mouse motion, one-tick injections).
 
-A press and release that both arrive between two ticks still count for one tick.
+No press is lost: each on/off change of a channel is queued, and each tick observes one. A press and
+release between two ticks are seen on two consecutive ticks; two quick presses become press, release,
+press, release over four ticks, in order.
+
+Bindings are **suppressed** — not evaluated at all — while their context is blocked, all their
+sources are consumed or ignored, or the tree is paused (for actions that do not run while paused).
+A suppressed binding's triggers and modifiers start over, so a menu opening never looks like a
+release.
 
 ## Phases and events
 
 Triggers report a **phase** each tick: `Idle`, `Ongoing` (partway: a hold that has not finished, a
 tap still within its time) or `Triggered`. The action's binding-level phase is the strongest of
-its bindings; if the action has its own triggers, the final phase is the weaker of the two.
+its bindings. A binding *fires* when it has no triggers or its triggers are triggered, and only firing
+bindings add to the action's value (`ActionState.RawValue` keeps the value of all evaluated bindings).
+If the action has its own triggers, they decide on that combined value — release, tap and
+hold-release work at action level too — and the action shows ongoing while a binding is partway.
 
 Changes of phase raise events:
 

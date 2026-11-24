@@ -56,8 +56,17 @@ history up to 0.2.3 is in its repository.
   `InputDebugOverlay` (F3) with recent events.
 - Documentation: design, concepts, modifiers, triggers, rebinding, players and touch, prompts and
   debugging, Godot integration, migration.
-- 235 headless tests.
+- Robustness (from review): no press is lost between ticks (ordered per-channel change queue);
+  suppressed bindings (blocked, paused, consumed, ignored) are reset instead of fed zeros; only
+  firing bindings add value (`ActionState.RawValue` keeps the unfiltered value) and action-level
+  release / tap / hold-release triggers work; consumption and rebind conflicts keep device and
+  finger identity, and logical/label keys consume as their physical key; sticks read one pad;
+  only player 0 polls the InputMap or takes unowned pads by default; pad identity checked on
+  reconnect (`JoypadUnassigned`); stable `ProfileId`; focus loss releases input and on-screen
+  controls; stick reversals are read before the GUI.
+- `ChangedTrigger` and `PointerSpaceModifier` (back from InputForge, reworked).
+- 258 headless tests.
 
 ### Removed
 - InputForge's `EnhancedInputSystem`, `InputAction`, `InputMappingContext`, `InputMapping`, `InputKey`,
-  `ContextualInputEvent`, its triggers and `PointerSpaceModifier`.
+  `ContextualInputEvent` and its triggers.

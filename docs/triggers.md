@@ -1,8 +1,9 @@
 # Triggers
 
 A trigger looks at a value every tick and reports a phase: `Idle`, `Ongoing` or `Triggered`.
-Put triggers on an `ActionBinding` (they see that binding's modified value) or on a `GameAction`
-(they see the combined value and gate the bindings' phase). Timers advance with ticks, so a hold
+Put triggers on an `ActionBinding` (they see that binding's modified value and decide whether the
+binding fires — only firing bindings add to the action's value) or on a `GameAction` (they see the
+combined value of the firing bindings and decide the action's phase). Timers advance with ticks, so a hold
 completes and a pulse repeats while no new events arrive.
 
 Every trigger has an **actuation threshold** (default 0.5): the magnitude at which a value counts
@@ -14,6 +15,7 @@ as actuated. Zero is never actuated.
 |---|---|---|---|
 | *(none)* | — | Triggered while the value is non-zero. | — |
 | `DownTrigger` | explicit | Triggered every tick the value is actuated. | — |
+| `ChangedTrigger` | explicit | Triggered on every tick the value differs from the previous tick's (including returning to zero). Read `RawValue` between changes: the binding only fires on the changes. | `Tolerance` |
 | `PressedTrigger` | explicit | Triggered on the tick the value becomes actuated, then idle while held. | — |
 | `ReleasedTrigger` | explicit | Ongoing while actuated; triggered on the tick it is released. | — |
 | `HoldTrigger` | explicit | Ongoing until held for `HoldSeconds`, then triggered (every tick, or once with `OneShot`). Released early → idle → the action is canceled. | `HoldSeconds`, `OneShot` |

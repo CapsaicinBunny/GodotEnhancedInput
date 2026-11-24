@@ -19,7 +19,7 @@ An `InputPlayer` also works on its own, without the autoload or a scene tree: fe
 Two independent paths connect Godot's own action system:
 
 1. **InputMap actions as sources.** An `InputSource` of kind `InputMapAction` reads a Godot action
-   by name: from `InputEventAction` events and, when `InputPlayer.PollInputMap` is on (default),
+   by name: from `InputEventAction` events and, when `InputPlayer.PollInputMap` is on (player 0 by default),
    from `Input.GetActionRawStrength`. So `Input.ActionPress("jump")`, devices bound to the action
    in the Project Settings, and `Input.ParseInputEvent(new InputEventAction { … })` all drive it.
 2. **`InputEventAction` drives game actions by name.** When `InputPlayer.RouteGameActionEvents` is
@@ -33,7 +33,15 @@ player.Tick(1.0 / 60.0);
 Assert.True(player.WasTriggered(jump));
 ```
 
-A press and release within one tick still counts once.
+No press is lost between ticks. Polling reads Godot's global input state, which ignores device
+filters and what the GUI accepted; turn `PollInputMap` off to use only the events a player receives.
+
+## Focus loss
+
+When the window or application loses focus, or the app is suspended, `EnhancedInput` releases every
+player's held input (`ResetInputOnFocusLoss`, on by default) and on-screen controls let go of their
+fingers, so nothing stays stuck after alt-tab or a phone call. `ResetAllInput()` does the same on
+demand.
 
 `InputEventAction`s have no real device, so through the autoload they reach only players with
 `AcceptActionEvents` on — player 0 by default. To drive another player in a test, feed the event to
@@ -66,7 +74,7 @@ two exceptions: a press taken by a running [rebind capture](rebinding.md#4-captu
 ## Joypads
 
 Joypad sources can name a device or use −1 for any device the player listens to
-(`InputPlayer.JoypadDevices`; empty means all). When a joypad disconnects, its state is cleared and
+(`InputPlayer.JoypadDevices`; empty means unowned pads, for players that accept them). When a joypad disconnects, its state is cleared and
 its actions finish.
 
 ## Virtual controls
