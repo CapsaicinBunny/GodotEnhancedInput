@@ -31,8 +31,11 @@ public sealed class XRInputBackend : InputBackend
     private readonly List<(XRPositionalTracker Tracker, System.Delegate[] Handlers)> _subscriptions = new();
 
     /// <summary>Which tracker kinds become devices.</summary>
+    // Head is named Camera from Godot 4.8 on; the old name still works there and is the only one in 4.7.
+#pragma warning disable CS0618
     public XRServer.TrackerType TrackerTypes { get; set; } =
         XRServer.TrackerType.Controller | XRServer.TrackerType.Head | XRServer.TrackerType.Hand | XRServer.TrackerType.Face;
+#pragma warning restore CS0618
 
     /// <summary>Poses read every tick (controllers report "default", "aim", "grip", "palm"; eye gaze is often "eye_gaze_pose").</summary>
     public string[] Poses { get; set; } = { "default", "aim", "grip", "palm", "eye_gaze_pose" };
