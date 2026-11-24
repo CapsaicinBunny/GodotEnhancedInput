@@ -107,10 +107,12 @@ These read the default player (player 0). For local multiplayer, pass the player
 
 ## Quick start
 
-Create resources in the FileSystem dock (*New Resource…*):
+The plugin adds three assets to *New Resource…*: `EnhancedInputAction`, `EnhancedInputMappingContext`
+and `EnhancedInputConfig`. Mappings, modifiers, triggers and the rest are created inside them from the
+Inspector's *Add …* menus.
 
-1. A `GameAction` "jump" (value kind *Digital*) and a `GameAction` "move" (*Axis2D*).
-2. A `BindingContext` "gameplay" with `ActionBinding`s:
+1. An `EnhancedInputAction` "jump" (value kind *Digital*) and an `EnhancedInputAction` "move" (*Axis2D*).
+2. An `EnhancedInputMappingContext` "gameplay" with mappings (*Add Mapping*; type the input in *Input*):
    - jump ← `InputSource` *Key* Space, trigger `PressedTrigger`;
    - move ← `InputSource` *KeyAxis2D* W/S/A/D;
    - move ← `InputSource` *JoyStick* Left, modifier `DeadzoneModifier`.
@@ -122,9 +124,9 @@ using GodotEnhancedInput;
 
 public partial class Hero : CharacterBody3D
 {
-    [Export] public BindingContext Gameplay { get; set; }
-    [Export] public GameAction Jump { get; set; }
-    [Export] public GameAction Move { get; set; }
+    [Export] public EnhancedInputMappingContext Gameplay { get; set; }
+    [Export] public EnhancedInputAction Jump { get; set; }
+    [Export] public EnhancedInputAction Move { get; set; }
 
     public override void _Ready()
     {
@@ -144,15 +146,15 @@ public partial class Hero : CharacterBody3D
 Everything can also be built in code, from short text paths:
 
 ```csharp
-var jump = GameAction.Button("jump");
-var move = GameAction.Axis2D("move");
-var gameplay = BindingContext.Create("gameplay")
+var jump = EnhancedInputAction.Button("jump");
+var move = EnhancedInputAction.Axis2D("move");
+var gameplay = EnhancedInputMappingContext.Create("gameplay")
     .Bind(move, "wasd", "pad:left_stick")
     .Bind(jump, "key:space", "pad:a");
 gameplay.Add(jump, "pad:rt").Hold(0.4f);
 ```
 
-Or put the whole game's input in one `InputConfiguration` resource — actions, contexts, control
+Or put the whole game's input in one `EnhancedInputConfig` resource — actions, contexts, control
 schemes, default settings — set it on the autoload, and switch contexts by id:
 `player.ActivateContext("vehicle")`.
 

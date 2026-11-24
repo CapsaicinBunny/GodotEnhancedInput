@@ -8,7 +8,6 @@ namespace GodotEnhancedInput;
 /// the triggering tick. It re-arms once the value returns to rest.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class FlickTrigger : InputTrigger
 {
     /// <summary>Below this magnitude the value is at rest.</summary>

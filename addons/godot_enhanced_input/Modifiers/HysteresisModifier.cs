@@ -7,7 +7,6 @@ namespace GodotEnhancedInput;
 /// jitter from noisy sensors and worn sticks without the lag of smoothing. Zero always passes through.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class HysteresisModifier : InputModifier
 {
     /// <summary>How far the input must move before the output follows.</summary>

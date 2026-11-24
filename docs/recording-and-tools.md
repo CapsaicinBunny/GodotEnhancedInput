@@ -40,7 +40,7 @@ The file is compact JSON: one entry per tick with its time step and inputs.
 
 With the plugin enabled, the **Enhanced Input** dock in the bottom panel shows:
 
-- **Bindings** — every `BindingContext` resource in the project with its bindings: action, input
+- **Bindings** — every `EnhancedInputMappingContext` resource in the project with its bindings: action, input
   (as a [source path](sources-and-devices.md), with a device icon), modifiers, triggers, groups and
   rebind id; bindings with problems are coloured. Search by action, input, group, rebind id or
   modifier. The side panel edits the selected binding: pick its action or create a new one (saved
@@ -70,7 +70,7 @@ errors, warnings or notes:
 Running it in a test keeps a project's contexts clean:
 
 ```csharp
-var contexts = new[] { GD.Load<BindingContext>("res://input/gameplay.tres"), GD.Load<BindingContext>("res://input/menu.tres") };
+var contexts = new[] { GD.Load<EnhancedInputMappingContext>("res://input/gameplay.tres"), GD.Load<EnhancedInputMappingContext>("res://input/menu.tres") };
 Assert.DoesNotContain(BindingValidator.Validate(contexts), i => i.Severity == IssueSeverity.Error);
 ```
 

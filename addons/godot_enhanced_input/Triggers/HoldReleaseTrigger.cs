@@ -7,7 +7,6 @@ namespace GodotEnhancedInput;
 /// <see cref="HoldSeconds"/>, otherwise idle (the action is canceled).
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class HoldReleaseTrigger : InputTrigger
 {
     /// <summary>The minimum time the value must be held before releasing counts.</summary>

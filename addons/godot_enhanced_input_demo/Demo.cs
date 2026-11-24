@@ -14,10 +14,10 @@ namespace GodotEnhancedInput.Demo;
 public partial class Demo : Node2D
 {
     /// <summary>On-foot controls. Defaults to the demo's gameplay.tres.</summary>
-    [Export] public BindingContext Gameplay { get; set; }
+    [Export] public EnhancedInputMappingContext Gameplay { get; set; }
 
     /// <summary>Pause menu. Defaults to the demo's menu.tres.</summary>
-    [Export] public BindingContext Menu { get; set; }
+    [Export] public EnhancedInputMappingContext Menu { get; set; }
 
     /// <summary>Load player 0's rebinding profile on start and save it after every change.</summary>
     [Export] public bool PersistBindings { get; set; } = true;
@@ -47,7 +47,7 @@ public partial class Demo : Node2D
     private JoinMode _previousJoinMode;
     private InputPlayer _player;
     private readonly List<Avatar> _avatars = new();
-    private readonly System.Collections.Generic.Dictionary<string, GameAction> _actions = new();
+    private readonly System.Collections.Generic.Dictionary<string, EnhancedInputAction> _actions = new();
     private readonly List<string> _log = new();
     private readonly List<(Node2D Node, Vector2 Velocity, double Life)> _shots = new();
 
@@ -61,8 +61,8 @@ public partial class Demo : Node2D
     /// <inheritdoc/>
     public override void _Ready()
     {
-        Gameplay ??= GD.Load<BindingContext>($"{DemoContent.Folder}/contexts/gameplay.tres");
-        Menu ??= GD.Load<BindingContext>($"{DemoContent.Folder}/contexts/menu.tres");
+        Gameplay ??= GD.Load<EnhancedInputMappingContext>($"{DemoContent.Folder}/contexts/gameplay.tres");
+        Menu ??= GD.Load<EnhancedInputMappingContext>($"{DemoContent.Folder}/contexts/menu.tres");
         CollectActions(Gameplay);
         CollectActions(Menu);
 
@@ -134,14 +134,14 @@ public partial class Demo : Node2D
         _avatars.Clear();
     }
 
-    private void CollectActions(BindingContext context)
+    private void CollectActions(EnhancedInputMappingContext context)
     {
         if (context == null) return;
         foreach (var binding in context.Bindings)
             if (binding?.Action != null) _actions.TryAdd(binding.Action.Name, binding.Action);
     }
 
-    private GameAction A(string name) => _actions.TryGetValue(name, out var action) ? action : null;
+    private EnhancedInputAction A(string name) => _actions.TryGetValue(name, out var action) ? action : null;
 
     // ------------------------------------------------------------------
     //  Players

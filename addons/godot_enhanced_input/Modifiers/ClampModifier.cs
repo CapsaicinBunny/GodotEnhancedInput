@@ -4,7 +4,6 @@ namespace GodotEnhancedInput;
 
 /// <summary>Clamps each component to a range.</summary>
 [Tool]
-[GlobalClass]
 public partial class ClampModifier : InputModifier
 {
     /// <summary>Lowest value per component.</summary>

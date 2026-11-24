@@ -22,7 +22,6 @@ public enum PointerSpace
 /// <see cref="InputPlayer.PointerViewport"/> (by default its own).
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class PointerSpaceModifier : InputModifier
 {
     private PointerSpace _space = PointerSpace.ViewportNormalized;

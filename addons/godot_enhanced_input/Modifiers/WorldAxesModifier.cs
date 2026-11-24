@@ -16,7 +16,6 @@ public enum WorldPlane
 /// <see cref="ActionValueKind.Axis3D"/> action driven by sticks or key composites.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class WorldAxesModifier : InputModifier
 {
     /// <summary>Which 3D plane the 2D input is laid on.</summary>

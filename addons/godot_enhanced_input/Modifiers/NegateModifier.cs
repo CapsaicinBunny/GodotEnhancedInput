@@ -7,7 +7,6 @@ namespace GodotEnhancedInput;
 /// inverts the rotation; W is never flipped there (it would describe the same rotation).
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class NegateModifier : InputModifier
 {
     /// <summary>Flip X.</summary>

@@ -394,7 +394,7 @@ public enum ReconnectPolicy
     Ask,
 }
 
-/// <summary>How an action reports while it is held (<see cref="GameAction.Evaluation"/>).</summary>
+/// <summary>How an action reports while it is held (<see cref="EnhancedInputAction.Evaluation"/>).</summary>
 public enum ActionEvaluation
 {
     /// <summary>Movement, looking, steering: triggered every frame while held (default).</summary>

@@ -194,7 +194,7 @@ public class ContextTests
     {
         var context = Make.Context("C");
         using var rig = new Rig();
-        BindingContext added = null, removed = null;
+        EnhancedInputMappingContext added = null, removed = null;
         int addedPriority = -1;
         rig.Player.ContextAdded += (c, p) => { added = c; addedPriority = p; };
         rig.Player.ContextRemoved += c => removed = c;

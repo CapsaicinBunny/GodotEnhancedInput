@@ -259,7 +259,7 @@ public partial class InputPlayer
     }
 
     /// <summary>Plays an effect every time an action raises one of the given events (e.g. a click on each press).</summary>
-    public ActionSubscription BindHaptic(GameAction action, ActionEvents events, HapticEffect effect, float strength = 1f)
+    public ActionSubscription BindHaptic(EnhancedInputAction action, ActionEvents events, HapticEffect effect, float strength = 1f)
         => Bind(action, events, _ => PlayHaptic(effect, strength));
 
     /// <summary>Stops one effect.</summary>

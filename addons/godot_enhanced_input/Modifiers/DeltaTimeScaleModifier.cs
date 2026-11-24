@@ -8,7 +8,6 @@ namespace GodotEnhancedInput;
 /// <see cref="ScaleDeltaValues"/> is on.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class DeltaTimeScaleModifier : InputModifier
 {
     /// <summary>Also scale delta values (mouse motion, drags), which are normally already per tick.</summary>

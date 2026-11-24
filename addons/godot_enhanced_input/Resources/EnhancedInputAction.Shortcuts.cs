@@ -14,22 +14,22 @@ namespace GodotEnhancedInput;
 /// </code>
 /// Reads return "nothing" (false, zero, the identity) when there is no player yet.
 /// </summary>
-public partial class GameAction
+public partial class EnhancedInputAction
 {
     /// <summary>An on/off action ("jump", "fire").</summary>
-    public static GameAction Button(string name) => Create(name, ActionValueKind.Digital);
+    public static EnhancedInputAction Button(string name) => Create(name, ActionValueKind.Digital);
 
     /// <summary>A one-axis action ("throttle", "zoom").</summary>
-    public static GameAction Axis(string name) => Create(name, ActionValueKind.Axis1D);
+    public static EnhancedInputAction Axis(string name) => Create(name, ActionValueKind.Axis1D);
 
     /// <summary>A two-axis action ("move", "look").</summary>
-    public static GameAction Axis2D(string name) => Create(name, ActionValueKind.Axis2D);
+    public static EnhancedInputAction Axis2D(string name) => Create(name, ActionValueKind.Axis2D);
 
     /// <summary>A three-axis action ("fly", a tracked position).</summary>
-    public static GameAction Axis3D(string name) => Create(name, ActionValueKind.Axis3D);
+    public static EnhancedInputAction Axis3D(string name) => Create(name, ActionValueKind.Axis3D);
 
     /// <summary>A rotation action (a controller's or the headset's orientation), read as a quaternion.</summary>
-    public static GameAction Rotation(string name) => Create(name, ActionValueKind.Quaternion);
+    public static EnhancedInputAction Rotation(string name) => Create(name, ActionValueKind.Quaternion);
 
     private static InputPlayer PlayerOr(InputPlayer player) => player ?? EnhancedInput.DefaultPlayer;
 

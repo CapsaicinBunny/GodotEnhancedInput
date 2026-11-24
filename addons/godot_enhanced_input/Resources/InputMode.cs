@@ -11,7 +11,6 @@ namespace GodotEnhancedInput;
 /// unless the mode is locked.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class InputMode : Resource
 {
     /// <summary>Name for menus and logs.</summary>

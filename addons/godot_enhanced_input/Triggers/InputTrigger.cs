@@ -96,7 +96,6 @@ public readonly struct TriggerContext
 /// and from its own memory. See <see cref="TriggerRole"/> for how several triggers combine.
 /// </summary>
 [Tool]
-[GlobalClass]
 [Icon("res://addons/godot_enhanced_input/Icons/InputTrigger.svg")]
 public abstract partial class InputTrigger : Resource
 {

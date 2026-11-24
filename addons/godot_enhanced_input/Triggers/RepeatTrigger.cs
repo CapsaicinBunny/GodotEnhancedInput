@@ -9,7 +9,6 @@ namespace GodotEnhancedInput;
 /// <see cref="MaxRepeats"/> stops it (idle until released).
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class RepeatTrigger : InputTrigger
 {
     /// <summary>Trigger on the press itself, not only on repeats.</summary>

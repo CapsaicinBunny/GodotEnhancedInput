@@ -10,8 +10,8 @@ namespace GodotEnhancedInput;
 /// </summary>
 [Tool]
 [GlobalClass]
-[Icon("res://addons/godot_enhanced_input/Icons/BindingContext.svg")]
-public partial class BindingContext : Resource
+[Icon("res://addons/godot_enhanced_input/Icons/EnhancedInputMappingContext.svg")]
+public partial class EnhancedInputMappingContext : Resource
 {
     private string _name = string.Empty;
 
@@ -87,10 +87,10 @@ public partial class BindingContext : Resource
     [Export(PropertyHint.MultilineText)] public string Description { get; set; } = string.Empty;
 
     /// <summary>Creates an empty context in code.</summary>
-    public static BindingContext Create(string name) => new() { Name = name };
+    public static EnhancedInputMappingContext Create(string name) => new() { Name = name };
 
     /// <summary>Adds a binding built from the arguments and returns it.</summary>
-    public ActionBinding Add(GameAction action, InputSource source, params Resource[] modifiersAndTriggers)
+    public ActionBinding Add(EnhancedInputAction action, InputSource source, params Resource[] modifiersAndTriggers)
     {
         var binding = ActionBinding.Create(action, source, modifiersAndTriggers);
         Bindings.Add(binding);
@@ -99,7 +99,7 @@ public partial class BindingContext : Resource
     }
 
     /// <inheritdoc/>
-    public override string ToString() => string.IsNullOrEmpty(Name) ? $"BindingContext#{GetInstanceId()}" : Name;
+    public override string ToString() => string.IsNullOrEmpty(Name) ? $"EnhancedInputMappingContext#{GetInstanceId()}" : Name;
 }
 
 /// <summary>Options for adding a context to a player.</summary>

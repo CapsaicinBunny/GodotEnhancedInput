@@ -125,7 +125,7 @@ public class PromptTests
         changes.Should().Be(1);
     }
 
-    private static (Rig rig, GameAction jump, BindingContext context) Jump()
+    private static (Rig rig, EnhancedInputAction jump, EnhancedInputMappingContext context) Jump()
     {
         var jump = Make.Action("jump");
         var context = Make.Context("gameplay");

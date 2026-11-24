@@ -43,7 +43,7 @@ public class CaptureTests
         InputSource.FromEvent(new InputEventJoypadMotion { Axis = JoyAxis.LeftY, AxisValue = -0.8f }).AxisRange.Should().Be(JoyAxisRange.Negative);
     }
 
-    private static (Rig rig, GameAction jump, GameAction fire) Setup()
+    private static (Rig rig, EnhancedInputAction jump, EnhancedInputAction fire) Setup()
     {
         var jump = Make.Action("jump");
         var fire = Make.Action("fire");

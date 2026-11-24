@@ -8,7 +8,6 @@ namespace GodotEnhancedInput;
 /// it goes idle after the last pulse until the value is released.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class PulseTrigger : InputTrigger
 {
     /// <summary>Time between pulses.</summary>

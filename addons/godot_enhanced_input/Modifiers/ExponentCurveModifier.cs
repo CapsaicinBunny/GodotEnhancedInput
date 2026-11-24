@@ -7,7 +7,6 @@ namespace GodotEnhancedInput;
 /// Exponents above 1 give finer control near the centre; below 1 make small inputs stronger.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class ExponentCurveModifier : InputModifier
 {
     /// <summary>Exponent per component (above 1: finer near the centre).</summary>

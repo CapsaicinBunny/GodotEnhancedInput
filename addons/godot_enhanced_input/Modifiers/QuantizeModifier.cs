@@ -13,7 +13,6 @@ public enum QuantizeMode
 
 /// <summary>Rounds values: to steps (a throttle in 10 % notches) or a stick to 4 or 8 directions.</summary>
 [Tool]
-[GlobalClass]
 public partial class QuantizeModifier : InputModifier
 {
     /// <summary>Round to steps, or snap a direction.</summary>

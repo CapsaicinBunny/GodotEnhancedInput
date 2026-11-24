@@ -8,7 +8,6 @@ namespace GodotEnhancedInput;
 /// changed" callback also hears the stop. The actuation threshold is not used.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class ChangedTrigger : InputTrigger
 {
     /// <summary>Smallest change per component that counts.</summary>

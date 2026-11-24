@@ -8,7 +8,6 @@ namespace GodotEnhancedInput;
 /// smoothing would bend the rotation. The first value passes straight through.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class RotationSmoothingModifier : InputModifier
 {
     /// <summary>How fast the output catches up, per second (higher: snappier).</summary>

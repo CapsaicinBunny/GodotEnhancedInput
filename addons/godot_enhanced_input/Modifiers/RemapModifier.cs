@@ -7,7 +7,6 @@ namespace GodotEnhancedInput;
 /// −1 and reads +1 pressed onto 0…1, or a throttle to 0…100. Optionally clamps to the output range.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class RemapModifier : InputModifier
 {
     /// <summary>Input that maps to <see cref="OutputMin"/>.</summary>

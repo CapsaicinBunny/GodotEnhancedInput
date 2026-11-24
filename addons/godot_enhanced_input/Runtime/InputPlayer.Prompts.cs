@@ -162,10 +162,10 @@ public partial class InputPlayer
     /// cleared slots and empty sources skipped), as prompts. With a device kind, only that kind is
     /// listed — by default the last used one; when nothing matches, all are listed.
     /// </summary>
-    public List<ActionPrompt> GetPrompts(GameAction action, InputDeviceKind? kind = null, JoypadStyle? style = null)
+    public List<ActionPrompt> GetPrompts(EnhancedInputAction action, InputDeviceKind? kind = null, JoypadStyle? style = null)
         => GetPrompts(action, kind, style, depth: 0);
 
-    private List<ActionPrompt> GetPrompts(GameAction action, InputDeviceKind? kind, JoypadStyle? style, int depth)
+    private List<ActionPrompt> GetPrompts(EnhancedInputAction action, InputDeviceKind? kind, JoypadStyle? style, int depth)
     {
         var all = new List<ActionPrompt>();
         if (action == null || depth > 3) return all;
@@ -213,7 +213,7 @@ public partial class InputPlayer
         return source.Kind == SourceKind.JoyButton ? profile.ButtonName(source.RawIndex) : profile.AxisName(source.RawIndex);
     }
 
-    /// <summary>The prompt texts for an action joined with <paramref name="separator"/> (see <see cref="GetPrompts(GameAction, InputDeviceKind?, JoypadStyle?)"/>).</summary>
-    public string GetPromptText(GameAction action, InputDeviceKind? kind = null, string separator = " / ")
+    /// <summary>The prompt texts for an action joined with <paramref name="separator"/> (see <see cref="GetPrompts(EnhancedInputAction, InputDeviceKind?, JoypadStyle?)"/>).</summary>
+    public string GetPromptText(EnhancedInputAction action, InputDeviceKind? kind = null, string separator = " / ")
         => string.Join(separator, GetPrompts(action, kind).ConvertAll(p => p.Text));
 }

@@ -169,13 +169,13 @@ public class StressTests
     public void ManyActionsAndContexts_TickQuickly_WithoutGarbage()
     {
         // 20 contexts × 50 bindings = 1000 bindings over 500 actions, a few of them held.
-        var actions = new GameAction[500];
+        var actions = new EnhancedInputAction[500];
         for (int i = 0; i < actions.Length; i++) actions[i] = Make.Action($"a{i}", i % 3 == 0 ? ActionValueKind.Axis2D : ActionValueKind.Digital);
         using var rig = new Rig();
         var keys = new[] { Key.A, Key.B, Key.C, Key.D, Key.E, Key.F, Key.G, Key.H };
         for (int c = 0; c < 20; c++)
         {
-            var context = BindingContext.Create($"c{c}");
+            var context = EnhancedInputMappingContext.Create($"c{c}");
             for (int b = 0; b < 50; b++)
             {
                 var action = actions[(c * 50 + b) % actions.Length];
@@ -206,13 +206,13 @@ public class StressTests
     {
         // The same 1000 bindings; every frame 16 keys go down and up (32 events, each evaluated on its own)
         // while mouse motion and a held key keep the frame step busy.
-        var actions = new GameAction[500];
+        var actions = new EnhancedInputAction[500];
         for (int i = 0; i < actions.Length; i++) actions[i] = Make.Action($"a{i}");
         using var rig = new Rig();
         var keys = new[] { Key.A, Key.B, Key.C, Key.D, Key.E, Key.F, Key.G, Key.H, Key.I, Key.J, Key.K, Key.L, Key.M, Key.N, Key.O, Key.P };
         for (int c = 0; c < 20; c++)
         {
-            var context = BindingContext.Create($"c{c}");
+            var context = EnhancedInputMappingContext.Create($"c{c}");
             for (int b = 0; b < 50; b++)
             {
                 var binding = context.Add(actions[(c * 50 + b) % actions.Length], InputSource.ForKey(keys[(c + b) % keys.Length]));

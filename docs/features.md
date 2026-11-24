@@ -85,6 +85,7 @@ requirement IDs link the [design](design.md) to those tests).
 | Recording and deterministic replay (events, controls, sensors, cut-offs, arrival moments) | ✅ | REC-1…2 |
 | Binding validator | ✅ | EDT-1 |
 | Editor dock: edit bindings, problems, actions, live device inspector, input log | ✅ / 🔌 | Loads in the Godot 4.8 editor; interactive use not yet checked by hand |
+| Three creatable assets (action, mapping context, config); Inspector *Add …* menus and typed input paths for everything inside them | ✅ / 🔌 | Godot 4.8 lists only the three; menus not yet checked by hand |
 
 ## Platforms
 

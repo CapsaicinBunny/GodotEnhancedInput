@@ -17,7 +17,7 @@ public class ReconnectTests
     private sealed class Setup : IDisposable
     {
         public readonly EnhancedInput System = new() { TickMode = TickMode.Manual };
-        public readonly GameAction Jump = Make.Action("jump");
+        public readonly EnhancedInputAction Jump = Make.Action("jump");
         public readonly InputPlayer P0, P1, P2;
 
         public Setup()

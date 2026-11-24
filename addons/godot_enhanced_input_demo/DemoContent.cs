@@ -13,37 +13,37 @@ public sealed class DemoContent
     public const string Folder = "res://addons/godot_enhanced_input_demo";
 
     /// <summary>Movement (2D).</summary>
-    public GameAction Move { get; } = Action("move", "Move", ActionValueKind.Axis2D);
+    public EnhancedInputAction Move { get; } = Action("move", "Move", ActionValueKind.Axis2D);
     /// <summary>Run while held.</summary>
-    public GameAction Sprint { get; } = Action("sprint", "Sprint");
+    public EnhancedInputAction Sprint { get; } = Action("sprint", "Sprint");
     /// <summary>Jump on press.</summary>
-    public GameAction Jump { get; } = Action("jump", "Jump");
+    public EnhancedInputAction Jump { get; } = Action("jump", "Jump");
     /// <summary>Dash: a chord with sprint.</summary>
-    public GameAction Dash { get; } = Action("dash", "Dash");
+    public EnhancedInputAction Dash { get; } = Action("dash", "Dash");
     /// <summary>Charge: hold.</summary>
-    public GameAction Charge { get; } = Action("charge", "Charge");
+    public EnhancedInputAction Charge { get; } = Action("charge", "Charge");
     /// <summary>Inspect: tap.</summary>
-    public GameAction Inspect { get; } = Action("inspect", "Inspect");
+    public EnhancedInputAction Inspect { get; } = Action("inspect", "Inspect");
     /// <summary>Pick up: hold on the same key as inspect.</summary>
-    public GameAction PickUp { get; } = Action("pick_up", "Pick up");
+    public EnhancedInputAction PickUp { get; } = Action("pick_up", "Pick up");
     /// <summary>Fire: pulses while held.</summary>
-    public GameAction Fire { get; } = Action("fire", "Fire");
+    public EnhancedInputAction Fire { get; } = Action("fire", "Fire");
     /// <summary>Spin: a combo.</summary>
-    public GameAction Spin { get; } = Action("spin", "Spin");
+    public EnhancedInputAction Spin { get; } = Action("spin", "Spin");
     /// <summary>Open the pause menu.</summary>
-    public GameAction Pause { get; } = Action("pause", "Pause");
+    public EnhancedInputAction Pause { get; } = Action("pause", "Pause");
     /// <summary>Close the pause menu.</summary>
-    public GameAction Resume { get; } = Action("resume", "Resume");
+    public EnhancedInputAction Resume { get; } = Action("resume", "Resume");
     /// <summary>Show or hide the on-screen controls.</summary>
-    public GameAction ToggleTouch { get; } = Action("toggle_touch", "Touch UI");
+    public EnhancedInputAction ToggleTouch { get; } = Action("toggle_touch", "Touch UI");
 
     /// <summary>The gameplay bindings.</summary>
-    public BindingContext Gameplay { get; }
+    public EnhancedInputMappingContext Gameplay { get; }
     /// <summary>The pause menu bindings (blocks gameplay).</summary>
-    public BindingContext Menu { get; }
+    public EnhancedInputMappingContext Menu { get; }
 
     /// <summary>Every demo action.</summary>
-    public GameAction[] AllActions => new[] { Move, Sprint, Jump, Dash, Charge, Inspect, PickUp, Fire, Spin, Pause, Resume, ToggleTouch };
+    public EnhancedInputAction[] AllActions => new[] { Move, Sprint, Jump, Dash, Charge, Inspect, PickUp, Fire, Spin, Pause, Resume, ToggleTouch };
 
     /// <summary>Builds the demo's actions and contexts in code.</summary>
     public DemoContent()
@@ -61,7 +61,7 @@ public sealed class DemoContent
         Fire.Description = "Hold the left mouse button or the right trigger: fires in pulses.";
         Spin.Description = "Combo: Jump, then Dash within 0.6 s.";
 
-        Gameplay = BindingContext.Create("gameplay");
+        Gameplay = EnhancedInputMappingContext.Create("gameplay");
         Gameplay.Description = "On-foot controls.";
         Gameplay.Add(Move, InputSource.ForKeyAxis2D(Key.W, Key.S, Key.A, Key.D));
         Gameplay.Add(Move, InputSource.ForJoyStick(JoyStickSide.Left), new DeadzoneModifier { Shape = DeadzoneShape.Radial, Lower = 0.2f });
@@ -100,16 +100,16 @@ public sealed class DemoContent
         Gameplay.Add(Pause, InputSource.ForJoyButton(JoyButton.Start), new PressedTrigger());
         Gameplay.Add(ToggleTouch, InputSource.ForKey(Key.F2), new PressedTrigger());
 
-        Menu = BindingContext.Create("menu");
+        Menu = EnhancedInputMappingContext.Create("menu");
         Menu.Description = "Pause menu: blocks everything below it.";
         Menu.BlockLowerPriority = true;
         Menu.Add(Resume, InputSource.ForKey(Key.Escape), new PressedTrigger()).Rebindable("pause_key", "Pause", "Keyboard");
         Menu.Add(Resume, InputSource.ForJoyButton(JoyButton.Start), new PressedTrigger());
     }
 
-    private static GameAction Action(string name, string display, ActionValueKind kind = ActionValueKind.Digital)
+    private static EnhancedInputAction Action(string name, string display, ActionValueKind kind = ActionValueKind.Digital)
     {
-        var action = GameAction.Create(name, kind);
+        var action = EnhancedInputAction.Create(name, kind);
         action.DisplayName = display;
         return action;
     }

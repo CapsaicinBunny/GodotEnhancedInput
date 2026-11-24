@@ -50,14 +50,14 @@ public partial class EnhancedInput : Node
 
     private TickMode _tickMode = TickMode.Auto;
 
-    private InputConfiguration _configuration;
+    private EnhancedInputConfig _configuration;
 
     /// <summary>
     /// The game's input configuration, loaded into every player (also players added later): control
     /// schemes, contexts by id, startup contexts, default settings. Optional.
     /// </summary>
     [Export]
-    public InputConfiguration Configuration
+    public EnhancedInputConfig Configuration
     {
         get => _configuration;
         set

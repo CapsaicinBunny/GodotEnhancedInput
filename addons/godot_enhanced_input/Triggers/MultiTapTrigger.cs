@@ -9,7 +9,6 @@ namespace GodotEnhancedInput;
 /// long starts over (canceling the action).
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class MultiTapTrigger : InputTrigger
 {
     /// <summary>How many taps are needed.</summary>

@@ -8,7 +8,6 @@ namespace GodotEnhancedInput;
 /// directions. A missing curve leaves its component unchanged.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class CurveModifier : InputModifier
 {
     /// <summary>Response curve of X (none: unchanged).</summary>

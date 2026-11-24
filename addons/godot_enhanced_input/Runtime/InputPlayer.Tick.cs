@@ -145,11 +145,11 @@ public partial class InputPlayer
     private bool _finalStep;
     private bool _eventPhase;   // evaluating an input event with its changes applied
     private readonly List<SourceKey> _stepKeys = new();
-    private readonly List<GameAction> _affected = new();
-    private readonly HashSet<GameAction> _affectedSet = new();
-    private readonly List<GameAction> _stepResolved = new();
-    private readonly Dictionary<SourceKey, List<GameAction>> _actionsByKey = new();
-    private readonly List<GameAction> _alwaysEvaluate = new();
+    private readonly List<EnhancedInputAction> _affected = new();
+    private readonly HashSet<EnhancedInputAction> _affectedSet = new();
+    private readonly List<EnhancedInputAction> _stepResolved = new();
+    private readonly Dictionary<SourceKey, List<EnhancedInputAction>> _actionsByKey = new();
+    private readonly List<EnhancedInputAction> _alwaysEvaluate = new();
 
     /// <summary>The actions an input event touches: those reading its channels, plus those whose triggers read other actions.</summary>
     private void CollectAffected()
@@ -275,7 +275,7 @@ public partial class InputPlayer
             for (int k = 0; k < compiled.Keys.Length; k++)
             {
                 if (!_actionsByKey.TryGetValue(compiled.Keys[k], out var actions))
-                    _actionsByKey[compiled.Keys[k]] = actions = new List<GameAction>(2);
+                    _actionsByKey[compiled.Keys[k]] = actions = new List<EnhancedInputAction>(2);
                 if (!actions.Contains(compiled.Action)) actions.Add(compiled.Action);
             }
             if (ReadsOtherActions(compiled.Triggers) || ReadsOtherActions(compiled.Action.Triggers))
@@ -289,7 +289,7 @@ public partial class InputPlayer
         foreach (var action in _keyActions) _bindingsByAction.Remove(action);
     }
 
-    private readonly List<GameAction> _keyActions = new();
+    private readonly List<EnhancedInputAction> _keyActions = new();
 
     private static T[] ToArray<[MustBeVariant] T>(Godot.Collections.Array<T> array) where T : GodotObject
     {
@@ -357,7 +357,7 @@ public partial class InputPlayer
         foreach (var entry in _ordered) UpdateIgnored(entry);
     }
 
-    private void AddTickAction(GameAction action)
+    private void AddTickAction(EnhancedInputAction action)
     {
         if (_tickActionSet.Add(action)) _tickActions.Add(action);
     }
@@ -453,7 +453,7 @@ public partial class InputPlayer
         }
     }
 
-    private void Raise(GameAction action, ActionState state, ActionEvents flag)
+    private void Raise(EnhancedInputAction action, ActionState state, ActionEvents flag)
     {
         var args = new ActionEventArgs(this, action, flag, state, Provenance(state), StepClock);
 

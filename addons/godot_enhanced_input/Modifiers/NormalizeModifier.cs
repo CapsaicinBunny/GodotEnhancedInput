@@ -8,7 +8,6 @@ namespace GodotEnhancedInput;
 /// are kept as they are and only longer ones are shortened.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class NormalizeModifier : InputModifier
 {
     /// <summary>Shorter vectors become zero.</summary>

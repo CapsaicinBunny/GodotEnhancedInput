@@ -15,7 +15,7 @@ public class StateMachineTests
     private sealed class Scripted : IDisposable
     {
         public readonly Rig Rig = new();
-        public readonly GameAction Action = Make.Action("Scripted");
+        public readonly EnhancedInputAction Action = Make.Action("Scripted");
         private readonly ScriptedTrigger _trigger = new();
 
         public Scripted()

@@ -11,7 +11,6 @@ namespace GodotEnhancedInput;
 /// saved per player. Applied by <see cref="TouchLayoutRoot"/> to its child controls by node name.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class TouchLayout : Resource
 {
     /// <summary>Control node name → rect in screen fractions.</summary>

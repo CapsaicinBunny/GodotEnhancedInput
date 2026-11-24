@@ -19,7 +19,7 @@ public partial class InputPlayer
     public event Action<RebindResult> RebindCompleted;
 
     private InputProfile _profile;
-    private readonly List<BindingContext> _rebindContexts = new();
+    private readonly List<EnhancedInputMappingContext> _rebindContexts = new();
     private string _captureId;
     private CaptureOptions _captureOptions;
 
@@ -108,16 +108,16 @@ public partial class InputPlayer
     /// Makes a context's rebindable bindings appear in <see cref="GetRebindSlots"/> even while it is not
     /// active (e.g. gameplay bindings listed in a menu).
     /// </summary>
-    public void RegisterRebindContext(BindingContext context)
+    public void RegisterRebindContext(EnhancedInputMappingContext context)
     {
         if (context != null && !_rebindContexts.Contains(context)) _rebindContexts.Add(context);
     }
 
     /// <summary>Stops listing a context registered with <see cref="RegisterRebindContext"/>.</summary>
-    public void UnregisterRebindContext(BindingContext context) => _rebindContexts.Remove(context);
+    public void UnregisterRebindContext(EnhancedInputMappingContext context) => _rebindContexts.Remove(context);
 
     /// <summary>The active contexts (by priority) followed by the registered ones, without duplicates.</summary>
-    public List<BindingContext> GetKnownContexts()
+    public List<EnhancedInputMappingContext> GetKnownContexts()
     {
         var known = GetContexts();
         foreach (var context in _rebindContexts)
@@ -181,7 +181,7 @@ public partial class InputPlayer
         var contexts = known;
         if (scope == ConflictScope.SameContext)
         {
-            contexts = new List<BindingContext>();
+            contexts = new List<EnhancedInputMappingContext>();
             foreach (var context in known)
                 foreach (var binding in context.Bindings)
                     if (binding != null && binding.RebindId == id) { contexts.Add(context); break; }

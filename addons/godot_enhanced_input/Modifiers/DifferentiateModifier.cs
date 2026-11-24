@@ -8,7 +8,6 @@ namespace GodotEnhancedInput;
 /// change is divided by delta time. The first tick outputs zero.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class DifferentiateModifier : InputModifier
 {
     /// <summary>Divide the change by the tick's delta (a rate per second).</summary>

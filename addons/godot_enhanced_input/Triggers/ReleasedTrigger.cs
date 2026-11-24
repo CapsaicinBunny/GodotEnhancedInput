@@ -4,7 +4,6 @@ namespace GodotEnhancedInput;
 
 /// <summary>Ongoing while the value is actuated; triggered on the tick it stops being actuated.</summary>
 [Tool]
-[GlobalClass]
 public partial class ReleasedTrigger : InputTrigger
 {
     /// <inheritdoc/>

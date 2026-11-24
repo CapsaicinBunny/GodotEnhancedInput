@@ -27,7 +27,7 @@ public partial class InputPlayer : IChannelMask
     /// goes idle and its own memories are reset.</item>
     /// </list>
     /// </summary>
-    private void Resolve(GameAction action)
+    private void Resolve(EnhancedInputAction action)
     {
         var state = GetOrCreateState(action);
         if (state.ResolvedTick == _step || state.Resolving) return;

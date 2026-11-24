@@ -10,7 +10,7 @@ public class ModeTests
     private static readonly InputMode KeyboardMode = InputMode.Create("Keyboard & mouse", DeviceKinds.KeyboardMouse, new[] { "kbm" }, DeviceKinds.KeyboardMouse);
     private static readonly InputMode PadMode = InputMode.Create("Gamepad", DeviceKinds.Joypad, new[] { "pad" }, DeviceKinds.Joypad);
 
-    private static (Rig rig, GameAction jump) Setup()
+    private static (Rig rig, EnhancedInputAction jump) Setup()
     {
         var jump = Make.Action("jump");
         var context = Make.Context("C");

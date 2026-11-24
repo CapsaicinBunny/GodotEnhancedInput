@@ -23,7 +23,6 @@ public enum HapticBlend
 /// <see cref="Constant"/>.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class HapticEffect : Resource
 {
     /// <summary>The light, fast (high-frequency) motor, 0…1.</summary>

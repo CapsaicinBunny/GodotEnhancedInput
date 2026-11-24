@@ -19,7 +19,6 @@ public enum CrossingDirection
 /// threshold keeps a noisy value from crossing back and forth.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class ThresholdTrigger : InputTrigger
 {
     /// <summary>The magnitude to cross.</summary>

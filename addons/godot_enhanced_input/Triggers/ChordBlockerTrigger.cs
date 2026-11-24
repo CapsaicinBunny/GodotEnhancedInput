@@ -7,14 +7,13 @@ namespace GodotEnhancedInput;
 /// plain action (Space → Jump) so it stays quiet while a chorded variant (Shift + Space → Dash) fires.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class ChordBlockerTrigger : InputTrigger
 {
     /// <inheritdoc/>
     public override bool ReadsOtherActions => true;
 
     /// <summary>The action whose triggering blocks this set.</summary>
-    [Export] public GameAction BlockingAction { get; set; }
+    [Export] public EnhancedInputAction BlockingAction { get; set; }
 
     /// <inheritdoc/>
     public override TriggerRole Role => TriggerRole.Blocker;

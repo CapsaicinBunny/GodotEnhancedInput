@@ -8,7 +8,6 @@ namespace GodotEnhancedInput;
 /// flicker between pressed and released.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class HysteresisTrigger : InputTrigger
 {
     /// <summary>Turns on at this magnitude.</summary>

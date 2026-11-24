@@ -162,7 +162,7 @@ public class ReviewThreeTests
         ulong now = 1_000_000;
         InputRecording recording;
         var live = new List<string>();
-        Func<BindingContext> context = () => Make.Context("C",
+        Func<EnhancedInputMappingContext> context = () => Make.Context("C",
             Make.Bind(tap, Key.Space, new TapTrigger { TapSeconds = 0.2f }), Make.Bind(run, Key.Shift));
         using (var rig = new Rig().Add(context()))
         {

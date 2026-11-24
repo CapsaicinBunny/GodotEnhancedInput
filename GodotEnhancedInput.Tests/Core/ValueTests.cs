@@ -10,7 +10,7 @@ public class ValueTests
     [Fact]
     public void GameAction_Defaults_AreSensible()
     {
-        var action = new GameAction();
+        var action = new EnhancedInputAction();
         action.ValueKind.Should().Be(ActionValueKind.Digital);
         action.Accumulation.Should().Be(ValueAccumulation.Strongest);
         action.ConsumeInput.Should().BeTrue();
@@ -22,7 +22,7 @@ public class ValueTests
     [Fact]
     public void GameAction_DisplayName_FallsBackToName()
     {
-        var action = GameAction.Create("Jump");
+        var action = EnhancedInputAction.Create("Jump");
         action.GetDisplayName().Should().Be("Jump");
         action.DisplayName = "Leap";
         action.GetDisplayName().Should().Be("Leap");

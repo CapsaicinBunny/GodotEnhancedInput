@@ -1,7 +1,7 @@
 # Concepts
 
 ```
- InputSource ──► ActionBinding ──► GameAction ──► ActionState (per player)
+ InputSource ──► ActionBinding ──► EnhancedInputAction ──► ActionState (per player)
  (what to read)  (+ modifiers,     (value kind,    value · phase · events · timings
                    triggers)        modifiers,
                                     triggers)
@@ -10,7 +10,7 @@
 
 ## Game actions and values
 
-A `GameAction` is a resource describing something the player wants to do. Its **value kind** is
+An `EnhancedInputAction` is a resource describing something the player wants to do. Its **value kind** is
 `Digital`, `Axis1D`, `Axis2D`, `Axis3D`, `Axis4D`, `Quaternion` or `Euler`. Values are
 `ActionValue`s: a kind plus a `Vector4`.
 
@@ -40,7 +40,7 @@ Actions, contexts, bindings, modes and configurations have a stable **`Id`** (em
 settings, recordings and tools refer to ids, so renaming or moving a resource breaks nothing;
 `FormerIds` keeps old ids working. `player.FindAction(idOrName)` and `FindContext(idOrName)` look them up.
 
-An **`InputConfiguration`** groups a game's input in one resource: actions, contexts, the contexts
+An **`EnhancedInputConfig`** groups a game's input in one resource: actions, contexts, the contexts
 active from the start, control schemes (`InputMode`s) with the default one, default settings, haptic
 effects, touch layouts, prompt icons and profile presets. `player.LoadConfiguration(config)` (or the
 autoload's `Configuration`, for every player) sets a player up; `ActivateContext("vehicle")`,
@@ -62,7 +62,7 @@ An `InputSource` says what to read. Kinds: `Key`, `KeyAxis1D` (two keys), `KeyAx
 
 ## Binding contexts
 
-A `BindingContext` is a list of `ActionBinding`s that are switched on and off together. Add it to a
+An `EnhancedInputMappingContext` is a list of `ActionBinding`s that are switched on and off together. Add it to a
 player with a priority:
 
 ```csharp

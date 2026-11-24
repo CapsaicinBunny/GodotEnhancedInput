@@ -12,7 +12,7 @@ public sealed class Rig : IDisposable
 
     public InputPlayer Player { get; } = new();
 
-    public Rig Add(BindingContext context, int priority = 0, ContextOptions options = default)
+    public Rig Add(EnhancedInputMappingContext context, int priority = 0, ContextOptions options = default)
     {
         Player.AddContext(context, priority, options);
         return this;
@@ -45,18 +45,18 @@ public sealed class Rig : IDisposable
 
 public static class Make
 {
-    public static GameAction Action(string name, ActionValueKind kind = ActionValueKind.Digital) => GameAction.Create(name, kind);
+    public static EnhancedInputAction Action(string name, ActionValueKind kind = ActionValueKind.Digital) => EnhancedInputAction.Create(name, kind);
 
-    public static BindingContext Context(string name, params ActionBinding[] bindings)
+    public static EnhancedInputMappingContext Context(string name, params ActionBinding[] bindings)
     {
-        var context = BindingContext.Create(name);
+        var context = EnhancedInputMappingContext.Create(name);
         foreach (var binding in bindings) context.Bindings.Add(binding);
         return context;
     }
 
-    public static ActionBinding Bind(GameAction action, InputSource source, params Resource[] extras)
+    public static ActionBinding Bind(EnhancedInputAction action, InputSource source, params Resource[] extras)
         => ActionBinding.Create(action, source, extras);
 
-    public static ActionBinding Bind(GameAction action, Key key, params Resource[] extras)
+    public static ActionBinding Bind(EnhancedInputAction action, Key key, params Resource[] extras)
         => ActionBinding.Create(action, InputSource.ForKey(key), extras);
 }

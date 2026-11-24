@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="BindingContext" format=3]
+[gd_resource type="Resource" script_class="EnhancedInputMappingContext" format=3]
 
 [ext_resource type="Script" path="res://addons/godot_enhanced_input/Resources/ActionBinding.cs" id="1"]
 [ext_resource type="Resource" path="res://addons/godot_enhanced_input_demo/actions/move.tres" id="2"]
@@ -20,12 +20,12 @@
 [ext_resource type="Resource" path="res://addons/godot_enhanced_input_demo/actions/fire.tres" id="18"]
 [ext_resource type="Script" path="res://addons/godot_enhanced_input/Triggers/PulseTrigger.cs" id="19"]
 [ext_resource type="Resource" path="res://addons/godot_enhanced_input_demo/actions/spin.tres" id="20"]
-[ext_resource type="Script" path="res://addons/godot_enhanced_input/Resources/GameAction.cs" id="21"]
+[ext_resource type="Script" path="res://addons/godot_enhanced_input/Resources/EnhancedInputAction.cs" id="21"]
 [ext_resource type="Script" path="res://addons/godot_enhanced_input/Triggers/ComboStep.cs" id="22"]
 [ext_resource type="Script" path="res://addons/godot_enhanced_input/Triggers/ComboTrigger.cs" id="23"]
 [ext_resource type="Resource" path="res://addons/godot_enhanced_input_demo/actions/pause.tres" id="24"]
 [ext_resource type="Resource" path="res://addons/godot_enhanced_input_demo/actions/toggle_touch.tres" id="25"]
-[ext_resource type="Script" path="res://addons/godot_enhanced_input/Resources/BindingContext.cs" id="26"]
+[ext_resource type="Script" path="res://addons/godot_enhanced_input/Resources/EnhancedInputMappingContext.cs" id="26"]
 
 [sub_resource type="Resource" id="Resource_5p18o"]
 script = ExtResource("4")

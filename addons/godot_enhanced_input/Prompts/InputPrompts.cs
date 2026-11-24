@@ -329,8 +329,8 @@ public static class InputPrompts
 /// <summary>One prompt for an action: a source that currently drives it, with its text and icon key.</summary>
 public readonly struct ActionPrompt
 {
-    /// <summary>Creates a prompt (the player builds these; see <see cref="InputPlayer.GetPrompts(GameAction, InputDeviceKind?, JoypadStyle?)"/>).</summary>
-    public ActionPrompt(GameAction action, ActionBinding binding, BindingContext context, InputSource source, JoypadStyle style, string chordText = null, string sourceText = null)
+    /// <summary>Creates a prompt (the player builds these; see <see cref="InputPlayer.GetPrompts(EnhancedInputAction, InputDeviceKind?, JoypadStyle?)"/>).</summary>
+    public ActionPrompt(EnhancedInputAction action, ActionBinding binding, EnhancedInputMappingContext context, InputSource source, JoypadStyle style, string chordText = null, string sourceText = null)
     {
         Action = action;
         Binding = binding;
@@ -351,11 +351,11 @@ public readonly struct ActionPrompt
     public string ChordText { get; }
 
     /// <summary>The action the prompt is for.</summary>
-    public GameAction Action { get; }
+    public EnhancedInputAction Action { get; }
     /// <summary>The binding it comes from.</summary>
     public ActionBinding Binding { get; }
     /// <summary>The context of that binding.</summary>
-    public BindingContext Context { get; }
+    public EnhancedInputMappingContext Context { get; }
 
     /// <summary>The source in use (rebinds applied).</summary>
     public InputSource Source { get; }

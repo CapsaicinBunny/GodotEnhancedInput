@@ -9,7 +9,6 @@ namespace GodotEnhancedInput;
 /// <see cref="SettingPrefix"/> is set ("&lt;prefix&gt;_x", "_y", "_z", in degrees).
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class RotationOffsetModifier : InputModifier
 {
     /// <summary>The offset as Euler angles in degrees (YXZ order).</summary>

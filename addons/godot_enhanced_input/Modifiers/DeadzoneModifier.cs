@@ -18,7 +18,6 @@ public enum DeadzoneShape
 /// <see cref="DeadzoneShape.Radial"/> does it on the vector's length (keeping its direction).
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class DeadzoneModifier : InputModifier
 {
     /// <summary>Per component (axial) or on the vector's length (radial, keeps the direction).</summary>

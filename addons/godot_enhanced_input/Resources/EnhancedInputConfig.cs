@@ -15,7 +15,7 @@ namespace GodotEnhancedInput;
 /// </summary>
 [Tool]
 [GlobalClass]
-public partial class InputConfiguration : Resource
+public partial class EnhancedInputConfig : Resource
 {
     private string _id = string.Empty;
 
@@ -31,13 +31,13 @@ public partial class InputConfiguration : Resource
     [Export] public string Name { get; set; } = string.Empty;
 
     /// <summary>Every action of the game.</summary>
-    [Export] public Array<GameAction> Actions { get; set; } = new();
+    [Export] public Array<EnhancedInputAction> Actions { get; set; } = new();
 
     /// <summary>Every binding context of the game ("gameplay", "vehicle", "menu"…).</summary>
-    [Export] public Array<BindingContext> Contexts { get; set; } = new();
+    [Export] public Array<EnhancedInputMappingContext> Contexts { get; set; } = new();
 
-    /// <summary>Contexts active as soon as the configuration is loaded, each at its <see cref="BindingContext.DefaultPriority"/>.</summary>
-    [Export] public Array<BindingContext> StartupContexts { get; set; } = new();
+    /// <summary>Contexts active as soon as the configuration is loaded, each at its <see cref="EnhancedInputMappingContext.DefaultPriority"/>.</summary>
+    [Export] public Array<EnhancedInputMappingContext> StartupContexts { get; set; } = new();
 
     /// <summary>Control schemes: keyboard and mouse, gamepad, touch, wheel… (see <see cref="InputMode"/>).</summary>
     [Export] public Array<InputMode> Modes { get; set; } = new();
@@ -64,7 +64,7 @@ public partial class InputConfiguration : Resource
     [Export(PropertyHint.MultilineText)] public string Description { get; set; } = string.Empty;
 
     /// <summary>An action by id, name or former id, or null.</summary>
-    public GameAction FindAction(string idOrName)
+    public EnhancedInputAction FindAction(string idOrName)
     {
         foreach (var action in Actions) if (action != null && action.Matches(idOrName)) return action;
         foreach (var context in Contexts)
@@ -75,7 +75,7 @@ public partial class InputConfiguration : Resource
     }
 
     /// <summary>A context by id, name or former id, or null.</summary>
-    public BindingContext FindContext(string idOrName)
+    public EnhancedInputMappingContext FindContext(string idOrName)
     {
         foreach (var context in Contexts) if (context != null && context.Matches(idOrName)) return context;
         foreach (var context in StartupContexts) if (context != null && context.Matches(idOrName)) return context;
@@ -112,5 +112,5 @@ public partial class InputConfiguration : Resource
     }
 
     /// <inheritdoc/>
-    public override string ToString() => string.IsNullOrEmpty(Name) ? (string.IsNullOrEmpty(ResourcePath) ? "InputConfiguration" : ResourcePath.GetFile().GetBaseName()) : Name;
+    public override string ToString() => string.IsNullOrEmpty(Name) ? (string.IsNullOrEmpty(ResourcePath) ? "EnhancedInputConfig" : ResourcePath.GetFile().GetBaseName()) : Name;
 }

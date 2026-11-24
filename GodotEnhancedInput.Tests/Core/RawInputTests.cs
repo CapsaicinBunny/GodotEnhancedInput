@@ -7,7 +7,7 @@ namespace GodotEnhancedInput.Tests.Core;
 [Collection("Godot")]
 public class RawInputTests
 {
-    private static (Rig rig, GameAction action) Single(InputSource source, ActionValueKind kind = ActionValueKind.Digital)
+    private static (Rig rig, EnhancedInputAction action) Single(InputSource source, ActionValueKind kind = ActionValueKind.Digital)
     {
         var action = Make.Action("A", kind);
         var rig = new Rig().Add(Make.Context("C", Make.Bind(action, source)));

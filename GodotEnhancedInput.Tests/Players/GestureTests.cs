@@ -11,7 +11,7 @@ public class GestureTests(EngineFixture fixture)
     private static InputEventScreenTouch Up(int finger, float x, float y) => new() { Index = finger, Position = new Vector2(x, y), Pressed = false };
     private static InputEventScreenDrag Drag(int finger, float x, float y, float vx = 0, float vy = 0) => new() { Index = finger, Position = new Vector2(x, y), Velocity = new Vector2(vx, vy) };
 
-    private static (Rig rig, GameAction action) With(GestureChannel channel, ActionValueKind kind)
+    private static (Rig rig, EnhancedInputAction action) With(GestureChannel channel, ActionValueKind kind)
     {
         var action = Make.Action(channel.ToString(), kind);
         return (new Rig().Add(Make.Context("C", Make.Bind(action, InputSource.ForGesture(channel)))), action);

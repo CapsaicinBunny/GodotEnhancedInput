@@ -1,7 +1,7 @@
 # Modifiers
 
 A modifier changes a value. Put modifiers on an `ActionBinding` to change one source's value
-before that binding's triggers, or on a `GameAction` to change the combined value before the
+before that binding's triggers, or on an `EnhancedInputAction` to change the combined value before the
 action's triggers. They run in list order; a disabled modifier (`Enabled` off) passes values
 through. Modifiers that remember earlier ticks keep that memory per binding and per player, so
 one modifier resource can be shared.
@@ -76,7 +76,7 @@ halves the turn, negate inverts it, normalize keeps it a unit quaternion.
 ## Writing your own
 
 ```csharp
-[Tool, GlobalClass]
+[Tool]
 public partial class SnapToEightModifier : InputModifier
 {
     public override Vector3 Apply(Vector3 value, in ModifierContext context)
@@ -88,6 +88,9 @@ public partial class SnapToEightModifier : InputModifier
     }
 }
 ```
+
+Mark it `[Tool]` and it appears in the Inspector's *Add Modifier…* menu. Leave out `[GlobalClass]`
+unless you also want it in *Create New Resource*.
 
 `context` gives the action's value kind, the tick's delta, the player and a `ModifierMemory` for
 anything that must survive between ticks (never store it in fields of the resource).

@@ -18,7 +18,7 @@ public sealed class RebindSlot
     public string Category { get; internal set; }
 
     /// <summary>The action the slot drives.</summary>
-    public GameAction Action { get; internal set; }
+    public EnhancedInputAction Action { get; internal set; }
 
     /// <summary>The designer's source (from the first binding with this id).</summary>
     public InputSource DefaultSource { get; internal set; }
@@ -30,9 +30,9 @@ public sealed class RebindSlot
     public bool IsOverridden { get; internal set; }
 
     /// <summary>The bindings with this id, with the context each one is in.</summary>
-    public IReadOnlyList<(BindingContext Context, ActionBinding Binding)> Bindings => _bindings;
+    public IReadOnlyList<(EnhancedInputMappingContext Context, ActionBinding Binding)> Bindings => _bindings;
 
-    internal readonly List<(BindingContext Context, ActionBinding Binding)> _bindings = new();
+    internal readonly List<(EnhancedInputMappingContext Context, ActionBinding Binding)> _bindings = new();
 
     /// <inheritdoc/>
     public override string ToString() => $"{Id}: {CurrentSource?.Describe() ?? "None"}{(IsOverridden ? " *" : "")}";
@@ -42,7 +42,7 @@ public sealed class RebindSlot
 public readonly struct RebindConflict
 {
     /// <summary>Creates a conflict record.</summary>
-    public RebindConflict(BindingContext context, ActionBinding binding, InputSource source)
+    public RebindConflict(EnhancedInputMappingContext context, ActionBinding binding, InputSource source)
     {
         Context = context;
         Binding = binding;
@@ -50,7 +50,7 @@ public readonly struct RebindConflict
     }
 
     /// <summary>The context of the conflicting binding.</summary>
-    public BindingContext Context { get; }
+    public EnhancedInputMappingContext Context { get; }
 
     /// <summary>The conflicting binding.</summary>
     public ActionBinding Binding { get; }
@@ -62,7 +62,7 @@ public readonly struct RebindConflict
     public string RebindId => Binding.IsRebindable ? Binding.RebindId : null;
 
     /// <summary>The conflicting binding's action.</summary>
-    public GameAction Action => Binding.Action;
+    public EnhancedInputAction Action => Binding.Action;
 
     /// <inheritdoc/>
     public override string ToString() => $"{Action} ({RebindId ?? "fixed"}) in {Context}: {Source?.Describe()}";

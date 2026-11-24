@@ -7,7 +7,7 @@ namespace GodotEnhancedInput.Tests.Rebinding;
 [Collection("Godot")]
 public class MoreRebindTests
 {
-    private static (Rig rig, GameAction move, GameAction jump, GameAction fire) Setup()
+    private static (Rig rig, EnhancedInputAction move, EnhancedInputAction jump, EnhancedInputAction fire) Setup()
     {
         var move = Make.Action("move", ActionValueKind.Axis2D);
         var jump = Make.Action("jump");

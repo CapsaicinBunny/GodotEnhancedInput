@@ -5,7 +5,7 @@ namespace GodotEnhancedInput;
 /// <summary>
 /// Building bindings in code from text paths, with the common triggers and modifiers by name.
 /// <code>
-/// var gameplay = BindingContext.Create("gameplay")
+/// var gameplay = EnhancedInputMappingContext.Create("gameplay")
 ///     .Bind(move, "wasd", "pad:left_stick")
 ///     .Bind(jump, "key:space", "pad:a");
 /// gameplay.Add(fire, "mouse:left").Pressed();
@@ -13,14 +13,14 @@ namespace GodotEnhancedInput;
 /// gameplay.Add(look, "pad:right_stick").Deadzone(0.15f).Scale(3f);
 /// </code>
 /// </summary>
-public partial class BindingContext
+public partial class EnhancedInputMappingContext
 {
     /// <summary>Adds a binding read from a source path (see <see cref="InputSourcePath"/>) and returns it.</summary>
-    public ActionBinding Add(GameAction action, string path, params Resource[] modifiersAndTriggers)
+    public ActionBinding Add(EnhancedInputAction action, string path, params Resource[] modifiersAndTriggers)
         => Add(action, InputSourcePath.Parse(path), modifiersAndTriggers);
 
     /// <summary>Binds an action to one or more source paths ("key:space", "pad:a", "wasd") and returns the context.</summary>
-    public BindingContext Bind(GameAction action, params string[] paths)
+    public EnhancedInputMappingContext Bind(EnhancedInputAction action, params string[] paths)
     {
         foreach (var path in paths) Add(action, path);
         return this;

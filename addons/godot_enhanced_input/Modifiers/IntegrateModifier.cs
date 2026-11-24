@@ -10,7 +10,6 @@ namespace GodotEnhancedInput;
 /// while there is no input.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class IntegrateModifier : InputModifier
 {
     /// <summary>Lowest accumulated value per component.</summary>

@@ -9,7 +9,18 @@
 
 ## 2. Make actions
 
-FileSystem dock → right-click → *New Resource…* → `GameAction`. Make three:
+The plugin adds three assets to *Create New Resource*, and only these three:
+
+| Asset | What it holds |
+|---|---|
+| `EnhancedInputAction` | One action: its name, value kind, and action-level modifiers and triggers. |
+| `EnhancedInputMappingContext` | Mappings from inputs to actions, each with its own modifiers and triggers. |
+| `EnhancedInputConfig` | The whole game's setup: actions, contexts, control schemes, defaults. |
+
+Everything inside them (mappings, input sources, modifiers, triggers, control schemes, haptic effects,
+touch layouts) is created in the Inspector, from the *Add …* menu above the list that holds it.
+
+FileSystem dock → right-click → *New Resource…* → `EnhancedInputAction`. Make three:
 
 | File | Name | Value kind |
 |---|---|---|
@@ -19,7 +30,10 @@ FileSystem dock → right-click → *New Resource…* → `GameAction`. Make thr
 
 ## 3. Make a context
 
-*New Resource…* → `BindingContext` → `gameplay.tres`. Add `ActionBinding`s to *Bindings*:
+*New Resource…* → `EnhancedInputMappingContext` → `gameplay.tres`. Click *Add Mapping* above *Bindings*
+for each row below. In a mapping, type the input as a path in the *Input* box (`key:space`, `pad:a`,
+`wasd`, `pad:left_stick`, `mouse:motion`) and press Enter, then use *Add Modifier…* and
+*Add Trigger…* to pick from every modifier and trigger:
 
 | Action | Source (`InputSource`) | Modifiers | Triggers |
 |---|---|---|---|
@@ -40,10 +54,10 @@ using GodotEnhancedInput;
 
 public partial class Player : CharacterBody3D
 {
-    [Export] public BindingContext Gameplay { get; set; }
-    [Export] public GameAction Jump { get; set; }
-    [Export] public GameAction Move { get; set; }
-    [Export] public GameAction Look { get; set; }
+    [Export] public EnhancedInputMappingContext Gameplay { get; set; }
+    [Export] public EnhancedInputAction Jump { get; set; }
+    [Export] public EnhancedInputAction Move { get; set; }
+    [Export] public EnhancedInputAction Look { get; set; }
 
     public override void _Ready()
     {
@@ -71,11 +85,11 @@ process, so both see the same input.
 ### Or all in code
 
 ```csharp
-var jump = GameAction.Button("jump");
-var move = GameAction.Axis2D("move");
-var fire = GameAction.Button("fire");
+var jump = EnhancedInputAction.Button("jump");
+var move = EnhancedInputAction.Axis2D("move");
+var fire = EnhancedInputAction.Button("fire");
 
-var gameplay = BindingContext.Create("gameplay")
+var gameplay = EnhancedInputMappingContext.Create("gameplay")
     .Bind(move, "wasd", "pad:left_stick")
     .Bind(jump, "key:space", "pad:a");
 gameplay.Add(fire, "mouse:left").Pressed();
@@ -88,7 +102,7 @@ Source paths are listed in [sources and devices](sources-and-devices.md).
 
 ### Or one configuration for the whole game
 
-*New Resource…* → `InputConfiguration` (`game_input.tres`): list the actions, the contexts, the
+*New Resource…* → `EnhancedInputConfig` (`game_input.tres`): list the actions, the contexts, the
 contexts active from the start, the control schemes (`InputMode`s), default settings, haptic effects
 and touch layouts. Set it on the autoload's *Configuration* and every player is set up with it; switch
 contexts by id or name:

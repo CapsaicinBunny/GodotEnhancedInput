@@ -10,8 +10,8 @@ public class PlayerTests
     private sealed class World : IDisposable
     {
         public readonly EnhancedInput System = new() { TickMode = TickMode.Manual };
-        public readonly GameAction Jump = Make.Action("jump");
-        public readonly BindingContext Context;
+        public readonly EnhancedInputAction Jump = Make.Action("jump");
+        public readonly EnhancedInputMappingContext Context;
 
         public World()
         {

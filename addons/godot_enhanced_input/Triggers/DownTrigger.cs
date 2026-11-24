@@ -4,7 +4,6 @@ namespace GodotEnhancedInput;
 
 /// <summary>Triggered on every tick the value is actuated.</summary>
 [Tool]
-[GlobalClass]
 public partial class DownTrigger : InputTrigger
 {
     /// <inheritdoc/>

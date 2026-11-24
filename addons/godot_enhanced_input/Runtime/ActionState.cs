@@ -8,14 +8,14 @@ namespace GodotEnhancedInput;
 /// </summary>
 public sealed class ActionState
 {
-    internal ActionState(GameAction action)
+    internal ActionState(EnhancedInputAction action)
     {
         Action = action;
         Value = ActionValue.Zero(action?.ValueKind ?? ActionValueKind.Digital);
     }
 
     /// <summary>The action this state belongs to.</summary>
-    public GameAction Action { get; }
+    public EnhancedInputAction Action { get; }
 
     /// <summary>
     /// The action's value: the combined value of the bindings that fire this tick (bindings without
@@ -258,10 +258,10 @@ internal readonly struct InputProvenance
 public readonly struct ActionEventArgs
 {
     /// <summary>Creates event arguments from an action's state.</summary>
-    public ActionEventArgs(InputPlayer player, GameAction action, ActionEvents @event, ActionState state)
+    public ActionEventArgs(InputPlayer player, EnhancedInputAction action, ActionEvents @event, ActionState state)
         : this(player, action, @event, state, default, state?.LastChangeTime ?? 0) { }
 
-    internal ActionEventArgs(InputPlayer player, GameAction action, ActionEvents @event, ActionState state, InputProvenance origin, double timestamp)
+    internal ActionEventArgs(InputPlayer player, EnhancedInputAction action, ActionEvents @event, ActionState state, InputProvenance origin, double timestamp)
     {
         Player = player;
         Action = action;
@@ -299,7 +299,7 @@ public readonly struct ActionEventArgs
     public InputPlayer Player { get; }
 
     /// <summary>The action.</summary>
-    public GameAction Action { get; }
+    public EnhancedInputAction Action { get; }
 
     /// <summary>Exactly one event flag.</summary>
     public ActionEvents Event { get; }

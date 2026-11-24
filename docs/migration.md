@@ -7,12 +7,12 @@ and behaviour change.
 |---|---|---|
 | namespace `InputForge`, `addons/input_forge` | namespace `GodotEnhancedInput`, `addons/godot_enhanced_input` | Disable the old plugin, delete its folder, enable the new one. |
 | `EnhancedInputSystem` autoload | `EnhancedInput` autoload + `InputPlayer` | Contexts, bindings and events live on the player: `EnhancedInput.DefaultPlayer`. |
-| `InputAction` (equal by name) | `GameAction` (equal by identity) | New: `ValueKind`, `Accumulation`, `ConsumeInput`, `TriggerWhenPaused`, action-level modifiers and triggers. |
-| `InputMappingContext` (equal by name) | `BindingContext` (equal by identity) | `Mappings` → `Bindings`. |
+| `InputAction` (equal by name) | `EnhancedInputAction` (equal by identity) | New: `ValueKind`, `Accumulation`, `ConsumeInput`, `TriggerWhenPaused`, action-level modifiers and triggers. |
+| `InputMappingContext` (equal by name) | `EnhancedInputMappingContext` (equal by identity) | `Mappings` → `Bindings`. |
 | `InputMapping` | `ActionBinding` | `TargetAction` → `Action`, `InputSource` → `Source`, `LocalModifiers`/`LocalTriggers` → `Modifiers`/`Triggers`. |
 | `InputKey` | `InputSource` | `InputType`/`DeviceType` → `Kind`. `Boolean` → `Key`/`MouseButton`/`JoyButton`; `Digital` → `KeyAxis1D`/`KeyAxis2D` (Y up is now −Y, Godot's convention); `Analog` → `JoyAxis`/`JoyStick`; `Delta` → `MouseMotion` (sensitivity is now a `ScaleModifier`); `Pointer` → `MousePosition`. Keys match physical positions. |
 | `AddContext(ctx)` (last added wins) | `AddContext(ctx, priority, options)` | Explicit priorities; `DuplicateContextBehavior` is gone (re-adding updates the priority). |
-| `PreventFallbackContext` | `BindingContext.BlockLowerPriority` | Per context instead of global. |
+| `PreventFallbackContext` | `EnhancedInputMappingContext.BlockLowerPriority` | Per context instead of global. |
 | context consumes the *event* when it fired | actions consume their *sources* while their context is active | See [concepts](concepts.md#binding-contexts). |
 | `BindAction(action, Action<bool/float/Vector2/Vector3>)` | `player.Bind(action, ActionEvents…, e => …)` | One callback shape; read `e.Value.AsBool()/AsFloat()/AsVector2()/AsVector3()`. Returns a disposable handle. |
 | `ContextualInputEvent` | `ActionEventArgs` | Carries event, value, phase and timings. |

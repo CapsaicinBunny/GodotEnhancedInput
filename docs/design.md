@@ -28,9 +28,9 @@ Non-goals for 0.1: a custom editor dock (the Inspector is enough), networking/re
 | Term | Meaning |
 |---|---|
 | **Source** | One physical or virtual input: a key, a mouse button, mouse motion, a joypad axis or stick, an InputMap action, a named virtual control. Resource: `InputSource`. |
-| **Game action** | Something the player wants to do, with a value kind. Resource: `GameAction`. |
+| **Game action** | Something the player wants to do, with a value kind. Resource: `EnhancedInputAction`. |
 | **Action binding** | "This source drives this action", plus binding-level modifiers and triggers. Resource: `ActionBinding`. |
-| **Binding context** | A set of bindings that are switched on and off together. Resource: `BindingContext`. Added to a player with a priority. |
+| **Binding context** | A set of bindings that are switched on and off together. Resource: `EnhancedInputMappingContext`. Added to a player with a priority. |
 | **Player** | One local player's input: its device filter, active contexts, raw input state and action states. Node: `InputPlayer`. |
 | **System** | The autoload that owns the players, receives Godot input events and ticks the players. Node: `EnhancedInput`. |
 | **Tick** | One evaluation of every action of a player (normally once per process or physics frame). |
@@ -47,7 +47,7 @@ in `GodotEnhancedInput.Tests` and run headless through 2dog. Stage numbers refer
 
 | ID | Requirement | Test |
 |---|---|---|
-| ACT-1 | A `GameAction` is a resource with a name, a value kind (`Digital`, `Axis1D`, `Axis2D`, `Axis3D`, `Axis4D`, `Quaternion`, `Euler`), action-level modifiers and triggers, a *consume input* flag (default on), a *trigger when paused* flag (default off) and an accumulation mode. | `ValueTests.GameAction_Defaults_AreSensible` |
+| ACT-1 | An `EnhancedInputAction` is a resource with a name, a value kind (`Digital`, `Axis1D`, `Axis2D`, `Axis3D`, `Axis4D`, `Quaternion`, `Euler`), action-level modifiers and triggers, a *consume input* flag (default on), a *trigger when paused* flag (default off) and an accumulation mode. | `ValueTests.GameAction_Defaults_AreSensible` |
 | ACT-2 | An `ActionValue` carries the kind and a `Vector3`; it converts to `bool`, `float`, `Vector2` and `Vector3`. Shaping a raw value to a kind keeps only the components the kind has; a digital value holds the source's strength in X and reads as `true` when non-zero. | `ValueTests.*` |
 | ACT-3 | When several bindings drive one action in the same tick, their values combine by the action's accumulation mode: **strongest** (per component, the value with the largest magnitude wins) or **sum** (components add up, so opposite keys cancel). | `PipelineTests.Accumulation_Strongest_PicksLargestPerAxis`, `PipelineTests.Accumulation_Sum_OppositeKeysCancel` |
 | ACT-4 | Actions are identified by resource identity, not by name. Two different resources with the same name are two actions. | `PipelineTests.Actions_AreComparedByIdentity` |
@@ -60,7 +60,7 @@ in `GodotEnhancedInput.Tests` and run headless through 2dog. Stage numbers refer
 | SRC-2 | Mouse buttons, mouse wheel (one tick of strength per notch), mouse motion (deltas summed over the tick, reset after it), mouse position, joypad buttons, single joypad axes and two-axis sticks are supported. | `RawInputTests.*` |
 | SRC-3 | Two convenience composites map keys onto axes: a key pair onto one axis and four keys onto a 2D vector, using Godot's screen convention (up is −Y), so a composite and a stick give the same sign. | `RawInputTests.KeyAxis2D_FollowsGodotScreenConvention` |
 | SRC-4 | A source of kind *InputMap action* reads a Godot InputMap action: from `InputEventAction` events and from `Input.GetActionRawStrength`, taking the stronger. | `InputMapTests.InputMapSource_FollowsInputEventAction`, `InputMapTests.InputMapSource_FollowsInputActionPress` |
-| SRC-5 | An `InputEventAction` whose action name equals a `GameAction`'s name drives that game action directly (as injected input), so tests and tools can press game actions without knowing their keys. Can be turned off. | `InputMapTests.InputEventAction_WithGameActionName_DrivesAction` |
+| SRC-5 | An `InputEventAction` whose action name equals an `EnhancedInputAction`'s name drives that game action directly (as injected input), so tests and tools can press game actions without knowing their keys. Can be turned off. | `InputMapTests.InputEventAction_WithGameActionName_DrivesAction` |
 | SRC-6 | No press is lost between ticks, and none is delayed: every on/off change of a channel is queued in arrival order, and one tick evaluates all of them in steps (each step the longest run in which no channel changes twice), so a press and release in one frame are both seen in that frame and changes on different channels keep their order. Per-frame amounts (mouse motion, scrolling, drags, gestures) belong to the last step. | `RawInputTests.TapWithinOneTick_IsSeenInThatTick_InOrder`, `RobustnessTests.TwoPressesBetweenTicks_AreTwoPresses_InOrder`, `CorrectnessTests.ChangesWithinAFrame_*`, `CorrectnessTests.ChordPressedInOrder_*`, `CorrectnessTests.DoubleTap_WithinOneFrame_*`, `CorrectnessTests.MouseMotion_IsInTheFramesFinalState_*` |
 | SRC-7 | Key echo (OS auto-repeat) events are ignored. | `RawInputTests.EchoEvents_AreIgnored` |
 | SRC-8 | Named **virtual controls** can be set from code (`SetVirtualControl`), for on-screen sticks, touch and tests. | `RawInputTests.VirtualControl_IsReadBySource` |
@@ -315,7 +315,7 @@ Key decisions:
 
 * **Tick-driven.** Events only update the raw state. All evaluation happens in the tick, so
   time-based triggers work while nothing new arrives.
-* **Resources are definitions only.** `GameAction`, `BindingContext`, `ActionBinding`,
+* **Resources are definitions only.** `EnhancedInputAction`, `EnhancedInputMappingContext`, `ActionBinding`,
   `InputSource`, modifiers and triggers hold settings. Per-player memory (raw values, trigger
   timers, smoothing buffers, action states) lives in the player, keyed by resource identity.
   Modifiers and triggers receive a small memory object they may use.

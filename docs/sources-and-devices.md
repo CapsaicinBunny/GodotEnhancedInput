@@ -1,6 +1,7 @@
 # Sources and devices
 
-An `InputSource` says what a binding reads. Make one in the inspector, in code
+An `InputSource` says what a binding reads. Make one in the Inspector (type a path in a mapping's
+*Input* box, or *New Input Source* and set its fields), in code
 (`InputSource.ForKey(Key.Space)`, `InputSource.ForJoyStick(JoyStickSide.Left)`…), or from a short
 text path (`InputSourcePath.Parse("pad:left_stick")`).
 

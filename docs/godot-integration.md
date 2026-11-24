@@ -39,7 +39,7 @@ Two independent paths connect Godot's own action system:
    from `Input.GetActionRawStrength`. So `Input.ActionPress("jump")`, devices bound to the action
    in the Project Settings, and `Input.ParseInputEvent(new InputEventAction { … })` all drive it.
 2. **`InputEventAction` drives game actions by name.** When `InputPlayer.RouteGameActionEvents` is
-   on (default), an `InputEventAction` whose `Action` equals the `Name` of a `GameAction` in an
+   on (default), an `InputEventAction` whose `Action` equals the `Name` of an `EnhancedInputAction` in an
    active context injects input into that game action while pressed. Tests and tools can press
    game actions without knowing their keys:
 
@@ -105,7 +105,7 @@ flicks). Use them for on-screen controls, network or replay input, and tests. Th
 ## Signals and C# events
 
 `InputPlayer` signals: `ActionStarted`, `ActionOngoing`, `ActionTriggered`, `ActionCompleted`,
-`ActionCanceled` (each with the `GameAction`), `ContextAdded` (context, priority),
+`ActionCanceled` (each with the `EnhancedInputAction`), `ContextAdded` (context, priority),
 `ContextRemoved`, `BindingsChanged`, `RebindCaptured` (id, source), `RebindCaptureCanceled` (id).
 `EnhancedInput` signals: `PlayerAdded`, `PlayerRemoved`. In C#, the signals are
 also events (`player.ActionTriggered += …`), and `ActionEventRaised` streams every event with its

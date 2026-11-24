@@ -57,7 +57,7 @@ public partial class EnhancedInputDock : VBoxContainer
     private ItemList _log;
 
     // Data
-    private readonly List<(string Path, BindingContext Context)> _contexts = new();
+    private readonly List<(string Path, EnhancedInputMappingContext Context)> _contexts = new();
     private readonly List<BindingIssue> _issues = new();
     private string _selectedPath;
     private int _selectedIndex = -1;
@@ -343,7 +343,7 @@ public partial class EnhancedInputDock : VBoxContainer
         _actions.SetColumnExpandRatio(3, 3);
         _actions.ItemActivated += () =>
         {
-            if (_actions.GetSelected()?.GetMetadata(0).AsGodotObject() is GameAction action) EditorInterface.Singleton.EditResource(action);
+            if (_actions.GetSelected()?.GetMetadata(0).AsGodotObject() is EnhancedInputAction action) EditorInterface.Singleton.EditResource(action);
         };
         return _actions;
     }
@@ -426,7 +426,7 @@ public partial class EnhancedInputDock : VBoxContainer
         var fs = EditorInterface.Singleton.GetResourceFilesystem();
         Scan(fs.GetFilesystem(), paths);
         foreach (var path in paths.OrderBy(p => p))
-            if (ResourceLoader.Load(path) is BindingContext context) _contexts.Add((path, context));
+            if (ResourceLoader.Load(path) is EnhancedInputMappingContext context) _contexts.Add((path, context));
         Revalidate();
         RefreshPads();
         SetStatus($"{_contexts.Count} context(s), {BindingEditing.ActionsIn(_contexts.Select(c => c.Context)).Count} action(s).");
@@ -464,7 +464,7 @@ public partial class EnhancedInputDock : VBoxContainer
         using var file = FileAccess.Open(path, FileAccess.ModeFlags.Read);
         if (file == null) return false;
         var header = file.GetLine();
-        return header.Contains($"script_class=\"{nameof(BindingContext)}\"", StringComparison.Ordinal);
+        return header.Contains($"script_class=\"{nameof(EnhancedInputMappingContext)}\"", StringComparison.Ordinal);
     }
 
     private void RebuildBindings()
@@ -573,7 +573,7 @@ public partial class EnhancedInputDock : VBoxContainer
     //  Selection and the detail panel
     // ------------------------------------------------------------------
 
-    private BindingContext SelectedContext() => _contexts.FirstOrDefault(c => c.Path == _selectedPath).Context;
+    private EnhancedInputMappingContext SelectedContext() => _contexts.FirstOrDefault(c => c.Path == _selectedPath).Context;
 
     private ActionBinding SelectedBinding()
     {
@@ -668,7 +668,7 @@ public partial class EnhancedInputDock : VBoxContainer
         if (_updatingDetail) return;
         var binding = SelectedBinding();
         if (binding == null) return;
-        var action = index <= 0 ? null : _actionPicker.GetItemMetadata((int)index).AsGodotObject() as GameAction;
+        var action = index <= 0 ? null : _actionPicker.GetItemMetadata((int)index).AsGodotObject() as EnhancedInputAction;
         Change("Set binding action", binding, ActionBinding.PropertyName.Action, action);
     }
 
@@ -678,13 +678,13 @@ public partial class EnhancedInputDock : VBoxContainer
         var name = _newActionName.Text.Trim();
         if (binding == null || string.IsNullOrEmpty(name)) { SetStatus("Type a name for the new action."); return; }
         var kind = (ActionValueKind)_newActionKind.GetSelectedId();
-        var action = GameAction.Create(name, kind);
+        var action = EnhancedInputAction.Create(name, kind);
         var folder = _selectedPath.GetBaseDir();
         var path = $"{folder}/{name.ToLowerInvariant().Replace(' ', '_')}.tres";
         if (FileAccess.FileExists(path)) { SetStatus($"{path} already exists."); return; }
         var error = ResourceSaver.Save(action, path);
         if (error != Error.Ok) { SetStatus($"Could not save {path}: {error}"); return; }
-        var saved = ResourceLoader.Load<GameAction>(path);
+        var saved = ResourceLoader.Load<EnhancedInputAction>(path);
         _newActionName.Text = string.Empty;
         Change("Create action", binding, ActionBinding.PropertyName.Action, saved);
         SetStatus($"Created {path}");
@@ -792,7 +792,7 @@ public partial class EnhancedInputDock : VBoxContainer
         var binding = ActionBinding.Create(current?.Action, null);
         var list = new Godot.Collections.Array<ActionBinding>(context.Bindings) { binding };
         _selectedIndex = list.Count - 1;
-        Change("Add binding", context, BindingContext.PropertyName.Bindings, list);
+        Change("Add binding", context, EnhancedInputMappingContext.PropertyName.Bindings, list);
     }
 
     private void RemoveBinding()
@@ -801,7 +801,7 @@ public partial class EnhancedInputDock : VBoxContainer
         if (context == null || _selectedIndex < 0 || _selectedIndex >= context.Bindings.Count) return;
         var list = new Godot.Collections.Array<ActionBinding>(context.Bindings);
         list.RemoveAt(_selectedIndex);
-        Change("Remove binding", context, BindingContext.PropertyName.Bindings, list);
+        Change("Remove binding", context, EnhancedInputMappingContext.PropertyName.Bindings, list);
         _selectedIndex = Math.Min(_selectedIndex, list.Count - 1);
     }
 
@@ -817,7 +817,7 @@ public partial class EnhancedInputDock : VBoxContainer
         dialog.AddFilter("*.tres", "Binding context");
         dialog.FileSelected += path =>
         {
-            var context = BindingContext.Create(path.GetFile().GetBaseName());
+            var context = EnhancedInputMappingContext.Create(path.GetFile().GetBaseName());
             var error = ResourceSaver.Save(context, path);
             SetStatus(error == Error.Ok ? $"Created {path}" : $"Could not save {path}: {error}");
             EditorInterface.Singleton.GetResourceFilesystem().UpdateFile(path);

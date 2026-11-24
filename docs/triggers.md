@@ -2,7 +2,7 @@
 
 A trigger looks at a value every tick and reports a phase: `Idle`, `Ongoing` or `Triggered`.
 Put triggers on an `ActionBinding` (they see that binding's modified value and decide whether the
-binding fires — only firing bindings add to the action's value) or on a `GameAction` (they see the
+binding fires — only firing bindings add to the action's value) or on an `EnhancedInputAction` (they see the
 combined value of the firing bindings and decide the action's phase). Timers advance with ticks, so a hold
 completes and a pulse repeats while no new events arrive.
 
@@ -95,7 +95,7 @@ Pick up and cancels Inspect.
 ```csharp
 /// Triggered from the first press on, until the binding is suppressed or the player is reset
 /// (e.g. "press any button to start").
-[Tool, GlobalClass]
+[Tool]
 public partial class LatchTrigger : InputTrigger
 {
     protected override TriggerPhase Update(in TriggerContext context, bool actuated, bool wasActuated)
@@ -106,6 +106,8 @@ public partial class LatchTrigger : InputTrigger
     }
 }
 ```
+
+Mark it `[Tool]` and it appears in the Inspector's *Add Trigger…* menu (no `[GlobalClass]` needed).
 
 Override `Role` to make a trigger implicit or a blocker. Use `context.Player.GetPhaseThisTick(action)`
 or `GetEventsThisTick(action)` to depend on other actions.

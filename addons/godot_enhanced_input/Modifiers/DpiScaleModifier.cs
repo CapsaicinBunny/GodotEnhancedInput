@@ -8,7 +8,6 @@ namespace GodotEnhancedInput;
 /// <see cref="InputPlayer.ScreenDpiOverride"/> wins when set.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class DpiScaleModifier : InputModifier
 {
     /// <summary>The screen density the sensitivity was tuned on.</summary>

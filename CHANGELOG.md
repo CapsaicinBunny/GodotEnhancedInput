@@ -10,12 +10,16 @@ First version of Godot Enhanced Input, a redesign of [InputForge](https://github
 history up to 0.2.3 is in its repository.
 
 ### Added
-- `GameAction` resources with typed values (digital, 1D, 2D, 3D), value accumulation (strongest or
+- Three assets in *Create New Resource*, and only these: `EnhancedInputAction`,
+  `EnhancedInputMappingContext` and `EnhancedInputConfig`. Mappings, input sources, modifiers, triggers,
+  control schemes, haptic effects and touch layouts are created inside them from Inspector *Add …*
+  menus (undoable), and a mapping's input can be typed as a source path.
+- `EnhancedInputAction` resources with typed values (digital, 1D, 2D, 3D), value accumulation (strongest or
   sum), *consume input*, *trigger when paused*, and action-level modifiers and triggers.
 - `InputSource`: keys (physical by default, or logical / label), two- and four-key composites, mouse
   buttons and wheel, mouse motion and position, joypad buttons, axes and sticks (any device or one),
   Godot InputMap actions, named virtual controls.
-- `BindingContext` resources, added per player with an integer priority; per-source consumption by
+- `EnhancedInputMappingContext` resources, added per player with an integer priority; per-source consumption by
   higher contexts, *block lower priority*, *ignore held sources until released*, identity comparison.
 - Modifiers: deadzone (axial / radial, with rescaling), scale, delta-time scale, negate, swizzle,
   smoothing (average / exponential), exponent curve, `Curve` remap, normalize, clamp, world axes,
@@ -82,7 +86,7 @@ history up to 0.2.3 is in its repository.
   timeouts and wait-for-release; named profiles, preset import / export, safe (atomic) writes.
 - Touch: safe-area placement, `TouchLayout` / `TouchLayoutRoot` with edit mode, scale and opacity.
 - Recording and deterministic replay (`StartRecording`, `StartReplay`, `InputRecording` JSON).
-- Performance: compiled bindings (`RefreshBindings`, `BindingContext.NotifyBindingsChanged`),
+- Performance: compiled bindings (`RefreshBindings`, `EnhancedInputMappingContext.NotifyBindingsChanged`),
   allocation-free steady-state ticks, `EmitActionSignals`; nested `Tick` calls are ignored.
 - Editor dock and `BindingValidator`; the dock edits bindings in place (action or a new one, input
   path checked as typed or by listening, groups, rebind id, modifier and trigger stacks, with undo),
@@ -109,10 +113,10 @@ history up to 0.2.3 is in its repository.
   `ActionState.IsTracked`, `InputSample` / `GetSample`; `InputEndReason.TrackingLost`.
 - `TickMode.Auto` (default): one tick per frame, before physics and process; `ReleaseStuckInput`.
 - Public API: shortcuts on actions (`WasPressed`, `IsTriggered`, `ReadVector2`, `OnTriggered`…) and
-  short factories (`GameAction.Button`, `Axis2D`…); contexts bound from text paths
+  short factories (`EnhancedInputAction.Button`, `Axis2D`…); contexts bound from text paths
   (`Bind(jump, "key:space", "pad:a")`, `wasd`, `arrows`) with binding helpers (`Pressed`, `Hold`, `Tap`,
   `Deadzone`, `Scale`, `Negate`); stable `Id` and `FormerIds` on actions, contexts, bindings, modes and
-  configurations; `InputConfiguration` with `LoadConfiguration`, `ActivateContext` and
+  configurations; `EnhancedInputConfig` with `LoadConfiguration`, `ActivateContext` and
   `EnhancedInput.Configuration`; event provenance (`Binding`, `Source`, `Device`, `Timestamp`,
   `EndReason`); `ActionEvaluation` policies; `PushContext` handles, `SwitchContext`, `InputScope`,
   `SetActionEnabled`; `InputDeviceLayout` and `InputControlDescriptor` (backends describe theirs).

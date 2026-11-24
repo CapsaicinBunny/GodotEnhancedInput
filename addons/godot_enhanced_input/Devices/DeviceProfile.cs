@@ -10,7 +10,6 @@ namespace GodotEnhancedInput;
 /// matching device before anything else sees it. Add profiles to <see cref="EnhancedInput.DeviceProfiles"/>.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class DeviceProfile : Resource
 {
     /// <summary>The profile matches a joypad whose name contains any of these (case-insensitive).</summary>

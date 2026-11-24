@@ -7,12 +7,11 @@ namespace GodotEnhancedInput;
 /// "This source drives this action", with modifiers and triggers that apply to this binding only.
 /// </summary>
 [Tool]
-[GlobalClass]
 [Icon("res://addons/godot_enhanced_input/Icons/ActionBinding.svg")]
 public partial class ActionBinding : Resource
 {
     /// <summary>The action this binding drives.</summary>
-    [Export] public GameAction Action { get; set; }
+    [Export] public EnhancedInputAction Action { get; set; }
 
     /// <summary>
     /// Stable identifier of this binding for tools, provenance and analytics (falls back to
@@ -79,7 +78,7 @@ public partial class ActionBinding : Resource
     }
 
     /// <summary>Creates a binding in code. Extra arguments may be modifiers and triggers, in order.</summary>
-    public static ActionBinding Create(GameAction action, InputSource source, params Resource[] modifiersAndTriggers)
+    public static ActionBinding Create(EnhancedInputAction action, InputSource source, params Resource[] modifiersAndTriggers)
     {
         var binding = new ActionBinding { Action = action, Source = source };
         foreach (var extra in modifiersAndTriggers)

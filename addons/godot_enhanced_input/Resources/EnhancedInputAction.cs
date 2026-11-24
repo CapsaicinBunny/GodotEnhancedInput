@@ -10,8 +10,8 @@ namespace GodotEnhancedInput;
 /// </summary>
 [Tool]
 [GlobalClass]
-[Icon("res://addons/godot_enhanced_input/Icons/GameAction.svg")]
-public partial class GameAction : Resource
+[Icon("res://addons/godot_enhanced_input/Icons/EnhancedInputAction.svg")]
+public partial class EnhancedInputAction : Resource
 {
     private string _name = string.Empty;
 
@@ -87,7 +87,7 @@ public partial class GameAction : Resource
     [Export(PropertyHint.MultilineText)] public string Description { get; set; } = string.Empty;
 
     /// <summary>Creates an action in code.</summary>
-    public static GameAction Create(string name, ActionValueKind kind = ActionValueKind.Digital)
+    public static EnhancedInputAction Create(string name, ActionValueKind kind = ActionValueKind.Digital)
         => new() { Name = name, ValueKind = kind };
 
     /// <summary>Text for menus and prompts.</summary>
@@ -101,5 +101,5 @@ public partial class GameAction : Resource
     }
 
     /// <inheritdoc/>
-    public override string ToString() => string.IsNullOrEmpty(Name) ? $"GameAction#{GetInstanceId()}" : Name;
+    public override string ToString() => string.IsNullOrEmpty(Name) ? $"EnhancedInputAction#{GetInstanceId()}" : Name;
 }

@@ -9,7 +9,6 @@ namespace GodotEnhancedInput;
 /// "mouse_sensitivity", "stick_sensitivity" — so keyboard/mouse and joypad are tuned separately.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class SensitivityModifier : InputModifier
 {
     /// <summary>Setting holding the multiplier (1 when not set).</summary>

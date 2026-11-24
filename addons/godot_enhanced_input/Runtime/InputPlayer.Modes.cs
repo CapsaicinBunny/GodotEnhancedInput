@@ -174,13 +174,13 @@ public partial class InputPlayer
     // ------------------------------------------------------------------
 
     /// <summary>The setting that turns an action from "hold" into "press to toggle": "toggle:&lt;action name&gt;".</summary>
-    public static string ToggleSettingName(GameAction action) => "toggle:" + action?.Name;
+    public static string ToggleSettingName(EnhancedInputAction action) => "toggle:" + action?.Name;
 
     /// <summary>Makes an action toggle on each press instead of being held (stored in the profile).</summary>
-    public void SetHoldToToggle(GameAction action, bool toggle) => Profile.SetFlag(ToggleSettingName(action), toggle);
+    public void SetHoldToToggle(EnhancedInputAction action, bool toggle) => Profile.SetFlag(ToggleSettingName(action), toggle);
 
     /// <summary>Whether an action toggles instead of being held.</summary>
-    public bool IsHoldToToggle(GameAction action)
+    public bool IsHoldToToggle(EnhancedInputAction action)
     {
         if (action == null) return false;
         // Cached per action name: this runs for every action on every tick.
@@ -190,7 +190,7 @@ public partial class InputPlayer
         return GetFlag(cached.Setting);
     }
 
-    private readonly System.Collections.Generic.Dictionary<GameAction, (string Name, string Setting)> _toggleNames = new();
+    private readonly System.Collections.Generic.Dictionary<EnhancedInputAction, (string Name, string Setting)> _toggleNames = new();
 }
 
 /// <summary>Ready-made accessibility and comfort settings to apply to a profile (<see cref="InputProfile.Apply"/>).</summary>
@@ -215,7 +215,7 @@ public static class AccessibilityPresets
     }
 
     /// <summary>These actions toggle on each press instead of being held.</summary>
-    public static InputProfile HoldToToggle(params GameAction[] actions)
+    public static InputProfile HoldToToggle(params EnhancedInputAction[] actions)
     {
         var p = new InputProfile { Name = "hold to toggle" };
         foreach (var action in actions) p.SetFlag(InputPlayer.ToggleSettingName(action), true);

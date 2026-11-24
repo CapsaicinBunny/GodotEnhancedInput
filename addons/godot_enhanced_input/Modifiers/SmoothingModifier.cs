@@ -16,7 +16,6 @@ public enum SmoothingMode
 /// exponentially. Memory is kept per binding and player.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class SmoothingModifier : InputModifier
 {
     private SmoothingMode _mode = SmoothingMode.Average;

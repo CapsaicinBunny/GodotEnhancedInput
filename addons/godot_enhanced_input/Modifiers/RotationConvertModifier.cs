@@ -23,7 +23,6 @@ public enum RotationConversion
 /// degrees from a custom device into radians. Uses Godot's YXZ Euler order.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class RotationConvertModifier : InputModifier
 {
     /// <summary>What to convert into what.</summary>

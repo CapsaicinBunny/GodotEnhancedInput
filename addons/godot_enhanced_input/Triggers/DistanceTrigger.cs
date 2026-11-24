@@ -9,7 +9,6 @@ namespace GodotEnhancedInput;
 /// <see cref="ResetSeconds"/> without movement. With <see cref="OneShot"/> it triggers once per movement.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class DistanceTrigger : InputTrigger
 {
     /// <summary>How far the movement must add up to.</summary>

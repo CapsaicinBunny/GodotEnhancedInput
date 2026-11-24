@@ -8,7 +8,6 @@ namespace GodotEnhancedInput;
 /// used and the result stays on the ground plane. Usually placed after <see cref="WorldAxesModifier"/>.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class ViewRelativeModifier : InputModifier
 {
     /// <summary>Use only the camera's heading (movement stays on the ground).</summary>

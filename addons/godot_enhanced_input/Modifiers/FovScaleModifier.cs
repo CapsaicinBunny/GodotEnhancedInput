@@ -8,7 +8,6 @@ namespace GodotEnhancedInput;
 /// <see cref="InputPlayer.ViewFovOverride"/> the value is unchanged.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class FovScaleModifier : InputModifier
 {
     /// <summary>The vertical field of view, in degrees, at which the scale is 1.</summary>

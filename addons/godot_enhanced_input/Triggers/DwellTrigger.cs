@@ -11,7 +11,6 @@ namespace GodotEnhancedInput;
 /// Dwell time scales with the player's "hold_time_scale" setting.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class DwellTrigger : InputTrigger
 {
     /// <summary>How far the position may wander while dwelling (in the value's units: 0…1 screen, pixels…).</summary>

@@ -9,13 +9,13 @@ public class ReplayTests
 {
     private sealed class Game
     {
-        public readonly GameAction Jump = Make.Action("jump");
-        public readonly GameAction Move = Make.Action("move", ActionValueKind.Axis2D);
-        public readonly GameAction Charge = Make.Action("charge");
-        public readonly GameAction Stick = Make.Action("stick", ActionValueKind.Axis2D);
-        public readonly GameAction Ai = Make.Action("ai", ActionValueKind.Axis1D);
+        public readonly EnhancedInputAction Jump = Make.Action("jump");
+        public readonly EnhancedInputAction Move = Make.Action("move", ActionValueKind.Axis2D);
+        public readonly EnhancedInputAction Charge = Make.Action("charge");
+        public readonly EnhancedInputAction Stick = Make.Action("stick", ActionValueKind.Axis2D);
+        public readonly EnhancedInputAction Ai = Make.Action("ai", ActionValueKind.Axis1D);
 
-        public BindingContext Context()
+        public EnhancedInputMappingContext Context()
             => Make.Context("Game",
                 Make.Bind(Jump, Key.Space, new PressedTrigger()),
                 Make.Bind(Move, InputSourcePath.Parse("keys:w/s/a/d")),
@@ -23,7 +23,7 @@ public class ReplayTests
                 Make.Bind(Stick, InputSource.ForVirtual("touch_move")),
                 Make.Bind(Ai, InputSource.ForVirtual("unused")));
 
-        public GameAction[] All => new[] { Jump, Move, Charge, Stick, Ai };
+        public EnhancedInputAction[] All => new[] { Jump, Move, Charge, Stick, Ai };
     }
 
     private static string Snapshot(InputPlayer player, Game game)

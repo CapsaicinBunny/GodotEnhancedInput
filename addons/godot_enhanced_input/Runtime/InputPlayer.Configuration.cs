@@ -1,10 +1,10 @@
 namespace GodotEnhancedInput;
 
-/// <summary>Loading an <see cref="InputConfiguration"/> and switching its contexts by id or name.</summary>
+/// <summary>Loading an <see cref="EnhancedInputConfig"/> and switching its contexts by id or name.</summary>
 public partial class InputPlayer
 {
     /// <summary>The configuration loaded with <see cref="LoadConfiguration"/>, or null.</summary>
-    public InputConfiguration Configuration { get; private set; }
+    public EnhancedInputConfig Configuration { get; private set; }
 
     /// <summary>
     /// Sets the player up from a configuration: its control schemes become the player's modes (starting in
@@ -12,7 +12,7 @@ public partial class InputPlayer
     /// default settings apply where the profile and mode set nothing, and its startup contexts are
     /// activated (unless <paramref name="activateStartupContexts"/> is off). Contexts already active stay.
     /// </summary>
-    public void LoadConfiguration(InputConfiguration configuration, bool activateStartupContexts = true)
+    public void LoadConfiguration(EnhancedInputConfig configuration, bool activateStartupContexts = true)
     {
         Configuration = configuration;
         if (configuration != null)
@@ -37,7 +37,7 @@ public partial class InputPlayer
     /// A context by id, name or former id: an active one, else one of the loaded configuration, else one
     /// registered for rebinding. Null when unknown.
     /// </summary>
-    public BindingContext FindContext(string idOrName)
+    public EnhancedInputMappingContext FindContext(string idOrName)
     {
         foreach (var entry in _entries)
             if (entry.Context.Matches(idOrName)) return entry.Context;
@@ -48,7 +48,7 @@ public partial class InputPlayer
         return null;
     }
 
-    /// <summary>Activates a context by id or name (at its <see cref="BindingContext.DefaultPriority"/> unless given). False when unknown.</summary>
+    /// <summary>Activates a context by id or name (at its <see cref="EnhancedInputMappingContext.DefaultPriority"/> unless given). False when unknown.</summary>
     public bool ActivateContext(string idOrName, int? priority = null, ContextOptions options = default)
     {
         var context = FindContext(idOrName);

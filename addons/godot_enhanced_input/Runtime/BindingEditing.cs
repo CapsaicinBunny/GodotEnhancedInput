@@ -109,9 +109,9 @@ public static class BindingEditing
     }
 
     /// <summary>Every action bound in these contexts, by name.</summary>
-    public static List<GameAction> ActionsIn(IEnumerable<BindingContext> contexts)
+    public static List<EnhancedInputAction> ActionsIn(IEnumerable<EnhancedInputMappingContext> contexts)
     {
-        var list = new List<GameAction>();
+        var list = new List<EnhancedInputAction>();
         foreach (var context in contexts)
             foreach (var binding in context.Bindings)
                 if (binding?.Action != null && !list.Contains(binding.Action)) list.Add(binding.Action);

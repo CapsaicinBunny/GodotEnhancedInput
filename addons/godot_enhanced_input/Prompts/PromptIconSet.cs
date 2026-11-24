@@ -10,7 +10,6 @@ namespace GodotEnhancedInput;
 /// fill a set with your own or a licensed icon pack.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class PromptIconSet : Resource
 {
     /// <summary>Icon key → texture.</summary>

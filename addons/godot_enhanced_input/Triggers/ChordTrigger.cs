@@ -7,14 +7,13 @@ namespace GodotEnhancedInput;
 /// binding's own value, "Shift + Space" becomes a binding on Space with a chord on a Shift action.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class ChordTrigger : InputTrigger
 {
     /// <inheritdoc/>
     public override bool ReadsOtherActions => true;
 
     /// <summary>The action that must be triggered at the same time.</summary>
-    [Export] public GameAction ChordAction { get; set; }
+    [Export] public EnhancedInputAction ChordAction { get; set; }
 
     /// <inheritdoc/>
     public override TriggerRole Role => TriggerRole.Implicit;

@@ -8,7 +8,6 @@ namespace GodotEnhancedInput;
 /// gyroscope binding. The first tick only learns (outputs zero).
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class GyroCalibrationModifier : InputModifier
 {
     /// <summary>Readings within this distance of the bias (per component) count as still.</summary>

@@ -9,7 +9,6 @@ namespace GodotEnhancedInput;
 /// (e.g. in a calibration screen) and store them, or let a <see cref="DeviceProfile"/> provide them.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class CalibrationModifier : InputModifier
 {
     /// <summary>Measured reading at full negative travel, per component.</summary>

@@ -10,7 +10,6 @@ namespace GodotEnhancedInput;
 /// resource can be shared by many bindings and players.
 /// </summary>
 [Tool]
-[GlobalClass]
 [Icon("res://addons/godot_enhanced_input/Icons/InputSource.svg")]
 public partial class InputSource : Resource
 {

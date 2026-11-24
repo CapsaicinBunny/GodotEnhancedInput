@@ -11,7 +11,6 @@ namespace GodotEnhancedInput;
 /// can have any source (or none).
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class ComboTrigger : InputTrigger
 {
     /// <inheritdoc/>
@@ -21,7 +20,7 @@ public partial class ComboTrigger : InputTrigger
     [Export] public Array<ComboStep> Steps { get; set; } = new();
 
     /// <summary>Actions that break the combo when they trigger.</summary>
-    [Export] public Array<GameAction> CancelActions { get; set; } = new();
+    [Export] public Array<EnhancedInputAction> CancelActions { get; set; } = new();
 
     /// <inheritdoc/>
     protected override TriggerPhase Update(in TriggerContext context, bool actuated, bool wasActuated)

@@ -14,10 +14,10 @@ public class ApiTests(EngineFixture fixture)
     [Fact]
     public void ActionsAnswerForThemselves_AndContextsBindFromPaths()
     {
-        var jump = GameAction.Button("jump");
-        var move = GameAction.Axis2D("move");
-        var charge = GameAction.Button("charge");
-        var gameplay = BindingContext.Create("gameplay")
+        var jump = EnhancedInputAction.Button("jump");
+        var move = EnhancedInputAction.Axis2D("move");
+        var charge = EnhancedInputAction.Button("charge");
+        var gameplay = EnhancedInputMappingContext.Create("gameplay")
             .Bind(move, "wasd", "pad:left_stick")
             .Bind(jump, "key:space", "pad:a");
         gameplay.Add(charge, "key:f").Hold(0.3f);
@@ -43,8 +43,8 @@ public class ApiTests(EngineFixture fixture)
     [Fact]
     public void ScopesAndHandles_ReleaseWhatTheyHold()
     {
-        var jump = GameAction.Button("jump");
-        var vehicle = BindingContext.Create("vehicle").Bind(jump, "key:space");
+        var jump = EnhancedInputAction.Button("jump");
+        var vehicle = EnhancedInputMappingContext.Create("vehicle").Bind(jump, "key:space");
         using var rig = new Rig();
         var owner = new Node();
         fixture.Tree.Root.AddChild(owner);
@@ -69,8 +69,8 @@ public class ApiTests(EngineFixture fixture)
     [Fact]
     public void ASingleAction_CanBeTurnedOff()
     {
-        var fire = GameAction.Button("fire");
-        using var rig = new Rig().Add(BindingContext.Create("C").Bind(fire, "mouse:left"));
+        var fire = EnhancedInputAction.Button("fire");
+        using var rig = new Rig().Add(EnhancedInputMappingContext.Create("C").Bind(fire, "mouse:left"));
         rig.Player.FeedEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true });
         rig.Tick();
         rig.Player.SetActionEnabled(fire, false);
@@ -90,12 +90,12 @@ public class ApiTests(EngineFixture fixture)
     [Fact]
     public void Ids_SurviveRenames_AndFormerIdsStillResolve()
     {
-        var jump = GameAction.Button("jump");
+        var jump = EnhancedInputAction.Button("jump");
         jump.Id.Should().Be("jump", "an action without an id goes by its name");
         jump.Id = "act.jump";
         jump.Name = "Hop";
         jump.FormerIds = new[] { "jump" };
-        using var rig = new Rig().Add(BindingContext.Create("C").Bind(jump, "key:space"));
+        using var rig = new Rig().Add(EnhancedInputMappingContext.Create("C").Bind(jump, "key:space"));
         rig.Player.FindAction("act.jump").Should().BeSameAs(jump);
         rig.Player.FindAction("Hop").Should().BeSameAs(jump);
         rig.Player.FindAction("jump").Should().BeSameAs(jump, "a former id");
@@ -107,7 +107,7 @@ public class ApiTests(EngineFixture fixture)
         var recording = rig.Player.StopRecording();
         recording.Ticks[0].Inputs[0].Name.Should().Be("act.jump");
         jump.Name = "Leap";
-        using var replay = new Rig().Add(BindingContext.Create("C").Bind(jump, "key:space"));
+        using var replay = new Rig().Add(EnhancedInputMappingContext.Create("C").Bind(jump, "key:space"));
         replay.Player.StartReplay(InputRecording.FromJson(recording.ToJson()));
         replay.Tick();
         replay.Player.WasTriggered(jump).Should().BeTrue();
@@ -116,15 +116,15 @@ public class ApiTests(EngineFixture fixture)
     [Fact]
     public void AConfiguration_SetsUpAPlayer()
     {
-        var move = GameAction.Axis2D("move");
-        var steer = GameAction.Axis("steer");
-        var onFoot = BindingContext.Create("on_foot").Bind(move, "wasd");
-        var vehicle = BindingContext.Create("vehicle").Bind(steer, "keys:d/a");
+        var move = EnhancedInputAction.Axis2D("move");
+        var steer = EnhancedInputAction.Axis("steer");
+        var onFoot = EnhancedInputMappingContext.Create("on_foot").Bind(move, "wasd");
+        var vehicle = EnhancedInputMappingContext.Create("vehicle").Bind(steer, "keys:d/a");
         vehicle.DefaultPriority = 50;
         vehicle.Id = "ctx.vehicle";
         var keyboard = InputMode.Create("keyboard", DeviceKinds.KeyboardMouse, new[] { "kbm" });
         var pad = InputMode.Create("gamepad", DeviceKinds.Joypad, new[] { "pad" });
-        var config = new InputConfiguration { Name = "game" };
+        var config = new EnhancedInputConfig { Name = "game" };
         config.Actions.Add(move);
         config.Actions.Add(steer);
         config.Contexts.Add(onFoot);
@@ -152,8 +152,8 @@ public class ApiTests(EngineFixture fixture)
     [Fact]
     public void TheAutoloadsConfiguration_ReachesEveryPlayer()
     {
-        var onFoot = BindingContext.Create("on_foot");
-        var config = new InputConfiguration();
+        var onFoot = EnhancedInputMappingContext.Create("on_foot");
+        var config = new EnhancedInputConfig();
         config.StartupContexts.Add(onFoot);
         var system = new EnhancedInput { TickMode = TickMode.Manual, Configuration = config };
         try
@@ -171,8 +171,8 @@ public class ApiTests(EngineFixture fixture)
     [Fact]
     public void Events_SayWhichBindingChannelAndDeviceCausedThem()
     {
-        var fire = GameAction.Button("fire");
-        var context = BindingContext.Create("C");
+        var fire = EnhancedInputAction.Button("fire");
+        var context = EnhancedInputMappingContext.Create("C");
         var mouse = context.Add(fire, "mouse:left");
         var pad = context.Add(fire, "pad:rt");
         var system = new EnhancedInput { TickMode = TickMode.Manual };
@@ -209,9 +209,9 @@ public class ApiTests(EngineFixture fixture)
 
     private static int CountTriggered(ActionEvaluation policy, Action<Rig> drive)
     {
-        var action = GameAction.Axis("a");
+        var action = EnhancedInputAction.Axis("a");
         action.Evaluation = policy;
-        using var rig = new Rig().Add(BindingContext.Create("C").Bind(action, "keys:d/a", "virtual:v"));
+        using var rig = new Rig().Add(EnhancedInputMappingContext.Create("C").Bind(action, "keys:d/a", "virtual:v"));
         int count = 0;
         rig.Player.Bind(action, ActionEvents.Triggered, _ => count++);
         drive(rig);
@@ -236,9 +236,9 @@ public class ApiTests(EngineFixture fixture)
     [Fact]
     public void PassThrough_ReportsEachControl_WithItsOwnValueAndSource()
     {
-        var paint = GameAction.Axis("paint");
+        var paint = EnhancedInputAction.Axis("paint");
         paint.Evaluation = ActionEvaluation.PassThrough;
-        var context = BindingContext.Create("C");
+        var context = EnhancedInputMappingContext.Create("C");
         var left = context.Add(paint, "virtual:left");
         var right = context.Add(paint, "virtual:right");
         using var rig = new Rig().Add(context);
@@ -261,7 +261,7 @@ public class ApiTests(EngineFixture fixture)
     [Fact]
     public void Tracked_IsTriggeredExactlyWhileTracked()
     {
-        var aim = GameAction.Rotation("aim");
+        var aim = EnhancedInputAction.Rotation("aim");
         aim.Evaluation = ActionEvaluation.Tracked;
         aim.Triggers.Add(new PressedTrigger());   // would otherwise make it a one-shot
         var system = new EnhancedInput { TickMode = TickMode.Manual };
@@ -269,7 +269,7 @@ public class ApiTests(EngineFixture fixture)
         try
         {
             var player = system.GetPlayer(0);
-            player.AddContext(BindingContext.Create("C").Bind(aim, "@pose:orientation"));
+            player.AddContext(EnhancedInputMappingContext.Create("C").Bind(aim, "@pose:orientation"));
             system.AddBackend(backend);
             backend.Track(Quaternion.Identity);
             system.Tick(Rig.Dt);

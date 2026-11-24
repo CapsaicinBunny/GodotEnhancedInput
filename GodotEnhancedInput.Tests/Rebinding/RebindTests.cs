@@ -10,10 +10,10 @@ public class RebindTests
     private sealed class Setup : IDisposable
     {
         public readonly Rig Rig = new();
-        public readonly GameAction Jump = Make.Action("jump");
-        public readonly GameAction Fire = Make.Action("fire");
-        public readonly GameAction Pause = Make.Action("pause");
-        public readonly BindingContext Gameplay = Make.Context("gameplay");
+        public readonly EnhancedInputAction Jump = Make.Action("jump");
+        public readonly EnhancedInputAction Fire = Make.Action("fire");
+        public readonly EnhancedInputAction Pause = Make.Action("pause");
+        public readonly EnhancedInputMappingContext Gameplay = Make.Context("gameplay");
 
         public Setup()
         {

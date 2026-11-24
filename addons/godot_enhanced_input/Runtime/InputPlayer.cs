@@ -14,25 +14,25 @@ namespace GodotEnhancedInput;
 public partial class InputPlayer : Node, ISourceReader
 {
     /// <summary>Raised when an action starts (leaves idle).</summary>
-    [Signal] public delegate void ActionStartedEventHandler(GameAction action);
+    [Signal] public delegate void ActionStartedEventHandler(EnhancedInputAction action);
 
     /// <summary>Raised every tick an action is ongoing.</summary>
-    [Signal] public delegate void ActionOngoingEventHandler(GameAction action);
+    [Signal] public delegate void ActionOngoingEventHandler(EnhancedInputAction action);
 
     /// <summary>Raised every tick an action is triggered.</summary>
-    [Signal] public delegate void ActionTriggeredEventHandler(GameAction action);
+    [Signal] public delegate void ActionTriggeredEventHandler(EnhancedInputAction action);
 
     /// <summary>Raised when an action goes from triggered back to idle.</summary>
-    [Signal] public delegate void ActionCompletedEventHandler(GameAction action);
+    [Signal] public delegate void ActionCompletedEventHandler(EnhancedInputAction action);
 
     /// <summary>Raised when an action goes from ongoing back to idle without triggering.</summary>
-    [Signal] public delegate void ActionCanceledEventHandler(GameAction action);
+    [Signal] public delegate void ActionCanceledEventHandler(EnhancedInputAction action);
 
     /// <summary>Raised when a context is added (or re-added with a new priority).</summary>
-    [Signal] public delegate void ContextAddedEventHandler(BindingContext context, int priority);
+    [Signal] public delegate void ContextAddedEventHandler(EnhancedInputMappingContext context, int priority);
 
     /// <summary>Raised when a context is removed.</summary>
-    [Signal] public delegate void ContextRemovedEventHandler(BindingContext context);
+    [Signal] public delegate void ContextRemovedEventHandler(EnhancedInputMappingContext context);
 
     /// <summary>Every action event of this player, in the order they are raised.</summary>
     public event Action<ActionEventArgs> ActionEventRaised;
@@ -75,7 +75,7 @@ public partial class InputPlayer : Node, ISourceReader
     [Export] public bool PollInputMap { get; set; } = true;
 
     /// <summary>
-    /// When on, an <see cref="InputEventAction"/> whose action name equals the <see cref="GameAction.Name"/>
+    /// When on, an <see cref="InputEventAction"/> whose action name equals the <see cref="EnhancedInputAction.Name"/>
     /// of an action in an active context drives that action directly, as injected input.
     /// </summary>
     [Export] public bool RouteGameActionEvents { get; set; } = true;
@@ -120,7 +120,7 @@ public partial class InputPlayer : Node, ISourceReader
 
     private sealed class ContextEntry
     {
-        public BindingContext Context;
+        public EnhancedInputMappingContext Context;
         public int Priority;
         public ulong Sequence;
         public ContextOptions Options;
@@ -162,7 +162,7 @@ public partial class InputPlayer : Node, ISourceReader
         public ContextEntry Entry;
         public int Index;
         public ActionBinding Binding;
-        public GameAction Action;
+        public EnhancedInputAction Action;
         public InputSource Source;
         public SourceKey[] Keys;
         public InputModifier[] Modifiers;
@@ -253,7 +253,7 @@ public partial class InputPlayer : Node, ISourceReader
     /// <summary>A handle for a callback registered with <see cref="Bind"/>. Dispose it to unsubscribe.</summary>
     public sealed class ActionSubscription : IDisposable
     {
-        internal ActionSubscription(InputPlayer player, GameAction action, ActionEvents events, Action<ActionEventArgs> callback)
+        internal ActionSubscription(InputPlayer player, EnhancedInputAction action, ActionEvents events, Action<ActionEventArgs> callback)
         {
             Player = player;
             Action = action;
@@ -264,7 +264,7 @@ public partial class InputPlayer : Node, ISourceReader
         /// <summary>The player the callback is registered with.</summary>
         public InputPlayer Player { get; }
         /// <summary>The action it listens to.</summary>
-        public GameAction Action { get; }
+        public EnhancedInputAction Action { get; }
         /// <summary>The events it is called for.</summary>
         public ActionEvents Events { get; }
         internal Action<ActionEventArgs> Callback { get; }
@@ -277,19 +277,19 @@ public partial class InputPlayer : Node, ISourceReader
 
     private readonly List<ContextEntry> _entries = new();
     private readonly List<ContextEntry> _ordered = new();
-    private readonly System.Collections.Generic.Dictionary<GameAction, ActionState> _states = new();
-    private readonly System.Collections.Generic.Dictionary<GameAction, List<CompiledBinding>> _bindingsByAction = new();
+    private readonly System.Collections.Generic.Dictionary<EnhancedInputAction, ActionState> _states = new();
+    private readonly System.Collections.Generic.Dictionary<EnhancedInputAction, List<CompiledBinding>> _bindingsByAction = new();
     private readonly List<CompiledBinding> _plan = new();
     private bool _planDirty = true;
     private InputEndReason _planChangeReason = InputEndReason.ContextRemoved;
     private ulong _step;
-    private readonly System.Collections.Generic.Dictionary<string, GameAction> _actionsByName = new(StringComparer.Ordinal);
+    private readonly System.Collections.Generic.Dictionary<string, EnhancedInputAction> _actionsByName = new(StringComparer.Ordinal);
     private readonly System.Collections.Generic.Dictionary<SourceKey, int> _consumedBy = new();
-    private readonly System.Collections.Generic.Dictionary<GameAction, Injection> _injections = new();
-    private readonly System.Collections.Generic.Dictionary<GameAction, List<ActionSubscription>> _subscriptions = new();
+    private readonly System.Collections.Generic.Dictionary<EnhancedInputAction, Injection> _injections = new();
+    private readonly System.Collections.Generic.Dictionary<EnhancedInputAction, List<ActionSubscription>> _subscriptions = new();
     private readonly System.Collections.Generic.Dictionary<string, StringName> _inputMapNames = new(StringComparer.Ordinal);
-    private readonly List<GameAction> _tickActions = new();
-    private readonly HashSet<GameAction> _tickActionSet = new();
+    private readonly List<EnhancedInputAction> _tickActions = new();
+    private readonly HashSet<EnhancedInputAction> _tickActionSet = new();
     private readonly List<SourceKey> _keyScratch = new();
 
     private ulong _sequence;
@@ -311,7 +311,7 @@ public partial class InputPlayer : Node, ISourceReader
     /// Activates a context with a priority (higher is evaluated first; ties go to the most recently
     /// added). Adding a context that is already active updates its priority and options.
     /// </summary>
-    public void AddContext(BindingContext context, int priority = 0, ContextOptions options = default)
+    public void AddContext(EnhancedInputMappingContext context, int priority = 0, ContextOptions options = default)
     {
         if (context == null) return;
 
@@ -353,7 +353,7 @@ public partial class InputPlayer : Node, ISourceReader
     }
 
     /// <summary>Deactivates a context. Its actions finish normally on the next tick. Returns false if it was not active.</summary>
-    public bool RemoveContext(BindingContext context)
+    public bool RemoveContext(EnhancedInputMappingContext context)
     {
         var entry = FindEntry(context);
         if (entry == null) return false;
@@ -372,18 +372,18 @@ public partial class InputPlayer : Node, ISourceReader
     }
 
     /// <summary>Whether a context is active.</summary>
-    public bool HasContext(BindingContext context) => FindEntry(context) != null;
+    public bool HasContext(EnhancedInputMappingContext context) => FindEntry(context) != null;
 
     /// <summary>The priority of an active context, or null.</summary>
-    public int? GetContextPriority(BindingContext context) => FindEntry(context)?.Priority;
+    public int? GetContextPriority(EnhancedInputMappingContext context) => FindEntry(context)?.Priority;
 
     /// <summary>The active contexts in evaluation order (highest priority first).</summary>
-    public List<BindingContext> GetContexts()
+    public List<EnhancedInputMappingContext> GetContexts()
     {
         // A separate list: this may be called from callbacks while a tick walks _ordered.
         var entries = new List<ContextEntry>(_entries);
         entries.Sort(CompareEntries);
-        var result = new List<BindingContext>(entries.Count);
+        var result = new List<EnhancedInputMappingContext>(entries.Count);
         foreach (var entry in entries) result.Add(entry.Context);
         return result;
     }
@@ -391,7 +391,7 @@ public partial class InputPlayer : Node, ISourceReader
     private static int CompareEntries(ContextEntry a, ContextEntry b)
         => a.Priority != b.Priority ? b.Priority.CompareTo(a.Priority) : b.Sequence.CompareTo(a.Sequence);
 
-    private ContextEntry FindEntry(BindingContext context)
+    private ContextEntry FindEntry(EnhancedInputMappingContext context)
     {
         if (context == null) return null;
         foreach (var entry in _entries)
@@ -417,7 +417,7 @@ public partial class InputPlayer : Node, ISourceReader
             foreach (var action in Configuration.Actions) IndexAction(action);
     }
 
-    private void IndexAction(GameAction action)
+    private void IndexAction(EnhancedInputAction action)
     {
         if (action == null) return;
         if (!string.IsNullOrEmpty(action.Id)) _actionsByName.TryAdd(action.Id, action);
@@ -427,7 +427,7 @@ public partial class InputPlayer : Node, ISourceReader
     }
 
     /// <summary>Finds an action by id, name or former id among the active contexts and the loaded configuration.</summary>
-    public GameAction FindAction(string idOrName)
+    public EnhancedInputAction FindAction(string idOrName)
         => idOrName != null && _actionsByName.TryGetValue(idOrName, out var action) ? action : null;
 
     // ------------------------------------------------------------------
@@ -543,7 +543,7 @@ public partial class InputPlayer : Node, ISourceReader
         }
     }
 
-    private readonly System.Collections.Generic.Dictionary<GameAction, InputEndReason> _injectionCuts = new();
+    private readonly System.Collections.Generic.Dictionary<EnhancedInputAction, InputEndReason> _injectionCuts = new();
 
     // ------------------------------------------------------------------
     //  View helpers for modifiers

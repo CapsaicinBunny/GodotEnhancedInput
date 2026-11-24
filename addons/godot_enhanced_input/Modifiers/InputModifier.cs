@@ -78,7 +78,6 @@ public readonly struct ModifierContext
 /// its triggers; action modifiers run on the combined value before the action's triggers.
 /// </summary>
 [Tool]
-[GlobalClass]
 [Icon("res://addons/godot_enhanced_input/Icons/InputModifier.svg")]
 public abstract partial class InputModifier : Resource
 {

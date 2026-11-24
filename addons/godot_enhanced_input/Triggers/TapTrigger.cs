@@ -7,7 +7,6 @@ namespace GodotEnhancedInput;
 /// <see cref="TapSeconds"/>. Held longer, it goes idle (canceling the action) until released.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class TapTrigger : InputTrigger
 {
     /// <summary>The longest press that still counts as a tap.</summary>

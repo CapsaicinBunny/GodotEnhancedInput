@@ -21,7 +21,6 @@ public enum SwizzleOrder
 
 /// <summary>Reorders the components of the value.</summary>
 [Tool]
-[GlobalClass]
 public partial class SwizzleModifier : InputModifier
 {
     /// <summary>The new order of the components.</summary>

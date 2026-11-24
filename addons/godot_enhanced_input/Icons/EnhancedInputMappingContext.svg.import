@@ -2,21 +2,22 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cid2wt373ty2a"
-path="res://.godot/imported/GameAction.svg-6c904f3bf1a42a9c8f35424928116d1a.ctex"
+uid="uid://c0eyp7nlp8kxt"
+path="res://.godot/imported/EnhancedInputMappingContext.svg-0e669d41755e3a1a4104a6bf4309f306.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://addons/godot_enhanced_input/Icons/GameAction.svg"
-dest_files=["res://.godot/imported/GameAction.svg-6c904f3bf1a42a9c8f35424928116d1a.ctex"]
+source_file="res://addons/godot_enhanced_input/Icons/EnhancedInputMappingContext.svg"
+dest_files=["res://.godot/imported/EnhancedInputMappingContext.svg-0e669d41755e3a1a4104a6bf4309f306.ctex"]
 
 [params]
 
 compress/mode=0
 compress/high_quality=false
+compress/high_quality_mode=0
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
@@ -25,6 +26,8 @@ compress/normal_map=0
 compress/channel_pack=0
 mipmaps/generate=false
 mipmaps/limit=-1
+mipmaps/preserve_alpha_test_coverage=false
+mipmaps/alpha_test_threshold=0.5
 roughness/mode=0
 roughness/src_normal=""
 process/channel_remap/red=0

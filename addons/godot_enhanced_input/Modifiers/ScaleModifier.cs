@@ -7,7 +7,6 @@ namespace GodotEnhancedInput;
 /// action it scales the rotation angle by <c>Scale.X</c> instead (2 = twice the turn, 0.5 = half).
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class ScaleModifier : InputModifier
 {
     /// <summary>Factor per component (rotations: X scales the angle).</summary>

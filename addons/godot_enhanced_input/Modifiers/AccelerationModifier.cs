@@ -8,7 +8,6 @@ namespace GodotEnhancedInput;
 /// length per second. Slow, precise movement stays close to 1:1.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class AccelerationModifier : InputModifier
 {
     /// <summary>How much faster movement is amplified.</summary>

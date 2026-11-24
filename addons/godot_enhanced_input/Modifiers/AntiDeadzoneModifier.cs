@@ -8,7 +8,6 @@ namespace GodotEnhancedInput;
 /// later. Radial keeps the direction; axial works per component.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class AntiDeadzoneModifier : InputModifier
 {
     /// <summary>Per component (axial) or on the vector's length (radial).</summary>

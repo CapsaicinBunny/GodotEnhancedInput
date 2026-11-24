@@ -7,7 +7,6 @@ namespace GodotEnhancedInput;
 /// and starts off again when the binding is suppressed (a menu opens) or the player is reset.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class ToggleTrigger : InputTrigger
 {
     /// <inheritdoc/>

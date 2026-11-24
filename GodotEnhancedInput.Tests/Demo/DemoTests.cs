@@ -45,8 +45,8 @@ public class DemoTests(EngineFixture fixture)
     [Fact]
     public void SavedContexts_LoadWithTheirBindings()
     {
-        var gameplay = ResourceLoader.Load<BindingContext>(Gameplay, cacheMode: ResourceLoader.CacheMode.Ignore);
-        var menu = ResourceLoader.Load<BindingContext>(Menu, cacheMode: ResourceLoader.CacheMode.Ignore);
+        var gameplay = ResourceLoader.Load<EnhancedInputMappingContext>(Gameplay, cacheMode: ResourceLoader.CacheMode.Ignore);
+        var menu = ResourceLoader.Load<EnhancedInputMappingContext>(Menu, cacheMode: ResourceLoader.CacheMode.Ignore);
         var expected = new DemoContent();
 
         gameplay.Should().NotBeNull();
@@ -62,8 +62,8 @@ public class DemoTests(EngineFixture fixture)
     [Fact]
     public void SavedContexts_Drive_ChordTapHoldAndCombo()
     {
-        var gameplay = ResourceLoader.Load<BindingContext>(Gameplay);
-        GameAction Find(string name) => gameplay.Bindings.First(b => b.Action.Name == name).Action;
+        var gameplay = ResourceLoader.Load<EnhancedInputMappingContext>(Gameplay);
+        EnhancedInputAction Find(string name) => gameplay.Bindings.First(b => b.Action.Name == name).Action;
         using var rig = new Rig().Add(gameplay);
 
         rig.Press(Key.Space).Tick();
@@ -86,9 +86,9 @@ public class DemoTests(EngineFixture fixture)
     [Fact]
     public void SavedContexts_SharedRebindIds_MoveTogether()
     {
-        var gameplay = ResourceLoader.Load<BindingContext>(Gameplay);
-        var menu = ResourceLoader.Load<BindingContext>(Menu);
-        GameAction Find(BindingContext c, string name) => c.Bindings.First(b => b.Action.Name == name).Action;
+        var gameplay = ResourceLoader.Load<EnhancedInputMappingContext>(Gameplay);
+        var menu = ResourceLoader.Load<EnhancedInputMappingContext>(Menu);
+        EnhancedInputAction Find(EnhancedInputMappingContext c, string name) => c.Bindings.First(b => b.Action.Name == name).Action;
         using var rig = new Rig().Add(gameplay);
         rig.Player.RegisterRebindContext(menu);
 

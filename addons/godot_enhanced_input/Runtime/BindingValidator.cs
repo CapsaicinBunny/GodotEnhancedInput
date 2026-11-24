@@ -21,13 +21,13 @@ public sealed class BindingIssue
     /// <summary>What is wrong, for people.</summary>
     public string Message { get; init; } = string.Empty;
     /// <summary>The context it is in.</summary>
-    public BindingContext Context { get; init; }
+    public EnhancedInputMappingContext Context { get; init; }
     /// <summary>The binding concerned, if any.</summary>
     public ActionBinding Binding { get; init; }
     /// <summary>The binding's index in its context (−1 when not about one binding).</summary>
     public int BindingIndex { get; init; } = -1;
     /// <summary>The action concerned, if any.</summary>
-    public GameAction Action { get; init; }
+    public EnhancedInputAction Action { get; init; }
 
     /// <inheritdoc/>
     public override string ToString()
@@ -47,15 +47,15 @@ public sealed class BindingIssue
 public static class BindingValidator
 {
     /// <summary>Checks the given contexts together (chord actions may live in another context).</summary>
-    public static List<BindingIssue> Validate(IEnumerable<BindingContext> contexts)
+    public static List<BindingIssue> Validate(IEnumerable<EnhancedInputMappingContext> contexts)
     {
         var issues = new List<BindingIssue>();
-        var list = new List<BindingContext>();
+        var list = new List<EnhancedInputMappingContext>();
         foreach (var context in contexts)
             if (context != null) list.Add(context);
 
-        var bound = new HashSet<GameAction>();
-        var actions = new List<GameAction>();
+        var bound = new HashSet<EnhancedInputAction>();
+        var actions = new List<EnhancedInputAction>();
         foreach (var context in list)
             foreach (var binding in context.Bindings)
                 if (binding?.Action != null && bound.Add(binding.Action)) actions.Add(binding.Action);
@@ -65,7 +65,7 @@ public static class BindingValidator
         return issues;
     }
 
-    private static void CheckContext(BindingContext context, HashSet<GameAction> bound, List<BindingIssue> issues)
+    private static void CheckContext(EnhancedInputMappingContext context, HashSet<EnhancedInputAction> bound, List<BindingIssue> issues)
     {
         var bindings = context.Bindings;
         if (bindings.Count == 0)
@@ -119,9 +119,9 @@ public static class BindingValidator
         }
     }
 
-    private static void CheckActions(List<GameAction> actions, HashSet<GameAction> bound, List<BindingIssue> issues)
+    private static void CheckActions(List<EnhancedInputAction> actions, HashSet<EnhancedInputAction> bound, List<BindingIssue> issues)
     {
-        var names = new Dictionary<string, GameAction>();
+        var names = new Dictionary<string, EnhancedInputAction>();
         foreach (var action in actions)
         {
             void Add(IssueSeverity severity, string message)
@@ -138,7 +138,7 @@ public static class BindingValidator
     private static void CheckLists(
         Godot.Collections.Array<InputModifier> modifiers,
         Godot.Collections.Array<InputTrigger> triggers,
-        HashSet<GameAction> bound,
+        HashSet<EnhancedInputAction> bound,
         System.Action<IssueSeverity, string> add)
     {
         if (modifiers != null)

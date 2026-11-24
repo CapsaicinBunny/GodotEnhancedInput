@@ -10,7 +10,6 @@ namespace GodotEnhancedInput;
 /// with no function stays idle.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class PredicateTrigger : InputTrigger
 {
     /// <inheritdoc/>

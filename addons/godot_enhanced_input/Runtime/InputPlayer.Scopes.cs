@@ -8,25 +8,25 @@ namespace GodotEnhancedInput;
 public partial class InputPlayer
 {
     /// <summary>True on the frame the action's input went down (it started), whatever its triggers.</summary>
-    public bool WasPressed(GameAction action) => (GetEvents(action) & ActionEvents.Started) != 0;
+    public bool WasPressed(EnhancedInputAction action) => (GetEvents(action) & ActionEvents.Started) != 0;
 
     /// <summary>True on the frame its input was let go after it fired (completed; not when cut off).</summary>
-    public bool WasReleased(GameAction action) => (GetEvents(action) & ActionEvents.Completed) != 0;
+    public bool WasReleased(EnhancedInputAction action) => (GetEvents(action) & ActionEvents.Completed) != 0;
 
     /// <summary>The value as on/off.</summary>
-    public bool ReadBool(GameAction action) => GetValue(action).AsBool();
+    public bool ReadBool(EnhancedInputAction action) => GetValue(action).AsBool();
 
     /// <summary>The value's first axis.</summary>
-    public float ReadFloat(GameAction action) => GetValue(action).AsFloat();
+    public float ReadFloat(EnhancedInputAction action) => GetValue(action).AsFloat();
 
     /// <summary>The value's first two axes.</summary>
-    public Vector2 ReadVector2(GameAction action) => GetValue(action).AsVector2();
+    public Vector2 ReadVector2(EnhancedInputAction action) => GetValue(action).AsVector2();
 
     /// <summary>The value's first three axes.</summary>
-    public Vector3 ReadVector3(GameAction action) => GetValue(action).AsVector3();
+    public Vector3 ReadVector3(EnhancedInputAction action) => GetValue(action).AsVector3();
 
     /// <summary>The value as a rotation.</summary>
-    public Quaternion ReadRotation(GameAction action) => GetValue(action).AsQuaternion();
+    public Quaternion ReadRotation(EnhancedInputAction action) => GetValue(action).AsQuaternion();
 
     // ------------------------------------------------------------------
     //  Contexts held for a scope
@@ -42,14 +42,14 @@ public partial class InputPlayer
     /// _driving.Dispose();   // back on foot
     /// </code>
     /// </summary>
-    public ContextHandle PushContext(BindingContext context, int priority = 0, ContextOptions options = default)
+    public ContextHandle PushContext(EnhancedInputMappingContext context, int priority = 0, ContextOptions options = default)
     {
         AddContext(context, priority, options);
         return new ContextHandle(this, context);
     }
 
     /// <summary>Replaces one active context by another in a single change (no frame with both or neither).</summary>
-    public void SwitchContext(BindingContext from, BindingContext to, int priority = 0, ContextOptions options = default)
+    public void SwitchContext(EnhancedInputMappingContext from, EnhancedInputMappingContext to, int priority = 0, ContextOptions options = default)
     {
         if (from != null) RemoveContext(from);
         if (to != null) AddContext(to, priority, options);
@@ -70,13 +70,13 @@ public partial class InputPlayer
     //  Turning actions off
     // ------------------------------------------------------------------
 
-    private readonly HashSet<GameAction> _disabled = new();
+    private readonly HashSet<EnhancedInputAction> _disabled = new();
 
     /// <summary>
     /// Turns one action off or on without touching contexts. A disabled action receives no input: held
     /// input ends canceled (reason <see cref="InputEndReason.Blocked"/>), and it stays idle until enabled.
     /// </summary>
-    public void SetActionEnabled(GameAction action, bool enabled)
+    public void SetActionEnabled(EnhancedInputAction action, bool enabled)
     {
         if (action == null) return;
         if (enabled) _disabled.Remove(action);
@@ -84,15 +84,15 @@ public partial class InputPlayer
     }
 
     /// <summary>Whether an action is enabled (see <see cref="SetActionEnabled"/>).</summary>
-    public bool IsActionEnabled(GameAction action) => action != null && !_disabled.Contains(action);
+    public bool IsActionEnabled(EnhancedInputAction action) => action != null && !_disabled.Contains(action);
 
-    private bool IsDisabled(GameAction action) => _disabled.Count > 0 && _disabled.Contains(action);
+    private bool IsDisabled(EnhancedInputAction action) => _disabled.Count > 0 && _disabled.Contains(action);
 }
 
 /// <summary>An active context that is removed when disposed (see <see cref="InputPlayer.PushContext"/>).</summary>
 public sealed class ContextHandle : IDisposable
 {
-    internal ContextHandle(InputPlayer player, BindingContext context)
+    internal ContextHandle(InputPlayer player, EnhancedInputMappingContext context)
     {
         Player = player;
         Context = context;
@@ -102,7 +102,7 @@ public sealed class ContextHandle : IDisposable
     public InputPlayer Player { get; }
 
     /// <summary>The context.</summary>
-    public BindingContext Context { get; }
+    public EnhancedInputMappingContext Context { get; }
 
     /// <summary>False once disposed.</summary>
     public bool IsActive { get; private set; } = true;
@@ -138,20 +138,20 @@ public sealed class InputScope : IDisposable
     public bool IsActive { get; private set; } = true;
 
     /// <summary>Calls <paramref name="callback"/> for the given events of an action until the scope ends.</summary>
-    public InputPlayer.ActionSubscription On(GameAction action, ActionEvents events, Action<ActionEventArgs> callback)
+    public InputPlayer.ActionSubscription On(EnhancedInputAction action, ActionEvents events, Action<ActionEventArgs> callback)
         => Keep(Player.Bind(action, events, callback));
 
     /// <summary>Calls <paramref name="callback"/> each time the action fires, until the scope ends.</summary>
-    public InputPlayer.ActionSubscription OnTriggered(GameAction action, Action callback) => On(action, ActionEvents.Triggered, _ => callback());
+    public InputPlayer.ActionSubscription OnTriggered(EnhancedInputAction action, Action callback) => On(action, ActionEvents.Triggered, _ => callback());
 
     /// <summary>Calls <paramref name="callback"/> when the action's input goes down, until the scope ends.</summary>
-    public InputPlayer.ActionSubscription OnStarted(GameAction action, Action callback) => On(action, ActionEvents.Started, _ => callback());
+    public InputPlayer.ActionSubscription OnStarted(EnhancedInputAction action, Action callback) => On(action, ActionEvents.Started, _ => callback());
 
     /// <summary>Calls <paramref name="callback"/> when the action completes, until the scope ends.</summary>
-    public InputPlayer.ActionSubscription OnCompleted(GameAction action, Action callback) => On(action, ActionEvents.Completed, _ => callback());
+    public InputPlayer.ActionSubscription OnCompleted(EnhancedInputAction action, Action callback) => On(action, ActionEvents.Completed, _ => callback());
 
     /// <summary>Activates a context until the scope ends.</summary>
-    public ContextHandle PushContext(BindingContext context, int priority = 0, ContextOptions options = default)
+    public ContextHandle PushContext(EnhancedInputMappingContext context, int priority = 0, ContextOptions options = default)
         => Keep(Player.PushContext(context, priority, options));
 
     /// <summary>Adds anything disposable to the scope.</summary>

@@ -8,7 +8,6 @@ namespace GodotEnhancedInput;
 /// Releasing early returns to idle, which cancels the action.
 /// </summary>
 [Tool]
-[GlobalClass]
 public partial class HoldTrigger : InputTrigger
 {
     /// <summary>How long the value must stay actuated.</summary>
