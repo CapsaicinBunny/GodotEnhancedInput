@@ -230,9 +230,20 @@ public partial class EnhancedInput
         device.Guid = guid ?? string.Empty;
         device.IsConnected = true;
         device.Profile = FindProfile(name, guid);
-        device.Role = device.Profile?.Role ?? (deviceType == "xr" ? DeviceRole.XRController : DeviceRole.Other);
+        device.Role = device.Profile?.Role ?? GuessCustomRole(deviceType, name);
         DeviceConnected?.Invoke(device);
         return device;
+    }
+
+    private static DeviceRole GuessCustomRole(string deviceType, string name)
+    {
+        var n = (name ?? string.Empty).ToLowerInvariant();
+        if (deviceType == EyeTrackerBackend.DeviceType) return DeviceRole.EyeTracker;
+        if (deviceType != XRInputBackend.DeviceType) return InputDeviceInfo.GuessJoypadRole(name) is var r && r != DeviceRole.Gamepad ? r : DeviceRole.Other;
+        if (n.Contains("hand_tracker") || n.Contains("/hand/")) return DeviceRole.XRHand;
+        if (n.Contains("head")) return DeviceRole.HeadTracker;
+        if (n.Contains("eye") || n.Contains("face")) return DeviceRole.EyeTracker;
+        return DeviceRole.XRController;
     }
 
     internal void UnregisterCustomDevice(string deviceType, int index)

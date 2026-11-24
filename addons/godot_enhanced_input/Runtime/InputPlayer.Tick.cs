@@ -305,9 +305,13 @@ public partial class InputPlayer : IChannelMask
                     var value = source?.Read(this) ?? Vector4.Zero;
                     _readEntry = null;
 
-                    value = ActionValue.Shape(kind, value);
-                    input = Accumulate(kind, input, value, mode);
+                    // Rotation actions keep all four components until their modifiers ran (a quaternion
+                    // source converted to Euler angles needs its W); every value is shaped afterwards.
+                    var shaped = ActionValue.Shape(kind, value);
+                    input = Accumulate(kind, input, shaped, mode);
+                    if (kind != ActionValueKind.Euler) value = shaped;
                     value = ApplyModifiers(compiled.Modifiers, memory.Modifiers, value, kind, source?.Nature ?? ValueNature.State);
+                    if (kind == ActionValueKind.Euler) value = ActionValue.Shape(kind, value);
                     raw = Accumulate(kind, raw, value, mode);
 
                     if (compiled.HasTriggers)

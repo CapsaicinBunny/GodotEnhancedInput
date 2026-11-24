@@ -15,6 +15,12 @@ public enum DeviceRole
     FlightStick,
     Throttle,
     XRController,
+    /// <summary>A tracked hand (hand tracking, no controller).</summary>
+    XRHand,
+    /// <summary>A headset or head tracker.</summary>
+    HeadTracker,
+    /// <summary>An eye tracker (desktop, or the face and eye tracking of a headset).</summary>
+    EyeTracker,
 }
 
 /// <summary>Several <see cref="DeviceRole"/>s at once (for <see cref="InputMode.RequiredRoles"/>).</summary>
@@ -31,6 +37,9 @@ public enum DeviceRoles
     FlightStick = 1 << DeviceRole.FlightStick,
     Throttle = 1 << DeviceRole.Throttle,
     XRController = 1 << DeviceRole.XRController,
+    XRHand = 1 << DeviceRole.XRHand,
+    HeadTracker = 1 << DeviceRole.HeadTracker,
+    EyeTracker = 1 << DeviceRole.EyeTracker,
 }
 
 /// <summary>
