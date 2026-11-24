@@ -23,6 +23,14 @@ All notable changes to Godot Enhanced Input are documented here. Versions follow
 - Typed C# generation: `InputCodeGenerator` writes a class per config (`input.Gameplay.Jump`), from the
   config's Inspector or the dock; the demo ships `DemoInput.cs` from `demo_input.tres`.
 - `TriggerContext.Action` (the action being evaluated) and a `TriggerSet.Evaluate` overload that passes it.
+- Godot integration: physics and process frame views (`player.PhysicsFrame`, `ProcessFrame`,
+  `jump.WasPressed(InputLoop.Physics)`) so edges are neither lost nor doubled across loops;
+  `EnhancedInputContextNode` (mapping contexts with a scene lifetime); InputMap importer
+  (`InputMapImporter`, *Import InputMap* in the dock) and output bridge (`MirrorToInputMap`,
+  `InputMapBridge`); project settings under `enhanced_input/`; action, mapping context and config dropdowns
+  in the Inspector for any script (`EnhancedInputHints` for id strings); split-screen pointer routing
+  (`PointerRegion`); window routing (`AttachWindow`, `DetachWindow`); `ToolInputPlayer` for editor plugins
+  and tool scripts; a GDScript API of snake_case methods on the autoload.
 
 ## [0.1.0] — 2026-11-24
 

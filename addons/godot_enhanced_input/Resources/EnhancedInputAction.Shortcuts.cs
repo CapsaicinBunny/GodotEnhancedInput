@@ -58,6 +58,21 @@ public partial class EnhancedInputAction
     /// <summary>Whether the action became triggered within the last <paramref name="withinSeconds"/> and was not consumed (see <see cref="ConsumeTriggered"/>).</summary>
     public bool WasTriggeredWithin(double withinSeconds, InputPlayer player = null) => PlayerOr(player)?.WasTriggeredWithin(this, withinSeconds) ?? false;
 
+    /// <summary>
+    /// True if the input went down since the previous frame of a loop — read it in <c>_PhysicsProcess</c> with
+    /// <see cref="InputLoop.Physics"/> so no press is missed or seen twice (see <see cref="InputFrameView"/>).
+    /// </summary>
+    public bool WasPressed(InputLoop loop, InputPlayer player = null) => PlayerOr(player)?.GetFrame(loop).WasPressed(this) ?? false;
+
+    /// <summary>True if the action fired since the previous frame of a loop.</summary>
+    public bool WasTriggered(InputLoop loop, InputPlayer player = null) => PlayerOr(player)?.GetFrame(loop).WasTriggered(this) ?? false;
+
+    /// <summary>True if the action was released after firing since the previous frame of a loop.</summary>
+    public bool WasReleased(InputLoop loop, InputPlayer player = null) => PlayerOr(player)?.GetFrame(loop).WasReleased(this) ?? false;
+
+    /// <summary>True if the action ended without firing, or was cut off, since the previous frame of a loop.</summary>
+    public bool WasCanceled(InputLoop loop, InputPlayer player = null) => PlayerOr(player)?.GetFrame(loop).WasCanceled(this) ?? false;
+
     /// <summary>The action's value.</summary>
     public ActionValue Read(InputPlayer player = null) => PlayerOr(player)?.GetValue(this) ?? ActionValue.Zero(ValueKind);
 

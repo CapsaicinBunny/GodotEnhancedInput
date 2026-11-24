@@ -147,6 +147,7 @@ public partial class EnhancedInput : Node
     /// <summary>Removes a player other than player 0, releasing its joypads. The rest are re-indexed.</summary>
     public bool RemovePlayer(InputPlayer player)
     {
+        if (player != null) InputMapBridge.Forget(player);
         if (player == null || _players.IndexOf(player) <= 0) return false;
         player.ReleaseAllHapticOutputs();   // nothing the player started keeps running on its devices
         _players.Remove(player);
@@ -216,6 +217,12 @@ public partial class EnhancedInput : Node
     /// <inheritdoc/>
     public override void _Notification(int what)
     {
+        if (what == NotificationWMWindowFocusOut && _windows.Count > 0)
+        {
+            // Focus may only be moving to another of the game's windows: decide once it has moved.
+            QueueFocusCheck();
+            return;
+        }
         bool focusOut = what == NotificationApplicationFocusOut || what == NotificationWMWindowFocusOut;
         bool suspended = what == NotificationApplicationPaused;
         if ((focusOut || suspended) && StopHapticsWhenInactive)
@@ -240,6 +247,7 @@ public partial class EnhancedInput : Node
     public override void _EnterTree()
     {
         Instance = this;
+        if (!Engine.IsEditorHint()) EnhancedInputSettings.ApplyTo(this);
         EnsureDefaultPlayer();
         if (!_joySignalConnected)
         {
@@ -265,7 +273,13 @@ public partial class EnhancedInput : Node
     /// players that accept that kind of device. Returns true when a player's running rebind capture
     /// took it.
     /// </summary>
-    public bool FeedEvent(InputEvent @event, IntakeStage stage = IntakeStage.Direct)
+    public bool FeedEvent(InputEvent @event, IntakeStage stage = IntakeStage.Direct) => FeedEvent(@event, stage, null);
+
+    /// <summary>
+    /// Offers an event like <see cref="FeedEvent(InputEvent, IntakeStage)"/>, but only to the given players
+    /// (none or null: any) — events of a window that belongs to some players (see <see cref="AttachWindow"/>).
+    /// </summary>
+    public bool FeedEvent(InputEvent @event, IntakeStage stage, IReadOnlyCollection<InputPlayer> onlyPlayers)
     {
         if (@event == null) return false;
         EnsureDefaultPlayer();
@@ -308,7 +322,12 @@ public partial class EnhancedInput : Node
 
         bool captured = false;
         foreach (var player in _targets)
-            if (player.FeedEvent(@event, stage)) captured = true;
+        {
+            if (onlyPlayers != null && onlyPlayers.Count > 0 && !System.Linq.Enumerable.Contains(onlyPlayers, player)) continue;
+            // Split screen: pointer events go to the player whose region they are in, in its coordinates.
+            if (!player.TryLocalizePointer(@event, out var local)) continue;
+            if (player.FeedEvent(local, stage)) captured = true;
+        }
         return captured;
     }
 
@@ -379,6 +398,7 @@ public partial class EnhancedInput : Node
             AutoTick(delta);
             _tickedThisFrame = false;   // this node processes first; the next frame ticks again
         }
+        PublishFrames(InputLoop.Process);
     }
 
     /// <inheritdoc/>
@@ -386,5 +406,16 @@ public partial class EnhancedInput : Node
     {
         if (TickMode == TickMode.Physics) Tick(delta);
         else if (TickMode == TickMode.Auto) AutoTick(delta);
+        PublishFrames(InputLoop.Physics);
+    }
+
+    /// <summary>
+    /// Starts a new frame of a loop for every player's view of it (<see cref="InputPlayer.PhysicsFrame"/>,
+    /// <see cref="InputPlayer.ProcessFrame"/>). The autoload calls it at the start of each physics step and
+    /// each rendered frame, after any tick in that loop, whatever the <see cref="TickMode"/>.
+    /// </summary>
+    public void PublishFrames(InputLoop loop)
+    {
+        foreach (var player in _players) player.PublishFrameIfUsed(loop);
     }
 }

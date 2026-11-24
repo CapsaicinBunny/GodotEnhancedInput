@@ -117,3 +117,97 @@ full `ActionEventArgs`.
   `InputEventAction`, `SetVirtualControl` or `InjectInput`, and call `Tick` yourself.
 - Build key events with `PhysicalKeycode`.
 - No frames need to run: everything happens inside `Tick`.
+
+## Physics and process frames
+
+The players tick at one rate (see `TickMode`), but game code reads input in two loops at different rates.
+Read edges ("pressed this frame") through the view of the loop you are in:
+
+```csharp
+public override void _PhysicsProcess(double delta)
+{
+    if (jump.WasPressed(InputLoop.Physics)) Jump();          // or player.PhysicsFrame.WasPressed(jump)
+}
+```
+
+A view collects the events of every tick and shows them for exactly one frame of its loop. A short press in a
+rendered frame without a physics step is still seen by the next physics step, and a frame with two physics
+steps does not see it twice. The autoload starts a new physics frame at each physics step and a new process
+frame each rendered frame; a `ToolInputPlayer` does the same for itself. Values and `IsTriggered` are states
+and read the same in every loop.
+
+## Scene-local mapping contexts
+
+Add an `EnhancedInputContextNode` to a scene and pick its mapping context: the context is active while the
+node is in the tree — a vehicle's controls while you sit in it, a menu's while it is open. With
+*Only While Parent Visible* it follows its parent's visibility; *Active* switches it off by hand. Several
+nodes may hold the same context; it stays until the last one lets go.
+
+## Godot's InputMap
+
+**Importing.** *Import InputMap* in the Enhanced Input dock turns the project's input actions (Project
+Settings → Input Map) into action files and one `input_map.tres` mapping context in a folder you pick:
+keys (with Ctrl/Shift/Alt/Meta), mouse buttons, joypad buttons and axis directions, with each action's
+deadzone. Godot's built-in `ui_*` actions are left out; existing action files of the same name are used, not
+overwritten. From code: `InputMapImporter.FromProjectSettings()` or `FromInputMap()`.
+
+**Mirroring back.** Set an action's *Mirror To Input Map* to a Godot action name and that action is pressed
+(with the strength) while the enhanced action is triggered, so addons and code that call
+`Input.IsActionPressed("jump")` keep working. Missing Godot actions are created at run time. When several
+players mirror the same action, the strongest wins. Only the state is set, no events are sent, and an
+action never mirrors into a Godot action it reads. Turn it off project-wide with
+`enhanced_input/input_map/mirror_actions`, or per player with `MirrorsToInputMap`.
+
+## Project settings
+
+Project Settings → Enhanced Input (added while the plugin is enabled):
+
+| Setting | What |
+|---|---|
+| `enhanced_input/general/config` | the `EnhancedInputConfig` every player loads |
+| `enhanced_input/general/tick_mode` | Auto, Process, Physics or Manual |
+| `enhanced_input/general/gui_policy` | how input is shared with the GUI |
+| `enhanced_input/general/reset_input_on_focus_loss` | release held input when the game loses focus |
+| `enhanced_input/players/join_mode`, `max_players` | joining |
+| `enhanced_input/input_map/mirror_actions` | the InputMap output bridge |
+
+The autoload applies them when it starts; setting the same properties on it from code still works.
+
+## Picking actions in the Inspector
+
+In any script, a property typed as `EnhancedInputAction`, `EnhancedInputMappingContext` or
+`EnhancedInputConfig` gets a dropdown of the project's files of that kind next to the resource picker. A
+string property that holds an id gets a dropdown of ids with a hint:
+
+```csharp
+[Export(PropertyHint.PlaceholderText, EnhancedInputHints.ActionId)] public string InteractAction { get; set; } = "interact";
+```
+
+## Split screen and SubViewports
+
+Give each player its `PointerRegion` — usually the `SubViewportContainer` showing its view. Mouse and touch
+events then reach a player only inside its region, with positions converted to it (to the SubViewport's
+pixels when the container stretches), and pointer sources and `PointerSpaceModifier` work per player. Keys and
+pads are routed as before (keyboard to the players that accept it, pads to their owners).
+
+## More than one window
+
+A native window's events never pass the main window. `EnhancedInput.Instance.AttachWindow(window)` lets them
+reach the players (in the same GUI-aware way); `AttachWindow(window, player2)` gives that window to some
+players only — a second screen, a tool window. Focus moving between the game's own windows is not treated as
+losing focus. `DetachWindow` undoes it.
+
+## Editor tools and tool scripts
+
+The autoload does not run in the editor. For editor plugins, `@tool` scripts, or a scene that should not
+depend on the autoload, use a `ToolInputPlayer`: it activates its *Contexts* when ready, ticks itself in
+`_Process`, and takes the events it receives (or that you feed it):
+
+```csharp
+public override int _Forward3DGuiInput(Camera3D camera, InputEvent e)
+{
+    _input.FeedEvent(e);
+    return _input.WasPressed(snap) ? (int)AfterGuiInput.Stop : (int)AfterGuiInput.Pass;
+}
+```
+

@@ -56,6 +56,12 @@ public partial class EnhancedInputAction : EnhancedInputResource
     [Export] public string DisplayName { get; set; } = string.Empty;
 
     /// <summary>
+    /// The name of a Godot InputMap action to press while this action is triggered (with its strength), so
+    /// addons and code that read <c>Input.IsActionPressed</c> keep working; empty: none. See <see cref="InputMapBridge"/>.
+    /// </summary>
+    [Export] public string MirrorToInputMap { get; set; } = string.Empty;
+
+    /// <summary>
     /// How the action reports while it is held (see <see cref="ActionEvaluation"/>): every frame
     /// (default), only when its value changes, only on presses and releases, per control, or as a
     /// tracked pose.

@@ -112,6 +112,7 @@ public partial class InputPlayer
         _delta = frameDelta;
         _inputTime += frameDelta;
 
+        AfterTickOutputs();
         EndTick();
         EndTickRecording();
         UpdateHaptics(frameDelta);

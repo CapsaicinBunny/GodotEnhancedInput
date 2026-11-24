@@ -59,7 +59,7 @@ public class GestureTriggerTests
         var memory = new TriggerMemory();
         TriggerPhase Tap(float value, Vector2 at)
         {
-            rig.Player.Raw.Set(SourceKey.MousePosition, new Vector4(at.X, at.Y, 0, 0));
+            rig.Player.Raw.SetMousePosition(at);
             return doubleClick.Evaluate(new TriggerContext(new Vector3(value, 0, 0), ActionValueKind.Digital, Step, rig.Player, memory));
         }
 
