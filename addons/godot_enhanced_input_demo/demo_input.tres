@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="EnhancedInputConfig" format=3]
+
+[ext_resource type="Script" path="res://addons/godot_enhanced_input/Resources/EnhancedInputConfig.cs" id="1"]
+[ext_resource type="Script" path="res://addons/godot_enhanced_input/Resources/EnhancedInputMappingContext.cs" id="2"]
+[ext_resource type="Resource" path="res://addons/godot_enhanced_input_demo/contexts/gameplay.tres" id="3"]
+[ext_resource type="Resource" path="res://addons/godot_enhanced_input_demo/contexts/menu.tres" id="4"]
+
+[resource]
+script = ExtResource("1")
+Name = "demo"
+Contexts = Array[ExtResource("2")]([ExtResource("3"), ExtResource("4")])
+StartupContexts = Array[ExtResource("2")]([ExtResource("3")])
+Description = "The demo's actions and mapping contexts; DemoInput.cs is generated from it."
