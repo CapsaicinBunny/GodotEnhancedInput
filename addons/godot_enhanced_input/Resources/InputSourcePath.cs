@@ -9,6 +9,7 @@ namespace GodotEnhancedInput;
 /// where possible ("pad:a" is the bottom face button of whichever pad the player uses).
 /// <code>
 /// key:space          physical key        keycode:a / keylabel:a   by key code / printed label
+/// key:left_shift  key:right_ctrl  key:left_alt  key:right_meta   one side only (key:shift: either)
 /// wasd  arrows       the usual four-key movement (keys:w/s/a/d, keys:up/down/left/right)
 /// keys:a/d           two keys, one axis  keys:w/s/a/d             four keys, up/down/left/right
 /// mouse:left         mouse button        mouse:wheel_up           a wheel notch as a button
@@ -106,9 +107,9 @@ public static class InputSourcePath
         var (device, number) = SplitIndex(head);
         switch (device)
         {
-            case "key": return InputSource.ForKey(ParseEnum<Key>(control));
-            case "keycode": return InputSource.ForKey(ParseEnum<Key>(control), KeyMatch.Logical);
-            case "keylabel": return InputSource.ForKey(ParseEnum<Key>(control), KeyMatch.Label);
+            case "key": return ParseKey(control, KeyMatch.Physical);
+            case "keycode": return ParseKey(control, KeyMatch.Logical);
+            case "keylabel": return ParseKey(control, KeyMatch.Label);
             case "keys":
             {
                 var keys = control.Split('/');
@@ -133,6 +134,20 @@ public static class InputSourcePath
             case "virtual": return InputSource.ForVirtual(control);
             default: throw new FormatException($"unknown device '{device}' in '{text}'");
         }
+    }
+
+    /// <summary>A key, or one side of Shift / Ctrl / Alt / Meta: "left_shift", "right_ctrl" ("left" alone is the arrow key).</summary>
+    private static InputSource ParseKey(string control, KeyMatch match)
+    {
+        var name = Normalize(control);
+        foreach (var (prefix, side) in new[] { ("left", KeyLocation.Left), ("right", KeyLocation.Right) })
+        {
+            if (!name.StartsWith(prefix) || name.Length == prefix.Length) continue;
+            var rest = name.Substring(prefix.Length);
+            if (rest == "control") rest = "ctrl";
+            if (TryParseEnum<Key>(rest, out var sided) && InputSource.IsSidedKey(sided)) return InputSource.ForKey(sided, side, match);
+        }
+        return InputSource.ForKey(ParseEnum<Key>(control), match);
     }
 
     private static InputSource ParsePad(string control, int device)
@@ -216,7 +231,8 @@ public static class InputSourcePath
         {
             case SourceKind.None: return "none";
             case SourceKind.Key:
-                return (source.KeyMatch switch { KeyMatch.Logical => "keycode", KeyMatch.Label => "keylabel", _ => "key" }) + ":" + Name(source.Key);
+                return (source.KeyMatch switch { KeyMatch.Logical => "keycode", KeyMatch.Label => "keylabel", _ => "key" }) + ":"
+                       + (source.KeySide switch { KeyLocation.Left => "left_", KeyLocation.Right => "right_", _ => string.Empty }) + Name(source.Key);
             case SourceKind.KeyAxis1D: return $"keys:{Name(source.NegativeKey)}/{Name(source.PositiveKey)}";
             case SourceKind.KeyAxis2D: return $"keys:{Name(source.UpKey)}/{Name(source.DownKey)}/{Name(source.NegativeKey)}/{Name(source.PositiveKey)}";
             case SourceKind.MouseButton: return "mouse:" + Name(source.MouseButton);

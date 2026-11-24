@@ -22,6 +22,7 @@ public static class InputSourceJson
             case SourceKind.Key:
                 json["key"] = source.Key.ToString();
                 json["keyMatch"] = source.KeyMatch.ToString();
+                if (source.KeySide != KeyLocation.Unspecified) json["keySide"] = source.KeySide.ToString();
                 break;
             case SourceKind.KeyAxis1D:
                 json["positiveKey"] = source.PositiveKey.ToString();
@@ -104,6 +105,7 @@ public static class InputSourceJson
                 case SourceKind.Key:
                     source.Key = ReadEnum<Key>(json, "key");
                     source.KeyMatch = ReadEnum<KeyMatch>(json, "keyMatch", KeyMatch.Physical);
+                    source.KeySide = ReadEnum<KeyLocation>(json, "keySide", KeyLocation.Unspecified);
                     break;
                 case SourceKind.KeyAxis1D:
                     source.PositiveKey = ReadEnum<Key>(json, "positiveKey");

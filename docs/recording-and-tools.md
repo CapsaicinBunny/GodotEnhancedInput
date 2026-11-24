@@ -40,15 +40,23 @@ The file is compact JSON: one entry per tick with its time step and inputs.
 
 With the plugin enabled, the **Enhanced Input** dock in the bottom panel shows:
 
-- **Bindings** — every `EnhancedInputMappingContext` resource in the project with its bindings: action, input
+- **Mappings** — every `EnhancedInputMappingContext` in the project with its mappings: action, input
   (as a [source path](sources-and-devices.md), with a device icon), modifiers, triggers, groups and
-  rebind id; bindings with problems are coloured. Search by action, input, group, rebind id or
-  modifier. The side panel edits the selected binding: pick its action or create a new one (saved
-  next to the context), type an input path (checked as you type) or press **Listen** and press a key
-  or button or move a stick (Esc cancels), set groups and the rebind id, and add, remove or reorder
-  modifiers and triggers (double-click one to tune it in the Inspector). The toolbar adds contexts and
-  bindings. Every change can be undone and is saved at once.
-- **Actions** — every action with its value kind, how many bindings use it and in which contexts.
+  rebind id; mappings with problems are coloured. Search by action, input, group, rebind id or
+  modifier. The side panel edits the selected mapping: pick its action (any action file in the
+  project) or create a new one (saved next to the mapping context), type an input path (checked as you
+  type) or press **Listen** and press a key or button or move a stick (Esc cancels), set groups and the
+  rebind id, and add, remove or reorder modifiers and triggers (double-click one to tune it in the
+  Inspector). Drag a mapping to reorder it or to move it to another mapping context; drop an action
+  file from the FileSystem dock (or a row of the Actions tab) on a mapping to set its action, or on a
+  mapping context to add a mapping for it. The toolbar adds actions, mapping contexts and mappings,
+  and when the project has `EnhancedInputConfig`s, shows only one config's mapping contexts. Every
+  change can be undone and is saved at once.
+- **Actions** — every action file in the project with its value kind, how many mappings use it and in
+  which mapping contexts (or "not mapped yet").
+
+Double-clicking an action, mapping context or config in the FileSystem dock (or opening a mapping in
+the Inspector) shows it in the dock. Edits made in the Inspector show up in the dock at once.
 - **Problems** — what `BindingValidator` finds (below). Double-click one to jump to its binding.
 - **Devices** — the joypads connected now with their family ("DualSense", "Steam Deck"), name, GUID,
   USB ids and features; live axes and buttons; a rumble test and the light colour. Turn on **Log

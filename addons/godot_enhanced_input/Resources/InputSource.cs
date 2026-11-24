@@ -28,8 +28,29 @@ public partial class InputSource : Resource
     /// <summary>How keys are matched: by position (default), by key code, or by printed label.</summary>
     [Export] public KeyMatch KeyMatch { get; set; } = KeyMatch.Physical;
 
+    private Key _key = Key.None;
+
     /// <summary>The key for <see cref="SourceKind.Key"/>.</summary>
-    [Export] public Key Key { get; set; } = Key.None;
+    [Export]
+    public Key Key
+    {
+        get => _key;
+        set
+        {
+            bool sidedChanged = IsSidedKey(_key) != IsSidedKey(value);
+            _key = value;
+            if (sidedChanged) NotifyPropertyListChanged();
+        }
+    }
+
+    /// <summary>True for the keys that come in a left and a right one: Shift, Ctrl, Alt and Meta.</summary>
+    public static bool IsSidedKey(Key key) => key is Key.Shift or Key.Ctrl or Key.Alt or Key.Meta;
+
+    /// <summary>
+    /// For Shift, Ctrl, Alt and Meta: only the left or the right one. <see cref="KeyLocation.Unspecified"/>
+    /// (the default) reads either.
+    /// </summary>
+    [Export] public KeyLocation KeySide { get; set; } = KeyLocation.Unspecified;
 
     /// <summary>Key giving +1 for <see cref="SourceKind.KeyAxis1D"/>, or +X for <see cref="SourceKind.KeyAxis2D"/>.</summary>
     [Export] public Key PositiveKey { get; set; } = Key.D;
@@ -125,6 +146,10 @@ public partial class InputSource : Resource
     /// <summary>A key (its physical position by default, like WASD on any layout).</summary>
     public static InputSource ForKey(Key key, KeyMatch match = KeyMatch.Physical)
         => new() { Kind = SourceKind.Key, Key = key, KeyMatch = match };
+
+    /// <summary>One side's Shift, Ctrl, Alt or Meta (<c>ForKey(Key.Shift, KeyLocation.Left)</c>).</summary>
+    public static InputSource ForKey(Key key, KeyLocation side, KeyMatch match = KeyMatch.Physical)
+        => new() { Kind = SourceKind.Key, Key = key, KeySide = side, KeyMatch = match };
 
     /// <summary>Two keys as one axis: positive minus negative.</summary>
     public static InputSource ForKeyAxis1D(Key positive, Key negative, KeyMatch match = KeyMatch.Physical)
@@ -232,7 +257,7 @@ public partial class InputSource : Resource
         switch (_kind)
         {
             case SourceKind.Key:
-                return Scalar(reader, SourceKey.ForKey(Key, KeyMatch));
+                return Scalar(reader, SourceKey.ForKey(Key, KeyMatch, KeySide));
 
             case SourceKind.KeyAxis1D:
                 return V4(
@@ -314,7 +339,7 @@ public partial class InputSource : Resource
         switch (_kind)
         {
             case SourceKind.Key:
-                keys.Add(SourceKey.ForKey(Key, KeyMatch));
+                keys.Add(SourceKey.ForKey(Key, KeyMatch, KeySide));
                 break;
             case SourceKind.KeyAxis1D:
                 keys.Add(SourceKey.ForKey(PositiveKey, KeyMatch));
@@ -397,9 +422,9 @@ public partial class InputSource : Resource
                     KeyMatch.Label => key.KeyLabel,
                     _ => key.PhysicalKeycode,
                 };
-                if (code != Key.None) return ForKey(code, keyMatch);
+                if (code != Key.None) return ForKey(code, key.Location, keyMatch);
                 // Hand-made events may only carry the logical code.
-                return key.Keycode != Key.None ? ForKey(key.Keycode, KeyMatch.Logical) : null;
+                return key.Keycode != Key.None ? ForKey(key.Keycode, key.Location, KeyMatch.Logical) : null;
             }
             case InputEventMouseButton mouse when mouse.Pressed:
                 return ForMouseButton(mouse.ButtonIndex);
@@ -475,7 +500,7 @@ public partial class InputSource : Resource
         if (index < 0 || index >= parts.Count) return (InputSource)Duplicate(true);
         if (_kind is not (SourceKind.KeyAxis1D or SourceKind.KeyAxis2D or SourceKind.Composite)) return part == null ? Nothing() : (InputSource)part.Duplicate(true);
 
-        bool keyStaysKey = part != null && part.Kind == SourceKind.Key && part.KeyMatch == KeyMatch;
+        bool keyStaysKey = part != null && part.Kind == SourceKind.Key && part.KeyMatch == KeyMatch && part.KeySide == KeyLocation.Unspecified;
         if (keyStaysKey && _kind != SourceKind.Composite)
         {
             var copy = (InputSource)Duplicate(true);
@@ -602,6 +627,7 @@ public partial class InputSource : Resource
         {
             nameof(KeyMatch) => keys,
             nameof(Key) => _kind == SourceKind.Key,
+            nameof(KeySide) => _kind == SourceKind.Key && IsSidedKey(Key),
             nameof(PositiveKey) or nameof(NegativeKey) => _kind is SourceKind.KeyAxis1D or SourceKind.KeyAxis2D,
             nameof(UpKey) or nameof(DownKey) => _kind == SourceKind.KeyAxis2D,
             nameof(MouseButton) => _kind == SourceKind.MouseButton,

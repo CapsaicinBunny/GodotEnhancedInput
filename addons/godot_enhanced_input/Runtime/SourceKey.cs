@@ -60,13 +60,32 @@ public readonly record struct SourceKey(RawKind Kind, long Code, int Device, str
     /// <summary>Device value for the handheld device itself (phone or tablet sensors).</summary>
     public const int Handheld = -2;
 
-    /// <summary>The channel of a key.</summary>
-    public static SourceKey ForKey(Key key, KeyMatch match = KeyMatch.Physical) => match switch
+    /// <summary>Bit position of the key side (left or right) in a key channel's code.</summary>
+    private const int SideShift = 40;
+
+    /// <summary>The channel of a key; with a side, only that side's key (left or right Shift, Ctrl, Alt, Meta).</summary>
+    public static SourceKey ForKey(Key key, KeyMatch match = KeyMatch.Physical, KeyLocation side = KeyLocation.Unspecified)
     {
-        KeyMatch.Logical => new SourceKey(RawKind.LogicalKey, (long)key, AnyDevice, null),
-        KeyMatch.Label => new SourceKey(RawKind.KeyLabel, (long)key, AnyDevice, null),
-        _ => new SourceKey(RawKind.PhysicalKey, (long)key, AnyDevice, null),
-    };
+        long code = (long)key | ((long)side << SideShift);
+        return match switch
+        {
+            KeyMatch.Logical => new SourceKey(RawKind.LogicalKey, code, AnyDevice, null),
+            KeyMatch.Label => new SourceKey(RawKind.KeyLabel, code, AnyDevice, null),
+            _ => new SourceKey(RawKind.PhysicalKey, code, AnyDevice, null),
+        };
+    }
+
+    /// <summary>True for key channels.</summary>
+    public bool IsKey => Kind is RawKind.PhysicalKey or RawKind.LogicalKey or RawKind.KeyLabel;
+
+    /// <summary>The key of a key channel, without its side.</summary>
+    public Key KeyCode => (Key)(Code & ((1L << SideShift) - 1));
+
+    /// <summary>The side of a key channel (<see cref="KeyLocation.Unspecified"/>: either side).</summary>
+    public KeyLocation KeySide => IsKey ? (KeyLocation)(Code >> SideShift) : KeyLocation.Unspecified;
+
+    /// <summary>The same key channel for either side.</summary>
+    public SourceKey WithoutSide() => IsKey && KeySide != KeyLocation.Unspecified ? this with { Code = (long)KeyCode } : this;
 
     /// <summary>The channel of a mouse button.</summary>
     public static SourceKey ForMouseButton(MouseButton button) => new(RawKind.MouseButton, (long)button, AnyDevice, null);
@@ -127,7 +146,7 @@ public readonly record struct SourceKey(RawKind Kind, long Code, int Device, str
     /// <inheritdoc/>
     public override string ToString() => Kind switch
     {
-        RawKind.PhysicalKey or RawKind.LogicalKey or RawKind.KeyLabel => $"{Kind}:{(Key)Code}",
+        RawKind.PhysicalKey or RawKind.LogicalKey or RawKind.KeyLabel => KeySide == KeyLocation.Unspecified ? $"{Kind}:{KeyCode}" : $"{Kind}:{KeySide}{KeyCode}",
         RawKind.MouseButton => $"Mouse:{(MouseButton)Code}",
         RawKind.JoyButton => $"Joy{(Device < 0 ? "*" : Device.ToString())}:{(JoyButton)Code}",
         RawKind.JoyAxis => $"Joy{(Device < 0 ? "*" : Device.ToString())}:{(JoyAxis)Code}",

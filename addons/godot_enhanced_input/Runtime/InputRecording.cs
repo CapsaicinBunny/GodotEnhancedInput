@@ -283,7 +283,7 @@ public sealed class InputRecording
                 node = new JsonObject
                 {
                     ["t"] = "key", ["code"] = (long)k.Keycode, ["phys"] = (long)k.PhysicalKeycode, ["label"] = (long)k.KeyLabel,
-                    ["uni"] = k.Unicode, ["down"] = k.Pressed, ["echo"] = k.Echo,
+                    ["uni"] = k.Unicode, ["down"] = k.Pressed, ["echo"] = k.Echo, ["loc"] = (long)k.Location,
                 };
                 WriteMods(node, k);
                 break;
@@ -364,6 +364,7 @@ public sealed class InputRecording
                 {
                     Keycode = (Key)((long?)n["code"] ?? 0), PhysicalKeycode = (Key)((long?)n["phys"] ?? 0), KeyLabel = (Key)((long?)n["label"] ?? 0),
                     Unicode = (long?)n["uni"] ?? 0, Pressed = down, Echo = (bool?)n["echo"] ?? false,
+                    Location = (KeyLocation)((long?)n["loc"] ?? 0),
                 };
                 ReadMods(n, k);
                 e = k;

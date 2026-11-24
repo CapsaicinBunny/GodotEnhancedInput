@@ -9,7 +9,7 @@ text path (`InputSourcePath.Parse("pad:left_stick")`).
 
 | Kind | Reads | Path examples | Value nature |
 |---|---|---|---|
-| `Key` | one key — physical (default), by key code or by printed label | `key:space`, `keycode:a`, `keylabel:a` | state |
+| `Key` | one key — physical (default), by key code or by printed label; Shift, Ctrl, Alt and Meta either side or one side (*Key Side*) | `key:space`, `keycode:a`, `keylabel:a`, `key:shift`, `key:left_shift`, `key:right_ctrl` | state |
 | `KeyAxis1D` / `KeyAxis2D` | two or four keys as one axis or vector | `keys:a/d`, `keys:w/s/a/d` | state |
 | `MouseButton` | a mouse button, or a wheel notch as a one-tick press | `mouse:left`, `mouse:wheel_up` | state |
 | `MouseMotion` | mouse movement summed over the tick | `mouse:motion` | delta |

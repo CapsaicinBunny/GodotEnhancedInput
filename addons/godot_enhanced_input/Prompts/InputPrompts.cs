@@ -54,7 +54,7 @@ public static class InputPrompts
         switch (source.Kind)
         {
             case SourceKind.Key:
-                return KeyName(source.Key, source.KeyMatch);
+                return KeyName(source.Key, source.KeyMatch, source.KeySide);
             case SourceKind.KeyAxis1D:
                 return $"{KeyName(source.NegativeKey, source.KeyMatch)}/{KeyName(source.PositiveKey, source.KeyMatch)}";
             case SourceKind.KeyAxis2D:
@@ -125,7 +125,21 @@ public static class InputPrompts
     }
 
     /// <summary>The label of a key. Physical keys are translated to what the current layout prints on them.</summary>
-    public static string KeyName(Key key, KeyMatch match = KeyMatch.Physical)
+    public static string KeyName(Key key, KeyMatch match = KeyMatch.Physical) => KeyName(key, match, KeyLocation.Unspecified);
+
+    /// <summary>The label of a key, with its side for left / right Shift, Ctrl, Alt and Meta ("Left Shift").</summary>
+    public static string KeyName(Key key, KeyMatch match, KeyLocation side)
+    {
+        var name = BaseKeyName(key, match);
+        return side switch
+        {
+            KeyLocation.Left when name.Length > 0 => "Left " + name,
+            KeyLocation.Right when name.Length > 0 => "Right " + name,
+            _ => name,
+        };
+    }
+
+    private static string BaseKeyName(Key key, KeyMatch match)
     {
         if (key == Key.None) return string.Empty;
         var shown = key;
@@ -251,8 +265,8 @@ public static class InputPrompts
     /// <summary>The name of a Godot input event (for InputMap actions).</summary>
     public static string EventName(InputEvent @event, JoypadStyle style = JoypadStyle.Generic) => @event switch
     {
-        InputEventKey key when key.PhysicalKeycode != Key.None => KeyName(key.PhysicalKeycode),
-        InputEventKey key => KeyName(key.Keycode, KeyMatch.Logical),
+        InputEventKey key when key.PhysicalKeycode != Key.None => KeyName(key.PhysicalKeycode, KeyMatch.Physical, key.Location),
+        InputEventKey key => KeyName(key.Keycode, KeyMatch.Logical, key.Location),
         InputEventMouseButton mouse => MouseButtonName(mouse.ButtonIndex),
         InputEventJoypadButton button => JoyButtonName(button.ButtonIndex, style),
         InputEventJoypadMotion motion => JoyAxisName(motion.Axis, motion.AxisValue > 0 ? JoyAxisRange.Positive : motion.AxisValue < 0 ? JoyAxisRange.Negative : JoyAxisRange.Full, style),
@@ -275,7 +289,7 @@ public static class InputPrompts
         if (source == null) return string.Empty;
         return source.Kind switch
         {
-            SourceKind.Key => "key_" + Snake(KeyName(source.Key, source.KeyMatch)),
+            SourceKind.Key => "key_" + Snake(KeyName(source.Key, source.KeyMatch, source.KeySide)),
             SourceKind.KeyAxis1D => $"keys_{Snake(KeyName(source.NegativeKey, source.KeyMatch))}_{Snake(KeyName(source.PositiveKey, source.KeyMatch))}",
             SourceKind.KeyAxis2D => $"keys_{Snake(KeyName(source.UpKey, source.KeyMatch))}_{Snake(KeyName(source.NegativeKey, source.KeyMatch))}_"
                                     + $"{Snake(KeyName(source.DownKey, source.KeyMatch))}_{Snake(KeyName(source.PositiveKey, source.KeyMatch))}",

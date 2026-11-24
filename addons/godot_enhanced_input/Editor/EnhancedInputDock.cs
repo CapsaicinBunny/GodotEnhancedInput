@@ -10,10 +10,12 @@ namespace GodotEnhancedInput;
 /// <summary>
 /// The Enhanced Input editor dock (bottom panel).
 /// <list type="bullet">
-/// <item><b>Bindings</b>: every binding context in the project, searchable, with device icons; a side
-/// panel edits the selected binding — action (or a new one), input path with live validation,
-/// listen-to-assign, groups, rebind id, modifiers and triggers — all with undo, saved at once.</item>
-/// <item><b>Actions</b>: every action with its value kind and where it is bound.</item>
+/// <item><b>Mappings</b>: every input mapping context in the project (or one config's), searchable, with
+/// device icons; a side panel edits the selected mapping — action (or a new one), input path with live
+/// validation, listen-to-assign, groups, rebind id, modifiers and triggers — all with undo, saved at
+/// once. Mappings are dragged to reorder them or to move them to another mapping context; action files
+/// (or rows of the Actions tab) dropped on a mapping set its action, on a mapping context add a mapping.</item>
+/// <item><b>Actions</b>: every action file in the project with its value kind and where it is mapped.</item>
 /// <item><b>Problems</b>: what <see cref="BindingValidator"/> finds; double-click jumps to the binding.</item>
 /// <item><b>Devices</b>: connected pads with family, identity and features, live axes and buttons, a
 /// rumble test and the light colour; an input log that shows each event's path for binding odd hardware.</item>
@@ -31,6 +33,7 @@ public partial class EnhancedInputDock : VBoxContainer
     // Toolbar
     private LineEdit _search;
     private Button _listen, _addBinding, _removeBinding;
+    private OptionButton _configFilter;
     private Label _status, _errorsBadge, _warningsBadge;
     private TabContainer _tabs;
 
@@ -58,6 +61,10 @@ public partial class EnhancedInputDock : VBoxContainer
 
     // Data
     private readonly List<(string Path, EnhancedInputMappingContext Context)> _contexts = new();
+    private readonly List<(string Path, EnhancedInputAction Action)> _actionFiles = new();
+    private readonly List<(string Path, EnhancedInputConfig Config)> _configs = new();
+    private EnhancedInputConfig _shownConfig;
+    private bool _revalidateQueued;
     private readonly List<BindingIssue> _issues = new();
     private string _selectedPath;
     private int _selectedIndex = -1;
@@ -81,6 +88,8 @@ public partial class EnhancedInputDock : VBoxContainer
     {
         Input.Singleton.JoyConnectionChanged += OnJoyConnectionChanged;
         EditorInterface.Singleton.GetResourceFilesystem().FilesystemChanged += OnFilesystemChanged;
+        EditorInterface.Singleton.GetInspector().PropertyEdited += OnInspectorPropertyEdited;
+        if (_plugin != null) _plugin.ResourceSaved += OnResourceSaved;
         Refresh();
     }
 
@@ -90,6 +99,40 @@ public partial class EnhancedInputDock : VBoxContainer
         Input.Singleton.JoyConnectionChanged -= OnJoyConnectionChanged;
         var fs = EditorInterface.Singleton.GetResourceFilesystem();
         if (fs != null) fs.FilesystemChanged -= OnFilesystemChanged;
+        var inspector = EditorInterface.Singleton.GetInspector();
+        if (inspector != null) inspector.PropertyEdited -= OnInspectorPropertyEdited;
+        if (_plugin != null && IsInstanceValid(_plugin)) _plugin.ResourceSaved -= OnResourceSaved;
+    }
+
+    private static bool IsOurs(GodotObject o)
+        => o is EnhancedInputAction or EnhancedInputMappingContext or EnhancedInputConfig or ActionBinding or InputSource or InputModifier or InputTrigger;
+
+    // Edits made in the Inspector show up here at once.
+    private void OnInspectorPropertyEdited(string property)
+    {
+        if (IsOurs(EditorInterface.Singleton.GetInspector().GetEditedObject())) QueueRevalidate();
+    }
+
+    private void OnResourceSaved(Resource resource)
+    {
+        if (resource is EnhancedInputAction action && _actionFiles.All(a => a.Action != action)
+            || resource is EnhancedInputMappingContext context && _contexts.All(c => c.Context != context)
+            || resource is EnhancedInputConfig config && _configs.All(c => c.Config != config))
+            OnFilesystemChanged();
+        else if (IsOurs(resource)) QueueRevalidate();
+    }
+
+    private void QueueRevalidate()
+    {
+        if (_revalidateQueued) return;
+        _revalidateQueued = true;
+        CallDeferred(MethodName.DeferredRevalidate);
+    }
+
+    private void DeferredRevalidate()
+    {
+        _revalidateQueued = false;
+        Revalidate();
     }
 
     private void OnJoyConnectionChanged(long device, bool connected) => RefreshPads();
@@ -176,14 +219,24 @@ public partial class EnhancedInputDock : VBoxContainer
         _search.TextChanged += _ => RebuildBindings();
         toolbar.AddChild(_search);
 
-        toolbar.AddChild(ToolButton("Reload", "Rescan the project for binding contexts.", Refresh));
-        toolbar.AddChild(ToolButton("Add", "New binding context…", NewContext, "Context"));
-        _addBinding = ToolButton("Add", "Add a binding to the selected context.", AddBinding, "Binding");
+        _configFilter = new OptionButton { TooltipText = "Show every mapping context, or only those of one input config." };
+        _configFilter.ItemSelected += i =>
+        {
+            _shownConfig = i <= 0 ? null : _configFilter.GetItemMetadata((int)i).AsGodotObject() as EnhancedInputConfig;
+            RebuildBindings();
+            RebuildActions();
+        };
+        toolbar.AddChild(_configFilter);
+
+        toolbar.AddChild(ToolButton("Reload", "Rescan the project for actions, mapping contexts and configs.", Refresh));
+        toolbar.AddChild(ToolButton("Add", "New input action…", NewAction, "Action"));
+        toolbar.AddChild(ToolButton("Add", "New input mapping context…", NewContext, "Mapping Context"));
+        _addBinding = ToolButton("Add", "Add a mapping to the selected mapping context.", () => AddBinding(), "Mapping");
         toolbar.AddChild(_addBinding);
-        _removeBinding = ToolButton("Remove", "Remove the selected binding.", RemoveBinding);
+        _removeBinding = ToolButton("Remove", "Remove the selected mapping.", RemoveBinding);
         _removeBinding.Disabled = true;
         toolbar.AddChild(_removeBinding);
-        _listen = ToolButton("InputEventKey", "Assign the next key, button or stick movement to the selected binding (Esc cancels).", StartListening, "Listen");
+        _listen = ToolButton("InputEventKey", "Assign the next key, button or stick movement to the selected mapping (Esc cancels).", StartListening, "Listen");
         _listen.Disabled = true;
         toolbar.AddChild(_listen);
 
@@ -222,10 +275,19 @@ public partial class EnhancedInputDock : VBoxContainer
 
     private Control BuildBindingsTab()
     {
-        var split = new HSplitContainer { Name = "Bindings", SplitOffsets = new[] { 520 } };
+        var split = new HSplitContainer { Name = "Mappings", SplitOffsets = new[] { 520 } };
 
-        _bindings = new Tree { Columns = 3, ColumnTitlesVisible = true, HideRoot = true, SelectMode = Tree.SelectModeEnum.Row, SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        _bindings.SetColumnTitle(0, "Context / action");
+        _bindings = new Tree
+        {
+            Columns = 3, ColumnTitlesVisible = true, HideRoot = true, SelectMode = Tree.SelectModeEnum.Row, SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            DropModeFlags = (int)(Tree.DropModeFlagsEnum.OnItem | Tree.DropModeFlagsEnum.Inbetween),
+            TooltipText = "Drag a mapping to reorder it or move it to another mapping context. Drop an action file (or an Actions row) on a mapping to set its action, or on a mapping context to add a mapping.",
+        };
+        _bindings.SetDragForwarding(
+            Callable.From<Vector2, Variant>(GetMappingDragData),
+            Callable.From<Vector2, Variant, bool>(CanDropOnMappings),
+            Callable.From<Vector2, Variant>(DropOnMappings));
+        _bindings.SetColumnTitle(0, "Mapping context / action");
         _bindings.SetColumnTitle(1, "Input");
         _bindings.SetColumnTitle(2, "Modifiers · triggers · groups");
         _bindings.SetColumnExpandRatio(0, 2);
@@ -241,7 +303,7 @@ public partial class EnhancedInputDock : VBoxContainer
         scroll.AddChild(_detail);
         split.AddChild(scroll);
 
-        _detailTitle = new Label { Text = "Select a binding", AutowrapMode = TextServer.AutowrapMode.WordSmart };
+        _detailTitle = new Label { Text = "Select a mapping", AutowrapMode = TextServer.AutowrapMode.WordSmart };
         _detailTitle.AddThemeColorOverride("font_color", Accent);
         _detail.AddChild(_detailTitle);
 
@@ -303,7 +365,7 @@ public partial class EnhancedInputDock : VBoxContainer
         _detail.AddChild(_triggerList);
         _detail.AddChild(StackEditor(false, out _addTrigger));
 
-        var inspect = new Button { Text = "Open binding in the Inspector", Icon = Icon("Edit") };
+        var inspect = new Button { Text = "Open mapping in the Inspector", Icon = Icon("Edit") };
         inspect.Pressed += () => { var b = SelectedBinding(); if (b != null) EditorInterface.Singleton.EditResource(b); };
         _detail.AddChild(inspect);
 
@@ -341,10 +403,22 @@ public partial class EnhancedInputDock : VBoxContainer
         _actions.SetColumnTitle(2, "Bindings");
         _actions.SetColumnTitle(3, "Contexts");
         _actions.SetColumnExpandRatio(3, 3);
+        _actions.SetColumnTitle(2, "Mappings");
+        _actions.SetColumnTitle(3, "Mapping contexts");
+        _actions.TooltipText = "Double-click to open an action in the Inspector; drag it onto a mapping or a mapping context.";
         _actions.ItemActivated += () =>
         {
             if (_actions.GetSelected()?.GetMetadata(0).AsGodotObject() is EnhancedInputAction action) EditorInterface.Singleton.EditResource(action);
         };
+        _actions.SetDragForwarding(
+            Callable.From<Vector2, Variant>(at =>
+            {
+                if (_actions.GetItemAtPosition(at)?.GetMetadata(0).AsGodotObject() is not EnhancedInputAction action) return default;
+                _actions.SetDragPreview(new Label { Text = action.Name });
+                return new Godot.Collections.Dictionary { ["type"] = "gei_action", ["action"] = action };
+            }),
+            Callable.From<Vector2, Variant, bool>((_, _) => false),
+            Callable.From<Vector2, Variant>((_, _) => { }));
         return _actions;
     }
 
@@ -422,14 +496,125 @@ public partial class EnhancedInputDock : VBoxContainer
         StopListening(null);
         BindingEditing.Rescan();
         _contexts.Clear();
-        var paths = new List<string>();
+        _actionFiles.Clear();
+        _configs.Clear();
+        var files = new List<(string Path, string Class)>();
         var fs = EditorInterface.Singleton.GetResourceFilesystem();
-        Scan(fs.GetFilesystem(), paths);
-        foreach (var path in paths.OrderBy(p => p))
-            if (ResourceLoader.Load(path) is EnhancedInputMappingContext context) _contexts.Add((path, context));
+        Scan(fs.GetFilesystem(), files);
+        foreach (var (path, _) in files.OrderBy(f => f.Path))
+        {
+            var resource = ResourceLoader.Load(path);
+            if (resource is EnhancedInputMappingContext context) _contexts.Add((path, context));
+            else if (resource is EnhancedInputAction action) _actionFiles.Add((path, action));
+            else if (resource is EnhancedInputConfig config) _configs.Add((path, config));
+        }
+        if (_shownConfig != null && _configs.All(c => c.Config != _shownConfig)) _shownConfig = null;
+        RebuildConfigFilter();
         Revalidate();
         RefreshPads();
-        SetStatus($"{_contexts.Count} context(s), {BindingEditing.ActionsIn(_contexts.Select(c => c.Context)).Count} action(s).");
+        SetStatus($"{_contexts.Count} mapping context(s), {AllActions().Count} action(s), {_configs.Count} config(s).");
+    }
+
+    private void RebuildConfigFilter()
+    {
+        _configFilter.Clear();
+        _configFilter.AddItem("All mapping contexts");
+        foreach (var (path, config) in _configs)
+        {
+            int i = _configFilter.ItemCount;
+            _configFilter.AddItem($"Config: {(string.IsNullOrEmpty(config.Name) ? path.GetFile().GetBaseName() : config.Name)}");
+            _configFilter.SetItemMetadata(i, config);
+            _configFilter.SetItemTooltip(i, path);
+            if (config == _shownConfig) _configFilter.Selected = i;
+        }
+        if (_shownConfig == null) _configFilter.Selected = 0;
+        _configFilter.Visible = _configs.Count > 0;
+    }
+
+    /// <summary>The mapping contexts shown: all, or those of the chosen config.</summary>
+    private IEnumerable<(string Path, EnhancedInputMappingContext Context)> ShownContexts()
+        => _shownConfig == null ? _contexts : _contexts.Where(c => _shownConfig.Contexts.Contains(c.Context) || _shownConfig.StartupContexts.Contains(c.Context));
+
+    /// <summary>Every action: the action files, and actions only found inside mapping contexts.</summary>
+    private List<EnhancedInputAction> AllActions()
+    {
+        var list = _actionFiles.Select(a => a.Action).ToList();
+        foreach (var action in BindingEditing.ActionsIn(_contexts.Select(c => c.Context)))
+            if (!list.Contains(action)) list.Add(action);
+        return list.OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    private EnhancedInputMappingContext ContextAt(string path) => _contexts.FirstOrDefault(c => c.Path == path).Context;
+
+    /// <summary>
+    /// Shows an asset in the dock (double-clicked in the FileSystem dock, or opened in the Inspector):
+    /// a mapping context or mapping is selected in the Mappings tab, an action in the Actions tab, a
+    /// config becomes the filter. Returns false for objects the dock does not show.
+    /// </summary>
+    public bool Reveal(GodotObject target)
+    {
+        switch (target)
+        {
+            case EnhancedInputMappingContext context:
+            {
+                if (_contexts.All(c => c.Context != context)) Refresh();
+                var entry = _contexts.FirstOrDefault(c => c.Context == context);
+                if (entry.Context == null) return false;
+                if (_shownConfig != null && !ShownContexts().Any(c => c.Context == context)) _shownConfig = null;
+                SelectMapping(entry.Path, -1);
+                return true;
+            }
+            case ActionBinding binding:
+            {
+                var entry = _contexts.FirstOrDefault(c => c.Context.Bindings.Contains(binding));
+                if (entry.Context == null) return false;
+                if (_shownConfig != null && !ShownContexts().Any(c => c.Context == entry.Context)) _shownConfig = null;
+                SelectMapping(entry.Path, entry.Context.Bindings.IndexOf(binding));
+                return true;
+            }
+            case EnhancedInputAction action:
+            {
+                if (!AllActions().Contains(action)) Refresh();
+                _tabs.CurrentTab = 1;
+                RebuildActions();
+                for (var item = _actions.GetRoot()?.GetFirstChild(); item != null; item = item.GetNext())
+                    if (item.GetMetadata(0).AsGodotObject() == action) { item.Select(0); _actions.ScrollToItem(item); }
+                return true;
+            }
+            case EnhancedInputConfig config:
+            {
+                if (_configs.All(c => c.Config != config)) Refresh();
+                if (_configs.All(c => c.Config != config)) return false;
+                _shownConfig = config;
+                RebuildConfigFilter();
+                _tabs.CurrentTab = 0;
+                RebuildBindings();
+                RebuildActions();
+                return true;
+            }
+            default:
+                return false;
+        }
+    }
+
+    private void SelectMapping(string path, int index)
+    {
+        RebuildConfigFilter();
+        _selectedPath = path;
+        _selectedIndex = index;
+        _search.Text = string.Empty;
+        _tabs.CurrentTab = 0;
+        RebuildBindings();
+        if (index < 0)
+            for (var item = _bindings.GetRoot()?.GetFirstChild(); item != null; item = item.GetNext())
+                if (item.GetMetadata(0).AsString() == path)
+                {
+                    _updatingDetail = true;
+                    item.Select(0);
+                    _updatingDetail = false;
+                    _bindings.ScrollToItem(item);
+                }
+        UpdateDetail();
     }
 
     private void Revalidate()
@@ -446,25 +631,32 @@ public partial class EnhancedInputDock : VBoxContainer
         RebuildProblems();
     }
 
-    private static void Scan(EditorFileSystemDirectory dir, List<string> paths)
+    private static readonly string[] AssetClasses = { nameof(EnhancedInputMappingContext), nameof(EnhancedInputAction), nameof(EnhancedInputConfig) };
+
+    private static void Scan(EditorFileSystemDirectory dir, List<(string Path, string Class)> files)
     {
         if (dir == null) return;
         for (int i = 0; i < dir.GetFileCount(); i++)
-            if (IsBindingContextFile(dir.GetFilePath(i))) paths.Add(dir.GetFilePath(i));
-        for (int i = 0; i < dir.GetSubdirCount(); i++) Scan(dir.GetSubdir(i), paths);
+        {
+            var cls = AssetClassOf(dir.GetFilePath(i));
+            if (cls != null) files.Add((dir.GetFilePath(i), cls));
+        }
+        for (int i = 0; i < dir.GetSubdirCount(); i++) Scan(dir.GetSubdir(i), files);
     }
 
     /// <summary>
-    /// Whether a text resource is a binding context: its header names the script class (the editor's
-    /// file index only knows script classes of script files, not of resources).
+    /// Which of the three assets a text resource is, from the script class its header names (the
+    /// editor's file index only knows script classes of script files, not of resources); null if none.
     /// </summary>
-    private static bool IsBindingContextFile(string path)
+    private static string AssetClassOf(string path)
     {
-        if (!path.EndsWith(".tres", StringComparison.OrdinalIgnoreCase)) return false;
+        if (!path.EndsWith(".tres", StringComparison.OrdinalIgnoreCase)) return null;
         using var file = FileAccess.Open(path, FileAccess.ModeFlags.Read);
-        if (file == null) return false;
+        if (file == null) return null;
         var header = file.GetLine();
-        return header.Contains($"script_class=\"{nameof(EnhancedInputMappingContext)}\"", StringComparison.Ordinal);
+        foreach (var cls in AssetClasses)
+            if (header.Contains($"script_class=\"{cls}\"", StringComparison.Ordinal)) return cls;
+        return null;
     }
 
     private void RebuildBindings()
@@ -472,11 +664,13 @@ public partial class EnhancedInputDock : VBoxContainer
         _bindings.Clear();
         var root = _bindings.CreateItem();
         TreeItem reselect = null;
-        foreach (var (path, context) in _contexts)
+        var contextIcon = AssetIcon(ContextIconPath, "Object");
+        var actionIcon = AssetIcon(ActionIconPath, "InputEventAction");
+        foreach (var (path, context) in ShownContexts())
         {
             var contextItem = _bindings.CreateItem(root);
             contextItem.SetText(0, context.Name);
-            contextItem.SetIcon(0, Icon("Object"));
+            contextItem.SetIcon(0, contextIcon);
             contextItem.SetTooltipText(0, path);
             contextItem.SetText(1, path);
             contextItem.SetCustomColor(1, DimColor);
@@ -493,7 +687,7 @@ public partial class EnhancedInputDock : VBoxContainer
                 shown++;
                 var item = _bindings.CreateItem(contextItem);
                 item.SetText(0, binding?.Action?.Name ?? "(no action)");
-                item.SetIcon(0, Icon("InputEventAction"));
+                item.SetIcon(0, actionIcon);
                 item.SetText(1, BindingEditing.PathOf(binding?.Source));
                 item.SetIcon(1, IconFor(BindingEditing.DeviceKindOf(binding?.Source)));
                 item.SetTooltipText(1, binding?.Source == null ? "no input" : InputPrompts.GetName(binding.Source));
@@ -521,20 +715,33 @@ public partial class EnhancedInputDock : VBoxContainer
         UpdateDetail();
     }
 
+    private const string ActionIconPath = "res://addons/godot_enhanced_input/Icons/EnhancedInputAction.svg";
+    private const string ContextIconPath = "res://addons/godot_enhanced_input/Icons/EnhancedInputMappingContext.svg";
+
+    private Texture2D AssetIcon(string path, string fallback)
+        => ResourceLoader.Exists(path) ? ResourceLoader.Load<Texture2D>(path) : Icon(fallback);
+
     private void RebuildActions()
     {
         _actions.Clear();
         var root = _actions.CreateItem();
-        foreach (var action in BindingEditing.ActionsIn(_contexts.Select(c => c.Context)))
+        var shown = ShownContexts().ToList();
+        var actions = AllActions();
+        if (_shownConfig != null)
+            actions = actions.Where(a => _shownConfig.Actions.Contains(a) || shown.Any(c => c.Context.Bindings.Any(b => b?.Action == a))).ToList();
+        var icon = AssetIcon(ActionIconPath, "InputEventAction");
+        foreach (var action in actions)
         {
-            var where = _contexts.Where(c => c.Context.Bindings.Any(b => b?.Action == action)).Select(c => c.Context.Name).ToList();
-            int count = _contexts.Sum(c => c.Context.Bindings.Count(b => b?.Action == action));
+            var where = shown.Where(c => c.Context.Bindings.Any(b => b?.Action == action)).Select(c => c.Context.Name).ToList();
+            int count = shown.Sum(c => c.Context.Bindings.Count(b => b?.Action == action));
             var item = _actions.CreateItem(root);
             item.SetText(0, action.Name);
-            item.SetIcon(0, Icon("InputEventAction"));
+            item.SetIcon(0, icon);
+            item.SetTooltipText(0, string.IsNullOrEmpty(action.ResourcePath) || action.ResourcePath.Contains("::") ? "(inside a mapping context)" : action.ResourcePath);
             item.SetText(1, action.ValueKind.ToString());
             item.SetText(2, count.ToString());
-            item.SetText(3, string.Join(", ", where));
+            item.SetText(3, where.Count == 0 ? "not mapped yet: drag it onto a mapping context" : string.Join(", ", where));
+            if (where.Count == 0) item.SetCustomColor(3, DimColor);
             item.SetMetadata(0, action);
         }
     }
@@ -614,12 +821,12 @@ public partial class EnhancedInputDock : VBoxContainer
             _pathError.Text = string.Empty;
             if (binding == null)
             {
-                _detailTitle.Text = context != null ? $"{context.Name}: select a binding, or add one" : "Select a binding";
+                _detailTitle.Text = context != null ? $"{context.Name}: select a mapping, or add one (+ Mapping)" : "Select a mapping";
                 _pathEdit.Text = _groupsEdit.Text = _rebindEdit.Text = string.Empty;
                 return;
             }
             _detailTitle.Text = $"{context.Name} · #{_selectedIndex} · {binding.Action?.Name ?? "(no action)"}";
-            var actions = BindingEditing.ActionsIn(_contexts.Select(c => c.Context));
+            var actions = AllActions();
             _actionPicker.AddItem("(no action)");
             for (int i = 0; i < actions.Count; i++)
             {
@@ -784,15 +991,128 @@ public partial class EnhancedInputDock : VBoxContainer
         (modifiers ? _modifierList : _triggerList).Select(to);
     }
 
-    private void AddBinding()
+    private void AddBinding(EnhancedInputAction action = null)
     {
         var context = SelectedContext();
-        if (context == null) { SetStatus("Select a context first."); return; }
-        var current = SelectedBinding();
-        var binding = ActionBinding.Create(current?.Action, null);
+        if (context == null) { SetStatus("Select a mapping context first."); return; }
+        var binding = ActionBinding.Create(action ?? SelectedBinding()?.Action, null);
         var list = new Godot.Collections.Array<ActionBinding>(context.Bindings) { binding };
         _selectedIndex = list.Count - 1;
-        Change("Add binding", context, EnhancedInputMappingContext.PropertyName.Bindings, list);
+        Change("Add mapping", context, EnhancedInputMappingContext.PropertyName.Bindings, list);
+    }
+
+    // ------------------------------------------------------------------
+    //  Drag and drop
+    // ------------------------------------------------------------------
+
+    private Variant GetMappingDragData(Vector2 at)
+    {
+        var item = _bindings.GetItemAtPosition(at);
+        if (item == null || item.GetMetadata(1).AsInt32() < 0) return default;
+        _bindings.SetDragPreview(new Label { Text = $"{item.GetText(0)}   {item.GetText(1)}" });
+        return new Godot.Collections.Dictionary { ["type"] = "gei_mapping", ["path"] = item.GetMetadata(0).AsString(), ["index"] = item.GetMetadata(1).AsInt32() };
+    }
+
+    /// <summary>The actions a drop carries: an Actions row, a dragged resource, or action files.</summary>
+    private static List<EnhancedInputAction> DroppedActions(Godot.Collections.Dictionary data)
+    {
+        var actions = new List<EnhancedInputAction>();
+        var type = data.TryGetValue("type", out var t) ? t.AsString() : string.Empty;
+        if (type == "gei_action" && data["action"].AsGodotObject() is EnhancedInputAction a) actions.Add(a);
+        else if (type == "resource" && data["resource"].AsGodotObject() is EnhancedInputAction r) actions.Add(r);
+        else if (type == "files")
+            foreach (var path in data["files"].AsStringArray())
+                if (AssetClassOf(path) == nameof(EnhancedInputAction) && ResourceLoader.Load(path) is EnhancedInputAction f) actions.Add(f);
+        return actions;
+    }
+
+    private bool CanDropOnMappings(Vector2 at, Variant data)
+    {
+        if (data.VariantType != Variant.Type.Dictionary || _bindings.GetItemAtPosition(at) == null) return false;
+        var dict = data.AsGodotDictionary();
+        return dict.TryGetValue("type", out var t) && t.AsString() == "gei_mapping" || DroppedActions(dict).Count > 0;
+    }
+
+    private void DropOnMappings(Vector2 at, Variant data)
+    {
+        var target = _bindings.GetItemAtPosition(at);
+        if (target == null || data.VariantType != Variant.Type.Dictionary) return;
+        var dict = data.AsGodotDictionary();
+        string targetPath = target.GetMetadata(0).AsString();
+        int targetIndex = target.GetMetadata(1).AsInt32();
+        if (dict.TryGetValue("type", out var t) && t.AsString() == "gei_mapping")
+        {
+            MoveMapping(dict["path"].AsString(), dict["index"].AsInt32(), targetPath, targetIndex, _bindings.GetDropSectionAtPosition(at));
+            return;
+        }
+        var actions = DroppedActions(dict);
+        if (actions.Count == 0) return;
+        var context = ContextAt(targetPath);
+        if (context == null) return;
+        _selectedPath = targetPath;
+        if (targetIndex >= 0)
+        {
+            _selectedIndex = targetIndex;
+            var binding = SelectedBinding();
+            if (binding != null) Change("Set mapping action", binding, ActionBinding.PropertyName.Action, actions[0]);
+            SetStatus($"The mapping now triggers {actions[0].Name}.");
+        }
+        else
+        {
+            var list = new Godot.Collections.Array<ActionBinding>(context.Bindings);
+            foreach (var action in actions) list.Add(ActionBinding.Create(action, null));
+            _selectedIndex = list.Count - 1;
+            Change(actions.Count == 1 ? "Add mapping" : "Add mappings", context, EnhancedInputMappingContext.PropertyName.Bindings, list);
+            SetStatus($"Added {actions.Count} mapping(s) to {context.Name}; set the input with Listen or a path.");
+        }
+    }
+
+    /// <summary>
+    /// Moves a mapping: onto a mapping context (to its end), or before / after another mapping, in the
+    /// same mapping context or another. One undo step; both files are saved.
+    /// </summary>
+    private void MoveMapping(string fromPath, int fromIndex, string toPath, int toIndex, int section)
+    {
+        var from = ContextAt(fromPath);
+        var to = ContextAt(toPath);
+        if (from == null || to == null || fromIndex < 0 || fromIndex >= from.Bindings.Count) return;
+        var binding = from.Bindings[fromIndex];
+        int insert = toIndex < 0 ? to.Bindings.Count : section < 0 ? toIndex : toIndex + 1;
+
+        var undo = _plugin.GetUndoRedo();
+        if (from == to)
+        {
+            var list = new Godot.Collections.Array<ActionBinding>(from.Bindings);
+            list.RemoveAt(fromIndex);
+            if (insert > fromIndex) insert--;
+            insert = Math.Clamp(insert, 0, list.Count);
+            if (insert == fromIndex) return;
+            list.Insert(insert, binding);
+            undo.CreateAction("Reorder mappings");
+            undo.AddDoProperty(from, EnhancedInputMappingContext.PropertyName.Bindings, list);
+            undo.AddUndoProperty(from, EnhancedInputMappingContext.PropertyName.Bindings, from.Bindings);
+        }
+        else
+        {
+            var source = new Godot.Collections.Array<ActionBinding>(from.Bindings);
+            source.RemoveAt(fromIndex);
+            var target = new Godot.Collections.Array<ActionBinding>(to.Bindings);
+            insert = Math.Clamp(insert, 0, target.Count);
+            target.Insert(insert, binding);
+            undo.CreateAction($"Move mapping to {to.Name}");
+            undo.AddDoProperty(from, EnhancedInputMappingContext.PropertyName.Bindings, source);
+            undo.AddUndoProperty(from, EnhancedInputMappingContext.PropertyName.Bindings, from.Bindings);
+            undo.AddDoProperty(to, EnhancedInputMappingContext.PropertyName.Bindings, target);
+            undo.AddUndoProperty(to, EnhancedInputMappingContext.PropertyName.Bindings, to.Bindings);
+            undo.AddDoMethod(this, MethodName.SaveContext, toPath);
+            undo.AddUndoMethod(this, MethodName.SaveContext, toPath);
+        }
+        undo.AddDoMethod(this, MethodName.SaveContext, fromPath);
+        undo.AddUndoMethod(this, MethodName.SaveContext, fromPath);
+        _selectedPath = toPath;
+        _selectedIndex = insert;
+        undo.CommitAction();
+        SetStatus(from == to ? "Mapping moved." : $"Mapping moved to {to.Name}.");
     }
 
     private void RemoveBinding()
@@ -801,7 +1121,7 @@ public partial class EnhancedInputDock : VBoxContainer
         if (context == null || _selectedIndex < 0 || _selectedIndex >= context.Bindings.Count) return;
         var list = new Godot.Collections.Array<ActionBinding>(context.Bindings);
         list.RemoveAt(_selectedIndex);
-        Change("Remove binding", context, EnhancedInputMappingContext.PropertyName.Bindings, list);
+        Change("Remove mapping", context, EnhancedInputMappingContext.PropertyName.Bindings, list);
         _selectedIndex = Math.Min(_selectedIndex, list.Count - 1);
     }
 
@@ -811,10 +1131,10 @@ public partial class EnhancedInputDock : VBoxContainer
         {
             FileMode = EditorFileDialog.FileModeEnum.SaveFile,
             Access = EditorFileDialog.AccessEnum.Resources,
-            Title = "New binding context",
-            CurrentFile = "new_context.tres",
+            Title = "New input mapping context",
+            CurrentFile = "new_mapping_context.tres",
         };
-        dialog.AddFilter("*.tres", "Binding context");
+        dialog.AddFilter("*.tres", "Input mapping context");
         dialog.FileSelected += path =>
         {
             var context = EnhancedInputMappingContext.Create(path.GetFile().GetBaseName());
@@ -824,6 +1144,36 @@ public partial class EnhancedInputDock : VBoxContainer
             _selectedPath = path;
             _selectedIndex = -1;
             Refresh();
+            dialog.QueueFree();
+        };
+        dialog.Canceled += () => dialog.QueueFree();
+        AddChild(dialog);
+        dialog.PopupCentered(new Vector2I(800, 500));
+    }
+
+    private void NewAction()
+    {
+        var dialog = new EditorFileDialog
+        {
+            FileMode = EditorFileDialog.FileModeEnum.SaveFile,
+            Access = EditorFileDialog.AccessEnum.Resources,
+            Title = "New input action",
+            CurrentFile = "new_action.tres",
+        };
+        if (!string.IsNullOrEmpty(_selectedPath)) dialog.CurrentDir = _selectedPath.GetBaseDir();
+        dialog.AddFilter("*.tres", "Input action");
+        dialog.FileSelected += path =>
+        {
+            var action = EnhancedInputAction.Create(path.GetFile().GetBaseName(), ActionValueKind.Digital);
+            var error = ResourceSaver.Save(action, path);
+            SetStatus(error == Error.Ok ? $"Created {path}. Drag it from the Actions tab onto a mapping context." : $"Could not save {path}: {error}");
+            EditorInterface.Singleton.GetResourceFilesystem().UpdateFile(path);
+            Refresh();
+            if (error == Error.Ok && ResourceLoader.Load(path) is EnhancedInputAction saved)
+            {
+                Reveal(saved);
+                EditorInterface.Singleton.EditResource(saved);
+            }
             dialog.QueueFree();
         };
         dialog.Canceled += () => dialog.QueueFree();
@@ -898,7 +1248,7 @@ public partial class EnhancedInputDock : VBoxContainer
         if (source == null) return;
         GetViewport().SetInputAsHandled();
         var binding = SelectedBinding();
-        if (binding == null) { StopListening("The binding is gone."); return; }
+        if (binding == null) { StopListening("The mapping is gone."); return; }
         Change("Assign input", binding, ActionBinding.PropertyName.Source, source);
         StopListening($"{binding.Action?.Name ?? "binding"}  ←  {InputSourcePath.Format(source)}");
     }
@@ -941,6 +1291,7 @@ public partial class EnhancedInputDock : VBoxContainer
     /// <inheritdoc/>
     public override void _Process(double delta)
     {
+        (_plugin as EnhancedInputPlugin)?.EnsureInspector();
         if (_selectedPad < 0 || _tabs == null || _tabs.CurrentTab != 3 || !IsVisibleInTree()) return;
         for (int a = 0; a < _axisBars.Count; a++) _axisBars[a].Value = Input.GetJoyAxis(_selectedPad, (JoyAxis)a);
         for (int b = 0; b < _buttonLights.Count; b++)

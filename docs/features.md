@@ -84,7 +84,8 @@ requirement IDs link the [design](design.md) to those tests).
 | Text dump and F3 debug overlay | ✅ | DBG-* |
 | Recording and deterministic replay (events, controls, sensors, cut-offs, arrival moments) | ✅ | REC-1…2 |
 | Binding validator | ✅ | EDT-1 |
-| Editor dock: edit bindings, problems, actions, live device inspector, input log | ✅ / 🔌 | Loads in the Godot 4.8 editor; interactive use not yet checked by hand |
+| Editor dock: edit mappings, drag to reorder or move them between mapping contexts, every action file, config filter, double-click to reveal, problems, live device inspector, input log | ✅ / 🔌 | Reveal, move, reorder, undo and file drops checked in a headless Godot 4.8 editor; dragging not yet checked by hand |
+| Left / right Shift, Ctrl, Alt and Meta (`key:left_shift`) | ✅ | Tests |
 | Three creatable assets (action, mapping context, config); Inspector *Add …* menus and typed input paths for everything inside them | ✅ / 🔌 | Godot 4.8 lists only the three; menus not yet checked by hand |
 
 ## Platforms

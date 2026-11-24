@@ -195,9 +195,9 @@ public sealed partial class RawInputState
             var key = pair.Key;
             bool held = key.Kind switch
             {
-                RawKind.PhysicalKey => Input.IsPhysicalKeyPressed((Key)key.Code),
-                RawKind.LogicalKey => Input.IsKeyPressed((Key)key.Code),
-                RawKind.KeyLabel => Input.IsKeyLabelPressed((Key)key.Code),
+                RawKind.PhysicalKey => Input.IsPhysicalKeyPressed(key.KeyCode),
+                RawKind.LogicalKey => Input.IsKeyPressed(key.KeyCode),
+                RawKind.KeyLabel => Input.IsKeyLabelPressed(key.KeyCode),
                 RawKind.MouseButton => IsWheel((MouseButton)key.Code) || Input.IsMouseButtonPressed((MouseButton)key.Code),
                 RawKind.JoyButton when key.Device >= 0 => Input.IsJoyButtonPressed(key.Device, (JoyButton)key.Code),
                 _ => true,
@@ -253,11 +253,11 @@ public sealed partial class RawInputState
 
     /// <summary>
     /// The physical key behind a logical or label key, as learned from the key events received (so
-    /// that consuming "Space" means the same key whichever way a binding names it). Other channels
-    /// are returned unchanged.
+    /// that consuming "Space" means the same key whichever way a binding names it). A side is dropped:
+    /// consuming Left Shift consumes Shift. Other channels are returned unchanged.
     /// </summary>
     public SourceKey PhysicalOf(in SourceKey key)
-        => key.Kind is RawKind.LogicalKey or RawKind.KeyLabel && _physicalOf.TryGetValue(key, out var physical) ? physical : key;
+        => (key.Kind is RawKind.LogicalKey or RawKind.KeyLabel && _physicalOf.TryGetValue(key, out var physical) ? physical : key).WithoutSide();
 
     /// <summary>The value a channel has for this tick (see the class summary). Nothing is masked.</summary>
     public Vector4 Read(in SourceKey key) => Read(key, null);

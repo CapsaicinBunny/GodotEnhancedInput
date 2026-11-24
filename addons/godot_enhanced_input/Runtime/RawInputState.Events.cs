@@ -23,6 +23,28 @@ public sealed partial class RawInputState
         }
     }
 
+    private bool ApplyKey(InputEventKey key, float v, KeyLocation side)
+    {
+        bool any = false;
+        var physical = SourceKey.ForKey(key.PhysicalKeycode, KeyMatch.Physical, side);
+        if (key.PhysicalKeycode != Key.None) { Set(physical, v); any = true; }
+        if (key.Keycode != Key.None)
+        {
+            var logical = SourceKey.ForKey(key.Keycode, KeyMatch.Logical, side);
+            if (key.PhysicalKeycode != Key.None) _physicalOf[logical] = physical;
+            Set(logical, v);
+            any = true;
+        }
+        if (key.KeyLabel != Key.None)
+        {
+            var label = SourceKey.ForKey(key.KeyLabel, KeyMatch.Label, side);
+            if (key.PhysicalKeycode != Key.None) _physicalOf[label] = physical;
+            Set(label, v);
+            any = true;
+        }
+        return any;
+    }
+
     private bool ApplyEvent(InputEvent @event, IntakeStage stage)
     {
         switch (@event)
@@ -32,23 +54,9 @@ public sealed partial class RawInputState
                 if (key.Echo) return false;
                 if (!StageAllows(stage, raising: key.Pressed)) return false;
                 float v = key.Pressed ? 1f : 0f;
-                bool any = false;
-                var physical = SourceKey.ForKey(key.PhysicalKeycode, KeyMatch.Physical);
-                if (key.PhysicalKeycode != Key.None) { Set(physical, v); any = true; }
-                if (key.Keycode != Key.None)
-                {
-                    var logical = SourceKey.ForKey(key.Keycode, KeyMatch.Logical);
-                    if (key.PhysicalKeycode != Key.None) _physicalOf[logical] = physical;
-                    Set(logical, v);
-                    any = true;
-                }
-                if (key.KeyLabel != Key.None)
-                {
-                    var label = SourceKey.ForKey(key.KeyLabel, KeyMatch.Label);
-                    if (key.PhysicalKeycode != Key.None) _physicalOf[label] = physical;
-                    Set(label, v);
-                    any = true;
-                }
+                bool any = ApplyKey(key, v, KeyLocation.Unspecified);
+                // Left and right Shift, Ctrl, Alt and Meta also have a channel of their own side.
+                if (key.Location != KeyLocation.Unspecified) ApplyKey(key, v, key.Location);
                 return any;
             }
             case InputEventMouse emulated when IgnoreTouchEmulatedMouse && emulated.Device == InputEvent.DeviceIdEmulation:

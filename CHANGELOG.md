@@ -14,6 +14,12 @@ history up to 0.2.3 is in its repository.
   `EnhancedInputMappingContext` and `EnhancedInputConfig`. Mappings, input sources, modifiers, triggers,
   control schemes, haptic effects and touch layouts are created inside them from Inspector *Add …*
   menus (undoable), and a mapping's input can be typed as a source path.
+- Left and right Shift, Ctrl, Alt and Meta: `InputSource.KeySide` (`key:left_shift`, `key:right_ctrl`;
+  `key:shift` is either). Listening and capture record the side pressed; prompts say "Left Shift".
+- Editor dock: lists every action file (not only mapped ones) and offers them in the action picker;
+  drag mappings to reorder them or move them between mapping contexts; drop action files on a
+  mapping or a mapping context; *+ Action* button; config filter; double-clicking an action, mapping
+  context or config file shows it in the dock; Inspector edits show up at once.
 - `EnhancedInputAction` resources with typed values (digital, 1D, 2D, 3D), value accumulation (strongest or
   sum), *consume input*, *trigger when paused*, and action-level modifiers and triggers.
 - `InputSource`: keys (physical by default, or logical / label), two- and four-key composites, mouse
