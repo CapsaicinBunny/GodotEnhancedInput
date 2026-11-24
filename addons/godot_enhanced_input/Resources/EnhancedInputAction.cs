@@ -11,7 +11,7 @@ namespace GodotEnhancedInput;
 [Tool]
 [GlobalClass]
 [Icon("res://addons/godot_enhanced_input/Icons/EnhancedInputAction.svg")]
-public partial class EnhancedInputAction : Resource
+public partial class EnhancedInputAction : EnhancedInputResource
 {
     private string _name = string.Empty;
 

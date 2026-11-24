@@ -13,7 +13,8 @@ history up to 0.2.3 is in its repository.
 - Three assets in *Create New Resource*, and only these: `EnhancedInputAction`,
   `EnhancedInputMappingContext` and `EnhancedInputConfig`. Mappings, input sources, modifiers, triggers,
   control schemes, haptic effects and touch layouts are created inside them from Inspector *Add …*
-  menus (undoable), and a mapping's input can be typed as a source path.
+  menus (undoable), and a mapping's input can be typed as a source path. The three share the abstract
+  base `EnhancedInputResource`, which groups them in the dialog.
 - Left and right Shift, Ctrl, Alt and Meta: `InputSource.KeySide` (`key:left_shift`, `key:right_ctrl`;
   `key:shift` is either). Listening and capture record the side pressed; prompts say "Left Shift".
 - Editor dock: lists every action file (not only mapped ones) and offers them in the action picker;

@@ -15,7 +15,8 @@ namespace GodotEnhancedInput;
 /// </summary>
 [Tool]
 [GlobalClass]
-public partial class EnhancedInputConfig : Resource
+[Icon("res://addons/godot_enhanced_input/Icons/EnhancedInputConfig.svg")]
+public partial class EnhancedInputConfig : EnhancedInputResource
 {
     private string _id = string.Empty;
 

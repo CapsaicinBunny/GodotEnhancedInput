@@ -9,7 +9,8 @@
 
 ## 2. Make actions
 
-The plugin adds three assets to *Create New Resource*, and only these three:
+The plugin adds three assets to *Create New Resource*, and only these three, grouped under
+`EnhancedInputResource` (type "Enhanced" in the dialog's search):
 
 | Asset | What it holds |
 |---|---|
