@@ -5,9 +5,7 @@ All notable changes to Godot Enhanced Input are documented here. Versions follow
 
 ## [0.1.0] — unreleased
 
-First version of Godot Enhanced Input, a redesign of [InputForge](https://github.com/pandoraoyun/InputForge)
-0.2.3 (MIT). InputForge's API is replaced; see [docs/migration.md](docs/migration.md). InputForge's own
-history up to 0.2.3 is in its repository.
+First version of Godot Enhanced Input.
 
 ### Added
 - Three assets in *Create New Resource*, and only these: `EnhancedInputAction`,
@@ -70,7 +68,7 @@ history up to 0.2.3 is in its repository.
 - Debugging: `InputPlayer.DescribeState` / `EnhancedInput.DescribeState` text dumps and the
   `InputDebugOverlay` (F3) with recent events.
 - Documentation: design, concepts, modifiers, triggers, rebinding, players and touch, prompts and
-  debugging, Godot integration, migration.
+  debugging, Godot integration.
 - Robustness (from review): no press is lost between ticks (ordered per-channel change queue);
   suppressed bindings (blocked, paused, consumed, ignored) are reset instead of fed zeros; only
   firing bindings add value (`ActionState.RawValue` keeps the unfiltered value) and action-level
@@ -79,7 +77,7 @@ history up to 0.2.3 is in its repository.
   only player 0 polls the InputMap or takes unowned pads by default; pad identity checked on
   reconnect (`JoypadUnassigned`); stable `ProfileId`; focus loss cuts off input and on-screen
   controls; a stick reversal releases before the GUI and presses only if the GUI lets it through.
-- `ChangedTrigger` and `PointerSpaceModifier` (back from InputForge, reworked).
+- `ChangedTrigger` and `PointerSpaceModifier`.
 - Sources: mouse wheel axis (with trackpad pans), pen pressure / tilt / eraser, pad and handheld
   motion sensors, joypad buttons and axes by raw index, backend device controls, gestures (pinch,
   twist, two-finger drag, swipe, trackpad pinch), composites (axes of any sources, held modifiers
@@ -150,7 +148,3 @@ history up to 0.2.3 is in its repository.
   trigger resistance and force feedback; so do player removal, focus loss and suspension.
 - Tracking gained and lost are queued changes (also at the origin); a backend device assigned to a
   player is cut off for everyone else; input from removed backend devices is ignored.
-
-### Removed
-- InputForge's `EnhancedInputSystem`, `InputAction`, `InputMappingContext`, `InputMapping`, `InputKey`,
-  `ContextualInputEvent` and its triggers.

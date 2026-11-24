@@ -44,8 +44,7 @@
     </ItemGroup>
   </Target>
 
-  <!-- Reference the real plugin directly (the old ./TestProject/InputForge.Stub.csproj was a Godot 4.6
-       bridge; 2dog now embeds 4.7.1, so the stub is gone). -->
+  <!-- The tests reference the plugin project directly. -->
   <ItemGroup>
     <ProjectReference Include="../GodotEnhancedInput.csproj" />
   </ItemGroup>

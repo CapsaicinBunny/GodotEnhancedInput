@@ -4,9 +4,6 @@ This document describes what Godot Enhanced Input does, how it is built, and how
 requirement is checked. It is the reference for the staged plan at the end. It is written in
 this plugin's own terms; names that appear here are the plugin's own API.
 
-Godot Enhanced Input started as a fork of [InputForge](https://github.com/pandoraoyun/InputForge)
-0.2.3 (MIT). Version 0.1.0 is a redesign with a new API; see [migration.md](migration.md).
-
 ## 1. Goals
 
 1. Gameplay code asks for **actions** ("Jump", "Move", "Look"), never for keys or buttons.
@@ -362,7 +359,7 @@ All eight stages are done; the API is frozen for 0.1.0.
 
 | Stage | Content | Done when |
 |---|---|---|
-| **1 — Core** | Rename to Godot Enhanced Input; actions and typed values; sources incl. physical keys, InputMap actions and `InputEventAction`; contexts with priority, consumption and blocking; all modifiers in §3.4; all triggers in §3.5 with roles; tick-driven phase state machine with events and timings; C# callbacks, polling and signals; GUI-safe event intake; demo scene; docs. | Every stage-1 test in §3 passes; docs and migration notes written. |
+| **1 — Core** | Actions and typed values; sources incl. physical keys, InputMap actions and `InputEventAction`; contexts with priority, consumption and blocking; all modifiers in §3.4; all triggers in §3.5 with roles; tick-driven phase state machine with events and timings; C# callbacks, polling and signals; GUI-safe event intake; demo scene; docs. | Every stage-1 test in §3 passes; docs written. |
 | **2 — Rebinding** | Rebindable bindings and slots, per-player profiles, conflict policies, capture-a-press rebinding, half-axis joypad sources, JSON save/load; a rebinding menu in the demo. | MAP-* tests pass. |
 | **3 — Players and touch** | Multiple players with device filters and joypad assignment; screen touch/drag sources; on-screen stick and buttons writing virtual controls. | PLR-1, GD-4 tests pass. |
 | **4 — Prompts and debug** | Prompt names, joypad styles, last used device, action prompts, icon sets; debug text dump and overlay. | PRM-* and DBG-* tests pass. |

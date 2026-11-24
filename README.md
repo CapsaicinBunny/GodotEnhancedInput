@@ -180,7 +180,6 @@ touch controls (F2 on desktop). Open `demo.tscn` and press F6.
 | [Platforms and hardware](docs/platforms-and-hardware.md) | platform support table and a hardware test checklist |
 | [Godot integration](docs/godot-integration.md) | ticking, event times, stuck input, InputMap and `InputEventAction`, focus loss, physical keys, GUI focus, signals, headless tests |
 | [Design and requirements](docs/design.md) | requirements with their tests, architecture, the staged plan |
-| [Migrating from InputForge](docs/migration.md) | old names to new, behaviour that changed |
 
 ## Repository layout
 
@@ -197,14 +196,11 @@ touch controls (F2 on desktop). Open `demo.tscn` and press F6.
 dotnet run --project GodotEnhancedInput.Tests/GodotEnhancedInput.Tests.csproj -c Debug
 ```
 
-466 tests run against a real headless Godot through [2dog](https://github.com/outfox/2dog), one or
+483 tests run against a real headless Godot through [2dog](https://github.com/outfox/2dog), one or
 more per requirement in the [design](docs/design.md); see [the test README](GodotEnhancedInput.Tests/README.md).
 The same suite runs in CI on Windows, Linux and macOS. Real hardware is covered by the
 [checklist](docs/platforms-and-hardware.md#hardware-checklist).
 
-## Credits and license
+## License
 
-MIT. Godot Enhanced Input began as a fork of [InputForge](https://github.com/pandoraoyun/InputForge)
-by PandoraOyun (MIT), whose context stack, Inspector-first resources and test setup it grew from.
-Version 0.1.0 replaces InputForge's API; see [migration](docs/migration.md). AI use is described in
-[AI_DISCLOSURE.md](AI_DISCLOSURE.md).
+MIT; see [LICENSE](LICENSE). AI use is described in [AI_DISCLOSURE.md](AI_DISCLOSURE.md).
