@@ -120,3 +120,45 @@ gameplay.Add(jump, InputSource.ForVirtual("touch_jump"), new PressedTrigger());
 Your own widgets can do the same with `player.SetVirtualControl(name, value)` (held values) and
 `player.AddToVirtualControl(name, delta)` (values for the next tick only), or by deriving from
 `TouchControl`.
+
+### Gestures
+
+`Gesture` sources read the fingers together (and a laptop trackpad's pinch):
+
+| `GestureChannel` | Value (per tick) | Path |
+|---|---|---|
+| `Pinch` | relative change of the distance between two fingers (+1 = twice as far apart); trackpad pinch adds `factor − 1` | `gesture:pinch` |
+| `Rotate` | change of the angle between two fingers, in radians | `gesture:rotate` |
+| `TwoFingerDrag` | movement of the two fingers' midpoint, in pixels | `gesture:two_finger_drag` |
+| `Swipe` | for one tick after a quick one-finger flick: the unit direction (X or Y) | `gesture:swipe` |
+
+A swipe needs `SwipeMinDistance` (60 px) and a release speed of `SwipeMinSpeed` (400 px/s); slower
+movement is a drag. Long press and double tap are ordinary triggers on a touch source:
+`touch:pressed` with a `HoldTrigger` or a `MultiTapTrigger`. Laptop two-finger scrolling arrives as
+`mouse:wheel`.
+
+### Safe area
+
+On-screen controls keep clear of notches, rounded corners and system bars: with `KeepInSafeArea`
+(on by default) a control moves — and shrinks if it must — into the display's safe area when it
+appears. Call `FitToSafeArea()` after changing layout; `GetSafeArea()` gives the area in viewport
+pixels, and `SafeAreaOverride` sets it by hand (tests, custom frames).
+
+### Touch layouts
+
+Put on-screen controls under a `TouchLayoutRoot` to let players move, resize and fade them:
+
+```csharp
+var root = GetNode<TouchLayoutRoot>("TouchControls");
+root.Layout = TouchLayout.LoadJson("user://input/touch_layout.json") ?? root.Capture();
+root.Apply();
+
+root.EditMode = true;          // controls stop acting; drag them with a finger or the mouse
+// … player arranges …
+root.EditMode = false;
+root.Capture().SaveJson("user://input/touch_layout.json");
+```
+
+A `TouchLayout` stores each control's rect by node name as fractions of the screen, so it survives
+resolution and orientation changes, plus a `Scale` for every control (bigger buttons) and an
+`Opacity`.

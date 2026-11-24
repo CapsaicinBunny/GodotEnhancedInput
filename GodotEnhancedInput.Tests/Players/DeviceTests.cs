@@ -270,7 +270,7 @@ public class DeviceTests
     public void XRBackend_TurnsTrackerInputsAndPosesIntoControls()
     {
         var system = new EnhancedInput { TickMode = TickMode.Manual };
-        var tracker = new XRPositionalTracker { Name = "gei_test_left_hand", Type = XRServer.TrackerType.Controller };
+        var tracker = new XRControllerTracker { Name = "gei_test_left_hand", Type = XRServer.TrackerType.Controller };
         var backend = new XRInputBackend();
         try
         {
@@ -282,7 +282,9 @@ public class DeviceTests
             system.AddBackend(backend);
             XRServer.AddTracker(tracker);
 
+#pragma warning disable CS0618 // Godot marks the base method as "use through XRControllerTracker", which this is
             tracker.SetInput("trigger", 0.75f);
+#pragma warning restore CS0618
             tracker.SetPose("default", new Transform3D(Basis.Identity, new Vector3(0.1f, 1.2f, -0.3f)), Vector3.Zero, Vector3.Zero, XRPose.TrackingConfidenceEnum.High);
             system.Tick(Rig.Dt);
 

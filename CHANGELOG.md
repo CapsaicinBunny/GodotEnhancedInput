@@ -65,7 +65,28 @@ history up to 0.2.3 is in its repository.
   reconnect (`JoypadUnassigned`); stable `ProfileId`; focus loss releases input and on-screen
   controls; stick reversals are read before the GUI.
 - `ChangedTrigger` and `PointerSpaceModifier` (back from InputForge, reworked).
-- 258 headless tests.
+- Sources: mouse wheel axis (with trackpad pans), pen pressure / tilt / eraser, pad and handheld
+  motion sensors, joypad buttons and axes by raw index, backend device controls, gestures (pinch,
+  twist, two-finger drag, swipe, trackpad pinch), composites (axes of any sources, held modifiers
+  then a value, any-of); value natures; `InputSourcePath` text form for every kind.
+- Devices: registry with connect / disconnect events and guessed roles, `AssignDevice` for any
+  device, `DeviceProfile` calibration, inversion and names, `InputBackend` for other hardware,
+  `XRInputBackend`; rumble, joypad lights and handheld vibration scaled by `vibration_strength`.
+- Triggers: multi-tap, toggle, repeat, threshold, hysteresis, flick, distance, predicate; timing
+  scale settings. Modifiers: remap, calibration, sensitivity, acceleration, anti-deadzone,
+  quantize, hysteresis, integrate, differentiate, DPI scale, gyro calibration; player-tunable
+  deadzone.
+- Input modes with binding groups, device-driven switching and locking; player settings in the
+  profile with mode defaults; hold-to-toggle; accessibility presets.
+- Rebinding: composite parts (`RebindPart`, part capture), capture exclusions, filters, chords,
+  timeouts and wait-for-release; named profiles, preset import / export, safe (atomic) writes.
+- Touch: safe-area placement, `TouchLayout` / `TouchLayoutRoot` with edit mode, scale and opacity.
+- Recording and deterministic replay (`StartRecording`, `StartReplay`, `InputRecording` JSON).
+- Performance: compiled bindings (`RefreshBindings`, `BindingContext.NotifyBindingsChanged`),
+  allocation-free steady-state ticks, `EmitActionSignals`; nested `Tick` calls are ignored.
+- Editor dock (bindings, problems, listen-to-assign, devices) and `BindingValidator`.
+- CI on Windows, Linux and macOS; platform table and hardware checklist.
+- 366 headless tests.
 
 ### Removed
 - InputForge's `EnhancedInputSystem`, `InputAction`, `InputMappingContext`, `InputMapping`, `InputKey`,

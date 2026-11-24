@@ -25,6 +25,22 @@ as actuated. Zero is never actuated.
 | `ChordTrigger` | implicit | Triggered only while `ChordAction` is triggered this tick. | `ChordAction` |
 | `ChordBlockerTrigger` | blocker | Blocks its set while `BlockingAction` is triggered this tick. | `BlockingAction` |
 | `ComboTrigger` | explicit | Steps of other actions, in order, each within its time limit. Ongoing while partway; triggered when the last step completes. Starts over on timeout, on a step action completing out of order, or when a cancel action triggers. | `Steps` (`ComboStep`: action, completing events, time limit), `CancelActions` |
+| `MultiTapTrigger` | explicit | Triggered on the release that completes `Taps` quick taps (double tap by default). Each press must be released within `TapSeconds` and the next must start within `GapSeconds`; otherwise it starts over. | `Taps`, `TapSeconds`, `GapSeconds` |
+| `ToggleTrigger` | explicit | Each press flips it on or off; triggered while on (toggle crouch, toggle aim). Starts off again when the binding is suppressed. | — |
+| `RepeatTrigger` | explicit | Like a held key in a text field: triggered on the press, again after `InitialDelaySeconds`, then every `IntervalSeconds`; ongoing in between; optional `MaxRepeats`. | `TriggerOnPress`, `InitialDelaySeconds`, `IntervalSeconds`, `MaxRepeats` |
+| `ThresholdTrigger` | explicit | Triggered for one tick when the magnitude crosses `Threshold` rising, falling or either way; `Band` stops a noisy value from flickering across. | `Threshold`, `Band`, `Direction` |
+| `HysteresisTrigger` | explicit | Down while actuated, but turns on at `PressThreshold` and off only below `ReleaseThreshold` — for analog triggers resting near a threshold. | `PressThreshold`, `ReleaseThreshold` |
+| `FlickTrigger` | explicit | Triggered for one tick when a stick goes from rest to nearly full travel within `MaxSeconds`. Read the direction from the value on that tick. | `RestRadius`, `FlickRadius`, `MaxSeconds` |
+| `DistanceTrigger` | explicit | For movement (mouse motion, drags): triggered once the movement since it started adds up to `Distance` — "drag 20 px before it counts". | `Distance`, `ResetSeconds`, `OneShot` |
+| `PredicateTrigger` | any | Its phase comes from a C# function (`Evaluator`), for one-off rules. Set in code. | `Evaluator`, `TriggerRole` |
+
+## Timing settings
+
+Durations are multiplied by player settings, so a player can make taps more forgiving or holds
+shorter without new resources (see [modes and accessibility](modes-and-accessibility.md)):
+`hold_time_scale` (hold, hold-release, the delay before the first repeat), `tap_time_scale` (tap and
+multi-tap windows) and `repeat_time_scale` (pulse and repeat intervals). A custom trigger can use the
+same scaling through `Scaled(context, seconds, setting)`.
 
 ## Roles: how a set of triggers combines
 
@@ -76,14 +92,15 @@ Pick up and cancels Inspect.
 ## Writing your own
 
 ```csharp
-/// Each press flips the action on or off (e.g. toggle crouch).
+/// Triggered from the first press on, until the binding is suppressed or the player is reset
+/// (e.g. "press any button to start").
 [Tool, GlobalClass]
-public partial class ToggleTrigger : InputTrigger
+public partial class LatchTrigger : InputTrigger
 {
     protected override TriggerPhase Update(in TriggerContext context, bool actuated, bool wasActuated)
     {
         var memory = context.Memory;          // per binding, per player — never fields on the resource
-        if (actuated && !wasActuated) memory.Flag = !memory.Flag;
+        if (actuated) memory.Flag = true;
         return memory.Flag ? TriggerPhase.Triggered : TriggerPhase.Idle;
     }
 }

@@ -201,6 +201,31 @@ changed, so the designer's defaults stay intact and one profile can be reset at 
 | DBG-1 | **Text dump.** A player describes its state as text: devices and last used device, contexts in priority order with their flags and ignored sources, a running capture, profile overrides, and every action's phase, value, events and timings (optionally only active ones). The autoload describes all players. | `DebugTests.Dump_*` |
 | DBG-2 | **Overlay.** `InputDebugOverlay` (a `CanvasLayer`) shows the dump for one or all players, refreshed every frame, with a short history of recent events, toggled by a key (F3 by default) without consuming it. | `DebugTests.Overlay_*` |
 
+### 3.12 Extended feature set (stage 5)
+
+| ID | Requirement | Test |
+|---|---|---|
+| SRC-1 | **More sources.** Mouse wheel as a per-tick scroll axis (trackpad pans included), pen pressure, tilt and eraser, motion sensors of pads and of the handheld device, joypad buttons and axes by raw index, controls of backend devices; touch-emulated mouse events ignored by default. | `DeviceTests.MouseWheel_*`, `DeviceTests.Pen_*`, `DeviceTests.MotionSensors_*`, `DeviceTests.RawPadIndices_*`, `DeviceTests.TouchEmulatedMouse_*` |
+| SRC-2 | **Composites**: two- and four-part axes of any sources, held modifiers then a value ("Ctrl + S"), and the strongest of several. | `DeviceTests.Composite_*` |
+| SRC-3 | **Text paths** for every source kind, round-tripping through parse and format, with aliases; all kinds round-trip through profile JSON. | `DeviceTests.Paths_*`, `DeviceTests.NewKinds_RoundTripThroughJson`, `GestureTests.Paths_AndJson_ForGestures` |
+| SRC-4 | Each source has a value nature (state, delta, absolute) that modifiers can use. | `MoreModifierTests.DeltaTimeScale_LeavesDeltaValuesAlone`, `MoreModifierTests.Integrate_And_Differentiate` |
+| DEV-1 | **Device registry** with connect and disconnect events, guessed roles, and device assignment for any device kind. | `DeviceTests.Registry_*`, `DeviceTests.Roles_*`, `DeviceTests.AssignDevice_*` |
+| DEV-2 | **Device profiles** match by GUID or name and calibrate, invert and name axes and buttons. | `DeviceTests.DeviceProfile_*` |
+| DEV-3 | **Backends** add devices whose controls route like joypads; an XR backend turns tracker inputs and poses into controls. | `DeviceTests.CustomBackend_*`, `DeviceTests.XRBackend_*` |
+| DEV-4 | **Haptics**: rumble to the player's pads, joypad lights, handheld vibration, all through a replaceable output, scaled by the player's vibration strength. | `DeviceTests.Rumble_*` |
+| TRG-1 | Multi-tap, toggle, repeat, threshold (with a band and direction), hysteresis, flick, distance and predicate triggers. | `MoreTriggerTests.*` |
+| MOD-1 | Remap, sensitivity (player setting, inversion), acceleration, anti-deadzone, calibration, quantize, hysteresis, integrate, differentiate, DPI scale and gyro drift removal modifiers; a player-tunable deadzone. | `MoreModifierTests.*`, `ModeTests.DeadzoneSetting_LetsPlayersTuneIt` |
+| MDE-1 | **Input modes** select binding groups; the mode follows the device used unless locked; modes can require devices; prompts follow the active mode. | `ModeTests.Groups_*`, `ModeTests.NoActiveMode_*`, `ModeTests.Modes_*`, `ModeTests.Prompts_*` |
+| MDE-2 | **Player settings** live in the profile and fall back to the mode's defaults; hold-to-toggle per action; timing scales; presets apply as one change. | `ModeTests.Settings_*`, `ModeTests.HoldToToggle_*`, `ModeTests.TimingScales_*`, `ModeTests.Presets_*`, `MoreModifierTests.ProfileSettings_*` |
+| MAP-8 | Rebinding one **part** of a composite, also by capture. | `MoreRebindTests.Parts_*`, `MoreRebindTests.Capture_OfOnePart` |
+| MAP-9 | Capture ignores inputs held when it starts (sticks until centred), supports exclusions, filters, modifier chords and a timeout. | `MoreRebindTests.Capture_*` |
+| MAP-10 | Several **named profiles** per player, presets to import and export, writes that cannot leave a half-written file; a swap reaches listeners as one change. | `MoreRebindTests.NamedProfiles_*`, `MoreRebindTests.Presets_*`, `MoreRebindTests.Swap_*` |
+| GST-1 | **Gestures**: pinch, twist, two-finger drag and swipe from touches, trackpad pinch; long press and double tap as triggers on touch. | `GestureTests.Pinch_*`, `GestureTests.TrackpadMagnify_*`, `GestureTests.Rotate_*`, `GestureTests.Swipe_*`, `GestureTests.Gestures_WorkWithTriggers_*` |
+| GST-2 | On-screen controls keep inside the **safe area**; **touch layouts** place, scale and fade controls, can be edited by dragging, and save as JSON. | `GestureTests.SafeArea_*`, `GestureTests.TouchLayout_*` |
+| REC-1 | **Recording and replay**: a player's input and time steps are recorded tick by tick and replay to the same values, phases and events; live input is ignored during a replay; recordings save as JSON with every event kind. | `ReplayTests.*` |
+| PRF-1 | Active bindings are **compiled** once and recompiled only when contexts, profile, mode or bindings change; steady-state ticks allocate nothing (1000 bindings). | `StressTests.Bindings_*`, `StressTests.ManyActionsAndContexts_*` |
+| PRF-2 | A tick started from inside a tick is ignored; chord cycles neither hang nor fire; timers are frame-rate independent and ignore zero or negative deltas; reassigning a pad mid-hold releases it for the old owner without pressing for the new one. | `StressTests.Tick_*`, `StressTests.ChordCycle_*`, `StressTests.Hold_*`, `StressTests.ZeroAndNegativeDeltas_*`, `StressTests.Tap_*`, `StressTests.ReassigningAJoypadMidHold_*` |
+| EDT-1 | **Validation** finds missing actions and inputs, empty slots, dangling chords and combos, conflicting plain bindings, ambiguous rebind ids, unnamed or same-named actions and axis mismatches; the editor dock lists contexts and problems, assigns inputs by listening, and lists connected pads. | `ValidatorTests.*` (the dock itself is checked by hand) |
 ## 4. Architecture
 
 ```
@@ -278,7 +303,7 @@ player.Tick(1.0 / 60.0);
 
 ## 6. Staged plan
 
-All four stages are done.
+All five stages are done.
 
 | Stage | Content | Done when |
 |---|---|---|
@@ -286,3 +311,4 @@ All four stages are done.
 | **2 — Rebinding** | Rebindable bindings and slots, per-player profiles, conflict policies, capture-a-press rebinding, half-axis joypad sources, JSON save/load; a rebinding menu in the demo. | MAP-* tests pass. |
 | **3 — Players and touch** | Multiple players with device filters and joypad assignment; screen touch/drag sources; on-screen stick and buttons writing virtual controls. | PLR-1, GD-4 tests pass. |
 | **4 — Prompts and debug** | Prompt names, joypad styles, last used device, action prompts, icon sets; debug text dump and overlay. | PRM-* and DBG-* tests pass. |
+| **5 — Extended** | More sources and composites, text paths, value natures; device registry, profiles, backends, XR, haptics; more triggers and modifiers; input modes, player settings, accessibility; composite-part rebinding, capture options, named profiles; gestures, safe area, touch layouts; recording and replay; compiled bindings and allocation-free ticks; validation and the editor dock; CI on three platforms and a hardware checklist. | SRC-*, DEV-*, TRG-1, MOD-1, MDE-*, MAP-8…10, GST-*, REC-1, PRF-*, EDT-1 tests pass. |

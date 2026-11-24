@@ -128,3 +128,49 @@ looks like this:
 
 Each player has its own profile (`player.Profile`, never null). Assign a different `InputProfile`
 to switch presets.
+
+## 6. More capture options
+
+| `CaptureOptions` | Effect |
+|---|---|
+| `ExcludedKeys`, `ExcludedJoyButtons` | inputs that never bind (keys the menu uses); pressing them does nothing |
+| `Filter` | a function that accepts or ignores each captured source (e.g. "triggers only") |
+| `WaitForRelease` (on) | inputs already held — and sticks off-centre — when the capture starts are ignored until released, so the button that opened the prompt is not captured |
+| `AllowChords` | holding Ctrl and pressing S binds "Ctrl + S"; a modifier released alone binds itself |
+| `TimeoutSeconds` | give up after this long without a usable press (counted in ticks); `LastCaptureTimedOut` tells a timeout from a cancel |
+
+## Composite parts
+
+A slot whose source is made of parts — four movement keys, a two-key axis, "Ctrl + S" — can be
+rebound one part at a time, keeping the others:
+
+```csharp
+player.RebindPart("move", part: 0, InputSource.ForKey(Key.I));   // up of keys:w/s/a/d
+player.StartCapture("move", part: 2);                              // capture "left"
+```
+
+`InputSource.GetParts()` lists the parts in order (for a four-key source: up, down, left, right);
+`CapturePart` reports the part being captured.
+
+## Named profiles and presets
+
+Each player can keep several profiles — "default", "left-handed", "couch" — in
+`ProfileFolder` (`user://input/<ProfileId>/`):
+
+```csharp
+player.SaveProfileAs("left-handed");
+List<string> names = player.ListProfiles();
+player.LoadProfileNamed("left-handed");
+player.DeleteProfile("couch");
+
+player.ExportProfile("user://shared/my_layout.json");            // share it
+player.ImportPreset("res://input/presets/southpaw.json");         // apply on top of the current one
+player.ImportPreset("res://input/presets/southpaw.json", replace: true);
+```
+
+Profiles hold player settings as well as rebinding choices ([modes and accessibility](modes-and-accessibility.md)).
+Several changes made inside `player.Profile.Batch(() => { … })` raise `BindingsChanged` once.
+
+Files are written to a temporary file first and then moved over the old one, so a crash or power
+loss mid-save leaves the previous profile intact. Entries that cannot be read (an unknown source, say) are
+skipped with a warning instead of failing the whole load; a file in a newer format version is refused.

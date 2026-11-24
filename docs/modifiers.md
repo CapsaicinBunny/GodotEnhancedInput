@@ -8,9 +8,9 @@ one modifier resource can be shared.
 
 | Modifier | What it does | Settings |
 |---|---|---|
-| `DeadzoneModifier` | Below `Lower` → 0; between `Lower` and `Upper` → stretched to 0…1; above `Upper` → 1. **Axial** works per component and keeps each sign (good for 1D axes and triggers); **Radial** works on the vector length and keeps the direction (good for sticks). | `Shape`, `Lower` (0.2), `Upper` (1) |
+| `DeadzoneModifier` | Below `Lower` → 0; between `Lower` and `Upper` → stretched to 0…1; above `Upper` → 1. **Axial** works per component and keeps each sign (good for 1D axes and triggers); **Radial** works on the vector length and keeps the direction (good for sticks). `LowerSetting` lets the player tune `Lower`. | `Shape`, `Lower` (0.2), `Upper` (1), `LowerSetting` |
 | `ScaleModifier` | Multiplies per component. Sensitivity, axis weighting. | `Scale` |
-| `DeltaTimeScaleModifier` | Multiplies by the tick's delta time: turns a rate into a per-tick amount. | — |
+| `DeltaTimeScaleModifier` | Multiplies by the tick's delta time: turns a rate into a per-tick amount. Delta sources (mouse motion, drags) are left alone — they already are per tick. | `ScaleDeltaValues` |
 | `NegateModifier` | Flips the sign of the chosen components. | `X`, `Y`, `Z` |
 | `SwizzleModifier` | Reorders components (`XYZ`, `YXZ`, `XZY`, `ZYX`, `YZX`, `ZXY`). A key feeds X; `YXZ` puts it on Y. | `Order` |
 | `SmoothingModifier` | **Average** of the last N ticks, or **Exponential** follow at a rate per second. | `Mode`, `Samples`, `Rate` |
@@ -22,6 +22,21 @@ one modifier resource can be shared.
 | `ViewRelativeModifier` | Rotates a world direction by the player's view, so forward is "away from the camera". `YawOnly` uses only the heading (stays on the ground). The view is `InputPlayer.ViewCamera`, the viewport's current `Camera3D`, or `ViewBasisOverride`. | `YawOnly` |
 | `PointerSpaceModifier` | Converts a pointer position (viewport pixels, from `MousePosition` or a touch position) to 0…1 viewport coordinates, −1…1 centred coordinates, 0…1 within a rect, or 2D world coordinates through the viewport's canvas transform. Uses the player's `PointerViewport` (its own by default) for split screen and SubViewports. | `Space`, `Rect` |
 | `FovScaleModifier` | Multiplies by `tan(fov/2) / tan(reference/2)` of the view camera, so aiming feels the same when zoomed. | `ReferenceFov` (75°) |
+| `RemapModifier` | Maps each component linearly from an input range to an output range (a pedal resting at −1 onto 0…1, a throttle onto 0…100), optionally clamped. | `InputMin`, `InputMax`, `OutputMin`, `OutputMax`, `Clamp` |
+| `CalibrationModifier` | Maps measured min / centre / max readings to −1…0…1 per component, for worn sticks, wheels and pedals. | `Min`, `Center`, `Max` |
+| `SensitivityModifier` | Scales by a sensitivity the player chose (a profile setting) and optionally inverts X or Y by yes/no settings. Use one setting per device group. | `Setting`, `Scale`, `InvertXSetting`, `InvertYSetting` |
+| `AccelerationModifier` | Pointer acceleration: gain `1 + Acceleration · speed^Exponent`, capped at `MaxGain`; slow movement stays 1:1. | `Acceleration`, `Exponent`, `MaxGain` |
+| `AntiDeadzoneModifier` | Lifts small non-zero values to `Minimum` and scales the rest into `Minimum…1`, to cancel a deadzone applied later. | `Shape`, `Minimum` |
+| `QuantizeModifier` | Rounds to steps (a throttle in 10 % notches) or a direction to the nearest of N (4- or 8-way sticks). | `Mode`, `Step`, `Directions` |
+| `HysteresisModifier` | Holds the output still until the input moves more than `Band` away — removes jitter without smoothing lag. | `Band` |
+| `IntegrateModifier` | Adds the value up into a position (mouse motion into an aim offset, a stick into a throttle that stays put), clamped, optionally returning to zero. | `Min`, `Max`, `PerSecond`, `ReturnRate` |
+| `DifferentiateModifier` | Outputs the change since the previous tick (a tracked position into movement), optionally per second. | `PerSecond` |
+| `DpiScaleModifier` | Multiplies by `ReferenceDpi / screen DPI`, so the same hand movement turns the camera equally on any screen. `InputPlayer.ScreenDpiOverride` wins when set. | `ReferenceDpi` |
+| `GyroCalibrationModifier` | Learns a gyroscope's resting bias while the device is still and subtracts it, removing drift. Put it first on a gyroscope binding. | `StillThreshold`, `LearnRate` |
+
+Modifiers know the **nature** of what they receive (`context.Nature`: state, delta or absolute; see
+[sources](sources-and-devices.md#value-natures)), so the same modifier can treat a held stick and a
+mouse movement correctly.
 
 ## Recipes
 
@@ -37,9 +52,13 @@ one modifier resource can be shared.
 **Camera-relative movement on a 3D action:** stick → `DeadzoneModifier` (radial) on the binding;
 `WorldAxesModifier` then `ViewRelativeModifier` on the action.
 
-**Mouse look:** `MouseMotion` → `ScaleModifier` (sensitivity), optionally `NegateModifier` (Y) and
-`FovScaleModifier`. Stick look: `JoyStick` Right → radial deadzone → `ExponentCurveModifier` →
-`DeltaTimeScaleModifier` → `ScaleModifier` (degrees per second).
+**Mouse look:** `MouseMotion` → `SensitivityModifier` (`mouse_sensitivity`, `invert_look_y`), optionally
+`DpiScaleModifier`, `AccelerationModifier` and `FovScaleModifier`. Stick look: `JoyStick` Right → radial deadzone → `ExponentCurveModifier` →
+`DeltaTimeScaleModifier` → `SensitivityModifier` (`stick_sensitivity`, degrees per second as `Scale`).
+
+**Gyro aiming:** `pad:gyroscope` → `GyroCalibrationModifier` → `HysteresisModifier` → `SensitivityModifier`.
+
+**Pedal:** `pad:axis2` → `CalibrationModifier` (or a `DeviceProfile` calibration) → `RemapModifier` −1…1 → 0…1.
 
 ## Writing your own
 

@@ -7,8 +7,9 @@ action gets a typed value and a phase, and raises events your code can subscribe
 > C# · Godot 4.7+ · configured in the Inspector or in code · works with the InputMap, physical
 > keys and GUI focus · testable headless
 
-Status: **0.1.0** — all four stages of [the plan](docs/design.md#6-staged-plan) are done: the core,
-rebinding, local players and touch, prompts and debugging. Not yet released.
+Status: **0.1.0** — all five stages of [the plan](docs/design.md#6-staged-plan) are done: the core,
+rebinding, local players and touch, prompts and debugging, and the extended feature set (more
+sources and devices, modes and accessibility, recording, editor tools). Not yet released.
 
 ## What it does
 
@@ -17,26 +18,44 @@ rebinding, local players and touch, prompts and debugging. Not yet released.
 - **Binding contexts with priorities.** Add and remove sets of bindings at runtime. A higher
   context can *consume* the keys it uses, or *block* everything below it (pause menus). A context
   can ignore keys that are already held when it opens.
-- **Modifiers** shape values: axial and radial deadzones, scale, delta-time scale, negate, swizzle,
-  smoothing, exponent and `Curve` response, normalize, clamp, 2D → world axes, view-relative
-  (camera) rotation, field-of-view scaling.
+- **Many sources.** Keys (physical, by code or by label), mouse buttons, motion, position and wheel,
+  joypad buttons, axes and sticks (also by raw index), motion sensors of pads and phones, touch,
+  multi-finger gestures, pen pressure and tilt, InputMap actions, virtual controls, controls of
+  backend devices, and composites ("Ctrl + S", two- and four-key axes, any-of) — all with a short
+  text form such as `pad:left_stick` or `key:ctrl + key:s`.
+- **Modifiers** shape values: axial and radial deadzones, anti-deadzone, scale, player sensitivity,
+  acceleration, delta-time scale, negate, swizzle, smoothing, hysteresis, exponent and `Curve`
+  response, remap, calibration, quantize, integrate, differentiate, normalize, clamp, DPI scale,
+  gyro drift removal, 2D → world axes, view-relative (camera) rotation, field-of-view scaling.
 - **Triggers** decide when an action fires: down, pressed, released, hold, hold-and-release, tap,
-  pulse, chord, chord blocker and combo — with explicit, implicit and blocker roles.
+  multi-tap, toggle, pulse, repeat, threshold, hysteresis, flick, distance, chord, chord blocker,
+  combo and code-defined predicates — with explicit, implicit and blocker roles.
 - **A per-tick state machine** turns phases (idle, ongoing, triggered) into events: started,
   ongoing, triggered, completed, canceled — with elapsed and triggered time. Hold and pulse work
   while nothing new arrives.
 - **Player rebinding.** Mark bindings rebindable, list them as slots for a settings menu, rebind
-  in code or by capturing the next press, handle conflicts (allow, reject, swap, clear), and save
-  each player's profile as versioned JSON.
+  in code or by capturing the next press (with exclusions, filters, chords and timeouts), rebind one
+  part of a composite, handle conflicts (allow, reject, swap, clear), and save each player's profiles
+  — several per player, plus shareable presets — as versioned JSON written safely.
+- **Modes, settings and accessibility.** Input modes switch binding groups with the device in use;
+  per-player settings (sensitivity, inversion, deadzones, timing scales, vibration strength) live in
+  the profile; hold-to-toggle for any action and ready-made accessibility presets.
+- **Devices.** A device registry with connect and disconnect events, device profiles that calibrate
+  and name wheels, pedals and flight sticks, pluggable backends for other hardware, an XR backend,
+  rumble, joypad lights and handheld vibration.
 - **Local multiplayer.** Several players, each with its own contexts and profile; exclusive joypad
   assignment; players join by pressing a button on a new joypad.
-- **Touch.** Touch sources (pressed, position, drag) and on-screen controls — a virtual stick,
-  buttons and a drag zone for camera look — with multi-touch.
+- **Touch.** Touch sources (pressed, position, drag), gestures (pinch, twist, two-finger drag,
+  swipe, trackpad pinch) and on-screen controls — a virtual stick, buttons and a drag zone for camera
+  look — with multi-touch, safe-area placement and player-editable layouts.
 - **Button prompts.** "Press Space" turns into "Press A" when the player picks up a pad: prompts
   follow the last used device, rebinds and chords, name keys as the keyboard layout labels them,
   and name pad buttons in Xbox-, PlayStation- or Nintendo-like styles. Icon sets map prompts to your
   own artwork.
-- **Debugging.** A text dump of every player's contexts and actions, and an F3 overlay.
+- **Debugging and tools.** A text dump of every player's contexts and actions, an F3 overlay,
+  recording and deterministic replay of a player's input, a binding validator, and an editor dock
+  that lists every context, shows problems, assigns inputs by listening, and lists connected pads.
+- **Fast.** Bindings are compiled once and reused; steady-state ticks allocate nothing.
 - **Godot-friendly.** Physical key positions by default; InputMap actions as sources;
   `InputEventAction` drives game actions directly (great for tests); never marks events handled
   and never steals presses from a focused GUI control; C# callbacks, polling and Godot signals.
@@ -127,11 +146,15 @@ touch controls (F2 on desktop). Open `demo.tscn` and press F6.
 |---|---|
 | [Getting started](docs/getting-started.md) | install, first actions and context, using them, a menu on top |
 | [Concepts](docs/concepts.md) | actions and values, sources, contexts, the tick, phases and events, injected input |
+| [Sources and devices](docs/sources-and-devices.md) | every source kind and its text form, composites, the device registry, device profiles, backends, XR, rumble |
 | [Modifiers](docs/modifiers.md) | every modifier, recipes, writing your own |
 | [Triggers](docs/triggers.md) | every trigger, roles, chords, combos, tap versus hold, writing your own |
-| [Rebinding](docs/rebinding.md) | rebindable bindings, slots, conflicts, capture, saving profiles |
-| [Players and touch](docs/players-and-touch.md) | local multiplayer, joypad assignment, joining, touch sources, on-screen controls |
+| [Rebinding](docs/rebinding.md) | rebindable bindings, slots, conflicts, capture, composite parts, named profiles and presets |
+| [Modes and accessibility](docs/modes-and-accessibility.md) | input modes, player settings, hold-to-toggle, accessibility presets |
+| [Players and touch](docs/players-and-touch.md) | local multiplayer, joypad assignment, joining, touch sources, gestures, on-screen controls, safe area, touch layouts |
 | [Prompts and debugging](docs/prompts-and-debugging.md) | button prompts, joypad styles, icon sets, text dump, F3 overlay |
+| [Recording, tools and performance](docs/recording-and-tools.md) | recording and replay, the editor dock, validation, performance and safety notes |
+| [Platforms and hardware](docs/platforms-and-hardware.md) | platform support table and a hardware test checklist |
 | [Godot integration](docs/godot-integration.md) | ticking, InputMap and `InputEventAction`, physical keys, GUI focus, signals, headless tests |
 | [Design and requirements](docs/design.md) | requirements with their tests, architecture, the staged plan |
 | [Migrating from InputForge](docs/migration.md) | old names to new, behaviour that changed |
@@ -140,7 +163,7 @@ touch controls (F2 on desktop). Open `demo.tscn` and press F6.
 
 | Path | What |
 |---|---|
-| `addons/godot_enhanced_input/` | the plugin: `Resources/`, `Runtime/`, `Modifiers/`, `Triggers/`, `Touch/`, `Prompts/`, `Debug/` |
+| `addons/godot_enhanced_input/` | the plugin: `Resources/`, `Runtime/`, `Modifiers/`, `Triggers/`, `Devices/`, `Touch/`, `Prompts/`, `Debug/`, `Editor/` |
 | `addons/godot_enhanced_input_demo/` | the demo scene and its saved actions and contexts |
 | `GodotEnhancedInput.Tests/` | the headless test suite |
 | `docs/` | the guides above |
@@ -151,9 +174,10 @@ touch controls (F2 on desktop). Open `demo.tscn` and press F6.
 dotnet run --project GodotEnhancedInput.Tests/GodotEnhancedInput.Tests.csproj -c Debug
 ```
 
-258 tests run against a real headless Godot through [2dog](https://github.com/outfox/2dog), one or
+366 tests run against a real headless Godot through [2dog](https://github.com/outfox/2dog), one or
 more per requirement in the [design](docs/design.md); see [the test README](GodotEnhancedInput.Tests/README.md).
-The same suite runs in CI on pull requests.
+The same suite runs in CI on Windows, Linux and macOS. Real hardware is covered by the
+[checklist](docs/platforms-and-hardware.md#hardware-checklist).
 
 ## Credits and license
 

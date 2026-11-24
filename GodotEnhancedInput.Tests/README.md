@@ -20,10 +20,10 @@ vstest.console) does not work with 2dog on .NET 10. Filter with xUnit's options 
 
 | Folder | What |
 |---|---|
-| `Core/` | values, raw input and sources, InputMap / `InputEventAction`, modifiers, triggers |
-| `Pipeline/` | contexts, the whole tick (accumulation, chords, combos, pause), the phase state machine, events, GUI intake |
-| `Rebinding/` | rebind slots, conflicts, capture, profile JSON and files |
-| `Players/` | joypad assignment and joining, touch sources, on-screen controls |
+| `Core/` | values, raw input and sources, InputMap / `InputEventAction`, modifiers, triggers, the binding validator |
+| `Pipeline/` | contexts, the whole tick (accumulation, chords, combos, pause), the phase state machine, events, GUI intake, robustness, recording and replay, stress (compiled bindings, allocations, reentrancy, frame rates) |
+| `Rebinding/` | rebind slots, conflicts, capture and its options, composite parts, profile JSON, named profiles and presets |
+| `Players/` | joypad assignment and joining, devices, backends, XR, haptics, modes and settings, touch sources, gestures, on-screen controls, safe area, touch layouts |
 | `Prompts/` | prompt names, joypad styles, last used device, icon sets, the debug dump and overlay |
 | `Demo/` | the demo's saved resources and scene (pause menu, rebinding ids, joining) |
 
