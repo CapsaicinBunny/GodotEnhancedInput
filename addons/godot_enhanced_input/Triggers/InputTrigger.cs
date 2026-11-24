@@ -11,6 +11,9 @@ public sealed class TriggerMemory
     /// <summary>A general-purpose timer in seconds.</summary>
     public double Timer;
 
+    /// <summary>A second general-purpose timer in seconds.</summary>
+    public double Timer2;
+
     /// <summary>A general-purpose counter.</summary>
     public int Count;
 
@@ -33,6 +36,7 @@ public sealed class TriggerMemory
     public void Reset()
     {
         Timer = 0;
+        Timer2 = 0;
         Count = 0;
         Flag = false;
         WasActuated = false;

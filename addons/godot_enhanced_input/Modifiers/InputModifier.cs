@@ -40,13 +40,17 @@ public sealed class ModifierMemory
 /// <summary>What a modifier is given besides the value.</summary>
 public readonly struct ModifierContext
 {
-    public ModifierContext(ActionValueKind kind, double delta, InputPlayer player, ModifierMemory memory)
+    public ModifierContext(ActionValueKind kind, double delta, InputPlayer player, ModifierMemory memory, ValueNature nature = ValueNature.State)
     {
         Kind = kind;
         Delta = delta;
         Player = player;
         Memory = memory ?? new ModifierMemory();
+        Nature = nature;
     }
+
+    /// <summary>What the value is: a held state, a per-tick delta, or an absolute position (action-level modifiers see State).</summary>
+    public ValueNature Nature { get; }
 
     /// <summary>The kind of the action being evaluated.</summary>
     public ActionValueKind Kind { get; }

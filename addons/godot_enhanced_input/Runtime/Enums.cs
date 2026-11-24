@@ -95,6 +95,21 @@ public enum SourceKind
     Touch,
 }
 
+/// <summary>
+/// What kind of quantity a source produces. They are not processed the same way: a state is held, a
+/// delta is an amount per tick (already "per frame" — do not multiply it by delta time again), an
+/// absolute value is a position.
+/// </summary>
+public enum ValueNature
+{
+    /// <summary>Held buttons, stick and trigger positions, pedals.</summary>
+    State,
+    /// <summary>Mouse motion, scrolling, touch drags, per-tick deltas.</summary>
+    Delta,
+    /// <summary>Pointer and touch positions, tracked poses.</summary>
+    Absolute,
+}
+
 /// <summary>What a <see cref="SourceKind.Touch"/> source reads.</summary>
 public enum TouchChannel
 {

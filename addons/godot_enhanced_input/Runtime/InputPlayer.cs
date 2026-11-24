@@ -89,6 +89,9 @@ public partial class InputPlayer : Node, ISourceReader
     /// <summary>Overrides the vertical field of view, in degrees, for <see cref="FovScaleModifier"/>.</summary>
     public float? ViewFovOverride { get; set; }
 
+    /// <summary>Overrides the screen DPI for <see cref="DpiScaleModifier"/> (tests, custom displays).</summary>
+    public float? ScreenDpiOverride { get; set; }
+
     /// <summary>The raw input this player has received.</summary>
     public RawInputState Raw { get; } = new();
 

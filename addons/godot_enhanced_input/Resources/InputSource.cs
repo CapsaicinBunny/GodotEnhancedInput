@@ -111,6 +111,20 @@ public partial class InputSource : Resource
     public static InputSource ForVirtual(string name) => new() { Kind = SourceKind.Virtual, VirtualName = name };
     public static InputSource Nothing() => new() { Kind = SourceKind.None };
 
+    /// <summary>What kind of quantity this source produces.</summary>
+    public ValueNature Nature => _kind switch
+    {
+        SourceKind.MouseMotion => ValueNature.Delta,
+        SourceKind.MousePosition => ValueNature.Absolute,
+        SourceKind.Touch => TouchChannel switch
+        {
+            TouchChannel.Drag => ValueNature.Delta,
+            TouchChannel.Position => ValueNature.Absolute,
+            _ => ValueNature.State,
+        },
+        _ => ValueNature.State,
+    };
+
     public static InputSource ForTouch(TouchChannel channel, int finger = SourceKey.AnyDevice)
         => new() { Kind = SourceKind.Touch, TouchChannel = channel, TouchIndex = finger };
 

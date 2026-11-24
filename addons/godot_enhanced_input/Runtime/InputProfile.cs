@@ -17,12 +17,19 @@ public sealed class InputProfile
     public const int FormatVersion = 1;
 
     private readonly Dictionary<string, InputSource> _overrides = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, double> _settings = new(StringComparer.Ordinal);
 
     /// <summary>Free-form profile name.</summary>
     public string Name { get; set; } = "default";
 
     /// <summary>Raised whenever an override is added, changed or removed.</summary>
-    public event Action Changed;
+    public event Action Changed
+    {
+        add => _changed += value;
+        remove => _changed -= value;
+    }
+
+    private Action _changed;
 
     /// <summary>The rebind ids that have an override.</summary>
     public IEnumerable<string> OverriddenIds => _overrides.Keys;
@@ -45,14 +52,14 @@ public sealed class InputProfile
     {
         if (string.IsNullOrEmpty(id)) throw new ArgumentException("A rebind id is required.", nameof(id));
         _overrides[id] = source == null || source.Kind == SourceKind.None ? null : (InputSource)source.Duplicate();
-        Changed?.Invoke();
+        RaiseChanged();
     }
 
     /// <summary>Removes an id's override, so the binding's own source applies again.</summary>
     public bool RemoveOverride(string id)
     {
         if (id == null || !_overrides.Remove(id)) return false;
-        Changed?.Invoke();
+        RaiseChanged();
         return true;
     }
 
@@ -61,8 +68,79 @@ public sealed class InputProfile
     {
         if (_overrides.Count == 0) return;
         _overrides.Clear();
-        Changed?.Invoke();
+        RaiseChanged();
     }
+
+    // ------------------------------------------------------------------
+    //  Settings (sensitivity, inversion, accessibility…)
+    // ------------------------------------------------------------------
+
+    /// <summary>The names of the settings this profile stores.</summary>
+    public IEnumerable<string> SettingNames => _settings.Keys;
+
+    /// <summary>A numeric setting, or <paramref name="fallback"/> when it is not set.</summary>
+    public double GetSetting(string name, double fallback = 0)
+        => name != null && _settings.TryGetValue(name, out var v) ? v : fallback;
+
+    /// <summary>A yes/no setting (stored as 1 or 0).</summary>
+    public bool GetFlag(string name, bool fallback = false)
+        => name != null && _settings.TryGetValue(name, out var v) ? v != 0 : fallback;
+
+    /// <summary>Whether a setting is stored.</summary>
+    public bool HasSetting(string name) => name != null && _settings.ContainsKey(name);
+
+    /// <summary>Stores a numeric setting.</summary>
+    public void SetSetting(string name, double value)
+    {
+        if (string.IsNullOrEmpty(name)) throw new ArgumentException("A setting name is required.", nameof(name));
+        _settings[name] = value;
+        RaiseChanged();
+    }
+
+    /// <summary>Stores a yes/no setting.</summary>
+    public void SetFlag(string name, bool value) => SetSetting(name, value ? 1 : 0);
+
+    /// <summary>Removes a setting, so its default applies again.</summary>
+    public bool RemoveSetting(string name)
+    {
+        if (name == null || !_settings.Remove(name)) return false;
+        RaiseChanged();
+        return true;
+    }
+
+    /// <summary>Copies another profile's overrides and settings over this one's (a preset), as one change.</summary>
+    public void Apply(InputProfile preset, bool replace = false)
+    {
+        if (preset == null) return;
+        if (replace) { _overrides.Clear(); _settings.Clear(); }
+        foreach (var pair in preset._overrides) _overrides[pair.Key] = pair.Value == null ? null : (InputSource)pair.Value.Duplicate();
+        foreach (var pair in preset._settings) _settings[pair.Key] = pair.Value;
+        RaiseChanged();
+    }
+
+    /// <summary>
+    /// Runs several changes as one: <see cref="Changed"/> is raised once at the end (if anything changed),
+    /// so listeners never see a half-applied swap.
+    /// </summary>
+    public void Batch(Action changes)
+    {
+        _batchDepth++;
+        try { changes?.Invoke(); }
+        finally
+        {
+            _batchDepth--;
+            if (_batchDepth == 0 && _batchDirty) { _batchDirty = false; _changed?.Invoke(); }
+        }
+    }
+
+    private int _batchDepth;
+
+    private void RaiseChanged()
+    {
+        if (_batchDepth > 0) _batchDirty = true;
+        else _changed?.Invoke();
+    }
+    private bool _batchDirty;
 
     /// <summary>Moves an override saved under an old id to a new id (unless the new id has one).</summary>
     internal bool Migrate(string formerId, string id)
@@ -86,11 +164,17 @@ public sealed class InputProfile
         foreach (var id in ids)
             overrides.Add(new JsonObject { ["id"] = id, ["source"] = InputSourceJson.ToJson(_overrides[id]) });
 
+        var settings = new JsonObject();
+        var names = new List<string>(_settings.Keys);
+        names.Sort(StringComparer.Ordinal);
+        foreach (var name in names) settings[name] = _settings[name];
+
         var root = new JsonObject
         {
             ["format"] = FormatVersion,
             ["name"] = Name,
             ["overrides"] = overrides,
+            ["settings"] = settings,
         };
         return root.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
     }
@@ -135,6 +219,16 @@ public sealed class InputProfile
                     continue;
                 }
                 profile._overrides[id] = source.Kind == SourceKind.None ? null : source;
+            }
+        }
+
+        if (obj["settings"] is JsonObject stored)
+        {
+            foreach (var pair in stored)
+            {
+                if (pair.Value is JsonValue value && value.TryGetValue<double>(out var number)) profile._settings[pair.Key] = number;
+                else if (pair.Value is JsonValue flag && flag.TryGetValue<bool>(out var yes)) profile._settings[pair.Key] = yes ? 1 : 0;
+                else warnings?.Add($"skipped setting '{pair.Key}': not a number");
             }
         }
         return profile;

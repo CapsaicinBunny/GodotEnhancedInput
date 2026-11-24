@@ -170,7 +170,7 @@ public partial class InputPlayer : IChannelMask
                     _readEntry = null;
 
                     value = ActionValue.Shape(kind, value);
-                    value = ApplyModifiers(binding.Modifiers, memory.Modifiers, value, kind);
+                    value = ApplyModifiers(binding.Modifiers, memory.Modifiers, value, kind, source?.Nature ?? ValueNature.State);
                     raw = Accumulate(raw, value, action.Accumulation);
 
                     if (HasTriggers(binding.Triggers))
@@ -206,7 +206,7 @@ public partial class InputPlayer : IChannelMask
             }
             else
             {
-                var value = Trim(kind, ApplyModifiers(action.Modifiers, state.ModifierMemories, firing, kind));
+                var value = Trim(kind, ApplyModifiers(action.Modifiers, state.ModifierMemories, firing, kind, ValueNature.State));
                 TriggerPhase finalPhase;
                 if (HasTriggers(action.Triggers))
                 {
@@ -265,14 +265,14 @@ public partial class InputPlayer : IChannelMask
         return false;
     }
 
-    private Vector3 ApplyModifiers(IList<InputModifier> modifiers, ModifierMemory[] memories, Vector3 value, ActionValueKind kind)
+    private Vector3 ApplyModifiers(IList<InputModifier> modifiers, ModifierMemory[] memories, Vector3 value, ActionValueKind kind, ValueNature nature)
     {
         if (modifiers == null) return value;
         for (int i = 0; i < modifiers.Count; i++)
         {
             var modifier = modifiers[i];
             if (modifier == null) continue;
-            value = modifier.Run(value, new ModifierContext(kind, _delta, this, memories[i]));
+            value = modifier.Run(value, new ModifierContext(kind, _delta, this, memories[i], nature));
         }
         return value;
     }
