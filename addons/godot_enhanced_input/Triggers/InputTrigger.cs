@@ -29,6 +29,9 @@ public sealed class TriggerMemory
     /// <summary>A value remembered from an earlier tick (e.g. the previous value).</summary>
     public Vector3 PreviousValue;
 
+    /// <summary>A four-component value remembered from an earlier tick.</summary>
+    public Vector4 PreviousValue4;
+
     /// <summary>Free slot for custom triggers.</summary>
     public object Custom;
 
@@ -42,6 +45,7 @@ public sealed class TriggerMemory
         WasActuated = false;
         LastPhase = TriggerPhase.Idle;
         PreviousValue = Vector3.Zero;
+        PreviousValue4 = Vector4.Zero;
         Custom = null;
     }
 }
@@ -50,16 +54,27 @@ public sealed class TriggerMemory
 public readonly struct TriggerContext
 {
     public TriggerContext(Vector3 value, ActionValueKind kind, double delta, InputPlayer player, TriggerMemory memory)
+        : this(new Vector4(value.X, value.Y, value.Z, 0f), kind, delta, player, memory) { }
+
+    public TriggerContext(Vector4 value, ActionValueKind kind, double delta, InputPlayer player, TriggerMemory memory)
     {
-        Value = value;
+        Value4 = value;
+        Value = new Vector3(value.X, value.Y, value.Z);
+        Magnitude = ActionValue.MagnitudeOf(kind, value);
         Kind = kind;
         Delta = delta;
         Player = player;
         Memory = memory ?? new TriggerMemory();
     }
 
-    /// <summary>The value after modifiers.</summary>
+    /// <summary>The first three components of the value after modifiers.</summary>
     public Vector3 Value { get; }
+
+    /// <summary>All four components of the value after modifiers.</summary>
+    public Vector4 Value4 { get; }
+
+    /// <summary>How strongly the value is actuated (see <see cref="ActionValue.MagnitudeOf"/>).</summary>
+    public float Magnitude { get; }
 
     /// <summary>The kind of the action being evaluated.</summary>
     public ActionValueKind Kind { get; }
@@ -113,7 +128,7 @@ public abstract partial class InputTrigger : Resource
     /// </summary>
     public TriggerPhase Evaluate(in TriggerContext context)
     {
-        bool actuated = IsActuated(context.Value);
+        bool actuated = IsActuated(context.Magnitude);
         var phase = Update(context, actuated, context.Memory.WasActuated);
         context.Memory.WasActuated = actuated;
         context.Memory.LastPhase = phase;
@@ -127,9 +142,8 @@ public abstract partial class InputTrigger : Resource
     protected abstract TriggerPhase Update(in TriggerContext context, bool actuated, bool wasActuated);
 
     /// <summary>Whether a value reaches <see cref="ActuationThreshold"/> (and is non-zero).</summary>
-    public bool IsActuated(Vector3 value)
-    {
-        float lengthSquared = value.LengthSquared();
-        return lengthSquared > 0f && lengthSquared >= ActuationThreshold * ActuationThreshold;
-    }
+    public bool IsActuated(Vector3 value) => IsActuated(value.Length());
+
+    /// <summary>Whether a magnitude reaches <see cref="ActuationThreshold"/> (and is non-zero).</summary>
+    public bool IsActuated(float magnitude) => magnitude > 0f && magnitude >= ActuationThreshold;
 }

@@ -19,16 +19,20 @@ namespace GodotEnhancedInput;
 /// </summary>
 public static class TriggerSet
 {
+    /// <summary>Evaluates a set for a three-component value.</summary>
+    public static TriggerPhase Evaluate(IReadOnlyList<InputTrigger> triggers, IReadOnlyList<TriggerMemory> memories, Vector3 value, ActionValueKind kind, double delta, InputPlayer player)
+        => Evaluate(triggers, memories, new Vector4(value.X, value.Y, value.Z, 0f), kind, delta, player);
+
     /// <summary>Evaluates every trigger (none are skipped, so each keeps its memory current) and combines them.</summary>
     public static TriggerPhase Evaluate(
         IReadOnlyList<InputTrigger> triggers,
         IReadOnlyList<TriggerMemory> memories,
-        Vector3 value,
+        Vector4 value,
         ActionValueKind kind,
         double delta,
         InputPlayer player)
     {
-        bool nonZero = value != Vector3.Zero;
+        bool nonZero = !ActionValue.IsZeroOf(kind, value);
         int count = triggers?.Count ?? 0;
 
         bool hasExplicit = false, explicitTriggered = false, explicitProgress = false;

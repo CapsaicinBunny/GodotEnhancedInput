@@ -17,9 +17,10 @@ public partial class ChangedTrigger : InputTrigger
     protected override TriggerPhase Update(in TriggerContext context, bool actuated, bool wasActuated)
     {
         var memory = context.Memory;
-        var delta = (context.Value - memory.PreviousValue).Abs();
+        var delta = (context.Value4 - memory.PreviousValue4).Abs();
+        memory.PreviousValue4 = context.Value4;
         memory.PreviousValue = context.Value;
-        bool changed = Tolerance <= 0f ? delta != Vector3.Zero : delta.X > Tolerance || delta.Y > Tolerance || delta.Z > Tolerance;
+        bool changed = Tolerance <= 0f ? delta != Vector4.Zero : delta.X > Tolerance || delta.Y > Tolerance || delta.Z > Tolerance || delta.W > Tolerance;
         return changed ? TriggerPhase.Triggered : TriggerPhase.Idle;
     }
 }

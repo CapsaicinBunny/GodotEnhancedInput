@@ -32,6 +32,13 @@ public sealed class ActionState
     /// </summary>
     public ActionValue RawValue { get; private set; }
 
+    /// <summary>
+    /// The untouched input: the evaluated bindings' source values combined before any modifier, trigger
+    /// or action processing (shaped to the action's kind). Read it for raw sensor or stick values next to
+    /// the processed <see cref="Value"/>.
+    /// </summary>
+    public ActionValue InputValue { get; internal set; }
+
     /// <summary>The phase this tick.</summary>
     public TriggerPhase Phase { get; private set; }
 
@@ -63,7 +70,7 @@ public sealed class ActionState
     internal ulong ResolvedTick;
     internal bool ToggleOn;
     internal bool TogglePressed;
-    internal Vector3 ToggleValue;
+    internal Vector4 ToggleValue;
     internal bool Resolving;
     internal ModifierMemory[] ModifierMemories = System.Array.Empty<ModifierMemory>();
     internal TriggerMemory[] TriggerMemories = System.Array.Empty<TriggerMemory>();

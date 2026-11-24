@@ -19,7 +19,7 @@ public partial class DistanceTrigger : InputTrigger
     protected override TriggerPhase Update(in TriggerContext context, bool actuated, bool wasActuated)
     {
         var m = context.Memory;   // Timer2: distance so far · Timer: time without movement · Flag: fired
-        float step = context.Value.Length();
+        float step = context.Value4.Length();
         if (step == 0f)
         {
             m.Timer += context.Delta;

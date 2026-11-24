@@ -38,7 +38,7 @@ public sealed class RecordedInput
     public string Name { get; init; } = string.Empty;
 
     /// <summary>The value set, added or injected.</summary>
-    public Vector3 Value { get; init; }
+    public Vector4 Value { get; init; }
 }
 
 /// <summary>Everything a player received before one tick, and the time step of that tick.</summary>
@@ -153,9 +153,9 @@ public sealed class InputRecording
     }
 
     private static JsonArray V2(Vector2 v) => new(v.X, v.Y);
-    private static JsonArray V3(Vector3 v) => new(v.X, v.Y, v.Z);
+    private static JsonArray V3(Vector4 v) => v.W == 0f ? new(v.X, v.Y, v.Z) : new(v.X, v.Y, v.Z, v.W);
     private static Vector2 ToV2(JsonNode node) => node is JsonArray a && a.Count >= 2 ? new Vector2((float)a[0], (float)a[1]) : Vector2.Zero;
-    private static Vector3 ToV3(JsonNode node) => node is JsonArray a && a.Count >= 3 ? new Vector3((float)a[0], (float)a[1], (float)a[2]) : Vector3.Zero;
+    private static Vector4 ToV3(JsonNode node) => node is JsonArray a && a.Count >= 3 ? new Vector4((float)a[0], (float)a[1], (float)a[2], a.Count >= 4 ? (float)a[3] : 0f) : Vector4.Zero;
 
     private static JsonObject WriteInput(RecordedInput input)
     {

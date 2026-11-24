@@ -53,6 +53,7 @@ public partial class InputPlayer : IChannelMask
         Dispatch();
         EndTick();
         EndTickRecording();
+        UpdateHaptics(_delta);
     }
 
     /// <summary>
@@ -212,7 +213,7 @@ public partial class InputPlayer : IChannelMask
         if (entry.Ignored.Count == 0) return;
         _keyScratch.Clear();
         foreach (var key in entry.Ignored)
-            if (ReadRaw(key, null) == Vector3.Zero) _keyScratch.Add(key);
+            if (ReadRaw(key, null) == Vector4.Zero) _keyScratch.Add(key);
         foreach (var key in _keyScratch) entry.Ignored.Remove(key);
     }
 
@@ -244,8 +245,10 @@ public partial class InputPlayer : IChannelMask
         {
             var kind = action.ValueKind;
             bool silenced = IsTreePaused && !action.TriggerWhenPaused;
-            var firing = Vector3.Zero;
-            var raw = Vector3.Zero;
+            var mode = action.Accumulation;
+            var firing = Vector4.Zero;
+            var raw = Vector4.Zero;
+            var input = Vector4.Zero;
             var bindingPhase = TriggerPhase.Idle;
             bool triggerlessNonZero = false;
             bool anyEvaluated = false;
@@ -267,23 +270,24 @@ public partial class InputPlayer : IChannelMask
                     anyEvaluated = true;
 
                     _readEntry = entry;
-                    var value = source?.Read(this) ?? Vector3.Zero;
+                    var value = source?.Read(this) ?? Vector4.Zero;
                     _readEntry = null;
 
                     value = ActionValue.Shape(kind, value);
+                    input = Accumulate(kind, input, value, mode);
                     value = ApplyModifiers(compiled.Modifiers, memory.Modifiers, value, kind, source?.Nature ?? ValueNature.State);
-                    raw = Accumulate(raw, value, action.Accumulation);
+                    raw = Accumulate(kind, raw, value, mode);
 
                     if (compiled.HasTriggers)
                     {
                         var phase = TriggerSet.Evaluate(compiled.Triggers, memory.Triggers, value, kind, _delta, this);
                         if (phase > bindingPhase) bindingPhase = phase;
-                        if (phase == TriggerPhase.Triggered) firing = Accumulate(firing, value, action.Accumulation);
+                        if (phase == TriggerPhase.Triggered) firing = Accumulate(kind, firing, value, mode);
                     }
                     else
                     {
-                        firing = Accumulate(firing, value, action.Accumulation);
-                        if (value != Vector3.Zero) triggerlessNonZero = true;
+                        firing = Accumulate(kind, firing, value, mode);
+                        if (!ActionValue.IsZeroOf(kind, value)) triggerlessNonZero = true;
                     }
                 }
             }
@@ -292,9 +296,10 @@ public partial class InputPlayer : IChannelMask
             {
                 anyEvaluated = true;
                 injected = ActionValue.Shape(kind, injected);
-                firing = Accumulate(firing, injected, action.Accumulation);
-                raw = Accumulate(raw, injected, action.Accumulation);
-                if (injected != Vector3.Zero) triggerlessNonZero = true;
+                firing = Accumulate(kind, firing, injected, mode);
+                raw = Accumulate(kind, raw, injected, mode);
+                input = Accumulate(kind, input, injected, mode);
+                if (!ActionValue.IsZeroOf(kind, injected)) triggerlessNonZero = true;
             }
 
             EnsureArray(ref state.ModifierMemories, action.Modifiers?.Count ?? 0);
@@ -305,6 +310,7 @@ public partial class InputPlayer : IChannelMask
                 state.ResetMemories();
                 state.ToggleOn = false;
                 state.TogglePressed = false;
+                state.InputValue = ActionValue.Zero(kind);
                 state.Advance(TriggerPhase.Idle, ActionValue.Zero(kind), _delta, ActionValue.Zero(kind));
             }
             else
@@ -328,12 +334,13 @@ public partial class InputPlayer : IChannelMask
                     if (pressed && !state.TogglePressed)
                     {
                         state.ToggleOn = !state.ToggleOn;
-                        if (state.ToggleOn) state.ToggleValue = value != Vector3.Zero ? value : ActionValue.Shape(kind, Vector3.Right);
+                        if (state.ToggleOn) state.ToggleValue = !ActionValue.IsZeroOf(kind, value) ? value : ActionValue.Shape(kind, new Vector4(1f, 0f, 0f, 0f));
                     }
                     state.TogglePressed = pressed;
                     finalPhase = state.ToggleOn ? TriggerPhase.Triggered : TriggerPhase.Idle;
-                    value = state.ToggleOn ? state.ToggleValue : Vector3.Zero;
+                    value = state.ToggleOn ? state.ToggleValue : Vector4.Zero;
                 }
+                state.InputValue = new ActionValue(kind, Trim(kind, input));
                 state.Advance(finalPhase, new ActionValue(kind, value), _delta, new ActionValue(kind, Trim(kind, raw)));
             }
 
@@ -379,7 +386,7 @@ public partial class InputPlayer : IChannelMask
         return false;
     }
 
-    private Vector3 ApplyModifiers(IList<InputModifier> modifiers, ModifierMemory[] memories, Vector3 value, ActionValueKind kind, ValueNature nature)
+    private Vector4 ApplyModifiers(IList<InputModifier> modifiers, ModifierMemory[] memories, Vector4 value, ActionValueKind kind, ValueNature nature)
     {
         if (modifiers == null) return value;
         for (int i = 0; i < modifiers.Count; i++)
@@ -391,18 +398,32 @@ public partial class InputPlayer : IChannelMask
         return value;
     }
 
-    private static Vector3 Accumulate(Vector3 accumulated, Vector3 value, ValueAccumulation mode)
+    /// <summary>
+    /// Combines the values of several bindings. Vectors: the strongest per component, or the sum.
+    /// Rotations (quaternions): the largest rotation, or all rotations composed in order.
+    /// </summary>
+    internal static Vector4 Accumulate(ActionValueKind kind, Vector4 accumulated, Vector4 value, ValueAccumulation mode)
     {
+        if (kind == ActionValueKind.Quaternion)
+        {
+            if (ActionValue.IsZeroOf(kind, value)) return accumulated;
+            if (ActionValue.IsZeroOf(kind, accumulated)) return value;
+            if (mode == ValueAccumulation.Sum)
+                return ActionValue.FromQuaternion(ActionValue.ToQuaternion(accumulated) * ActionValue.ToQuaternion(value));
+            return ActionValue.MagnitudeOf(kind, value) > ActionValue.MagnitudeOf(kind, accumulated) ? value : accumulated;
+        }
         if (mode == ValueAccumulation.Sum) return accumulated + value;
-        return new Vector3(Strongest(accumulated.X, value.X), Strongest(accumulated.Y, value.Y), Strongest(accumulated.Z, value.Z));
+        return new Vector4(Strongest(accumulated.X, value.X), Strongest(accumulated.Y, value.Y), Strongest(accumulated.Z, value.Z), Strongest(accumulated.W, value.W));
     }
 
     private static float Strongest(float a, float b) => Mathf.Abs(b) > Mathf.Abs(a) ? b : a;
 
-    private static Vector3 Trim(ActionValueKind kind, Vector3 value) => kind switch
+    private static Vector4 Trim(ActionValueKind kind, Vector4 value) => kind switch
     {
-        ActionValueKind.Digital or ActionValueKind.Axis1D => new Vector3(value.X, 0f, 0f),
-        ActionValueKind.Axis2D => new Vector3(value.X, value.Y, 0f),
+        ActionValueKind.Digital or ActionValueKind.Axis1D => new Vector4(value.X, 0f, 0f, 0f),
+        ActionValueKind.Axis2D => new Vector4(value.X, value.Y, 0f, 0f),
+        ActionValueKind.Axis3D or ActionValueKind.Euler => new Vector4(value.X, value.Y, value.Z, 0f),
+        ActionValueKind.Quaternion => ActionValue.IsZeroOf(kind, value) ? Vector4.Zero : ActionValue.FromQuaternion(ActionValue.ToQuaternion(value)),
         _ => value,
     };
 
@@ -413,11 +434,11 @@ public partial class InputPlayer : IChannelMask
     bool IChannelMask.IsMasked(in SourceKey exactKey)
         => _readEntry != null && ChannelHidden(_readEntry, Raw.PhysicalOf(exactKey));
 
-    Vector3 ISourceReader.Read(in SourceKey key) => ReadRaw(key, _readEntry != null ? this : null);
+    Vector4 ISourceReader.Read(in SourceKey key) => ReadRaw(key, _readEntry != null ? this : null);
 
     Vector2 ISourceReader.ReadStick(JoyAxis x, JoyAxis y, int device) => Raw.ReadStick(x, y, device, _readEntry != null ? this : null);
 
-    private Vector3 ReadRaw(in SourceKey key, IChannelMask mask)
+    private Vector4 ReadRaw(in SourceKey key, IChannelMask mask)
     {
         var value = Raw.Read(key, mask);
         if (key.Kind == RawKind.InputMapAction && PollInputMap && _replay == null && !string.IsNullOrEmpty(key.Name) && (mask == null || !mask.IsMasked(key)))
@@ -427,7 +448,7 @@ public partial class InputPlayer : IChannelMask
             if (InputMap.HasAction(name))
             {
                 float polled = Input.GetActionRawStrength(name);
-                if (polled > value.X) value = new Vector3(polled, 0f, 0f);
+                if (polled > value.X) value = new Vector4(polled, 0f, 0f, 0f);
             }
         }
         return value;

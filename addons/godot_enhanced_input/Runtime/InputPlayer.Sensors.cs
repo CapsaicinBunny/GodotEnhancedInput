@@ -9,7 +9,7 @@ public partial class InputPlayer
     /// When on (default), motion sensors bound in active contexts are read from Godot each tick: the
     /// handheld device's own sensors (for players that accept touch) and the sensors of the joypads this
     /// player uses, which are switched on when first needed. Turn it off to feed them yourself
-    /// (<see cref="RawInputState.Set(in SourceKey, Vector3)"/>, tests, replays).
+    /// (<see cref="RawInputState.Set(in SourceKey, Vector4)"/>, tests, replays).
     /// </summary>
     [Export] public bool PollMotionSensors { get; set; } = true;
 

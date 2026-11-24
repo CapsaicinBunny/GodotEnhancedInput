@@ -21,4 +21,14 @@ public partial class NormalizeModifier : InputModifier
         if (OnlyIfLonger && length <= 1f) return value;
         return value / length;
     }
+
+    public override Vector4 Apply(Vector4 value, in ModifierContext context)
+    {
+        if (context.Kind == ActionValueKind.Quaternion)
+            return ActionValue.IsZeroOf(context.Kind, value) ? Vector4.Zero : ActionValue.FromQuaternion(ActionValue.ToQuaternion(value));
+        float length = value.Length();
+        if (length == 0f || length < MinLength) return Vector4.Zero;
+        if (OnlyIfLonger && length <= 1f) return value;
+        return value / length;
+    }
 }

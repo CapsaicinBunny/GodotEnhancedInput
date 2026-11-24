@@ -170,19 +170,19 @@ public partial class InputPlayer : Node, ISourceReader
     private sealed class Injection
     {
         public bool Continuous;
-        public Vector3 ContinuousValue;
+        public Vector4 ContinuousValue;
         public bool HasPeak;
-        public Vector3 Peak;
+        public Vector4 Peak;
 
-        public bool TryRead(out Vector3 value)
+        public bool TryRead(out Vector4 value)
         {
             if (Continuous) { value = ContinuousValue; return true; }
             if (HasPeak) { value = Peak; return true; }
-            value = Vector3.Zero;
+            value = Vector4.Zero;
             return false;
         }
 
-        public void AddPeak(Vector3 value)
+        public void AddPeak(Vector4 value)
         {
             if (!HasPeak || value.LengthSquared() > Peak.LengthSquared()) Peak = value;
             HasPeak = true;
@@ -273,7 +273,7 @@ public partial class InputPlayer : Node, ISourceReader
                 foreach (var key in _keyScratch)
                 {
                     var channel = Raw.PhysicalOf(key);
-                    if (ReadRaw(channel, null) != Vector3.Zero) entry.Ignored.Add(channel);
+                    if (ReadRaw(channel, null) != Vector4.Zero) entry.Ignored.Add(channel);
                 }
             }
         }
@@ -400,7 +400,7 @@ public partial class InputPlayer : Node, ISourceReader
                 };
                 if (allowed)
                 {
-                    if (actionEvent.Pressed) StartInjectingCore(action, new Vector3(actionEvent.Strength, 0f, 0f));
+                    if (actionEvent.Pressed) StartInjectingCore(action, new Vector4(actionEvent.Strength, 0f, 0f, 0f));
                     else StopInjectingCore(action);
                 }
             }
@@ -411,7 +411,7 @@ public partial class InputPlayer : Node, ISourceReader
     }
 
     /// <summary>Sets a named virtual control (on-screen sticks, touch, tests).</summary>
-    public void SetVirtualControl(string name, Vector3 value)
+    public void SetVirtualControl(string name, Vector4 value)
     {
         if (LiveInputBlocked) return;
         Record(new RecordedInput { Kind = RecordedInputKind.Virtual, Name = name ?? string.Empty, Value = value });
@@ -419,13 +419,19 @@ public partial class InputPlayer : Node, ISourceReader
     }
 
     /// <summary>Sets a named virtual control.</summary>
-    public void SetVirtualControl(string name, Vector2 value) => SetVirtualControl(name, new Vector3(value.X, value.Y, 0f));
+    public void SetVirtualControl(string name, Vector3 value) => SetVirtualControl(name, new Vector4(value.X, value.Y, value.Z, 0f));
+
+    /// <summary>Sets a named virtual control to a rotation (stored as x, y, z, w).</summary>
+    public void SetVirtualControl(string name, Quaternion value) => SetVirtualControl(name, ActionValue.FromQuaternion(value));
 
     /// <summary>Sets a named virtual control.</summary>
-    public void SetVirtualControl(string name, float value) => SetVirtualControl(name, new Vector3(value, 0f, 0f));
+    public void SetVirtualControl(string name, Vector2 value) => SetVirtualControl(name, new Vector4(value.X, value.Y, 0f, 0f));
+
+    /// <summary>Sets a named virtual control.</summary>
+    public void SetVirtualControl(string name, float value) => SetVirtualControl(name, new Vector4(value, 0f, 0f, 0f));
 
     /// <summary>Adds to a named virtual control for the next tick only, on top of its held value (drags, flicks).</summary>
-    public void AddToVirtualControl(string name, Vector3 delta)
+    public void AddToVirtualControl(string name, Vector4 delta)
     {
         if (LiveInputBlocked) return;
         Record(new RecordedInput { Kind = RecordedInputKind.VirtualDelta, Name = name ?? string.Empty, Value = delta });
@@ -433,7 +439,10 @@ public partial class InputPlayer : Node, ISourceReader
     }
 
     /// <summary>Adds to a named virtual control for the next tick only.</summary>
-    public void AddToVirtualControl(string name, Vector2 delta) => AddToVirtualControl(name, new Vector3(delta.X, delta.Y, 0f));
+    public void AddToVirtualControl(string name, Vector3 delta) => AddToVirtualControl(name, new Vector4(delta.X, delta.Y, delta.Z, 0f));
+
+    /// <summary>Adds to a named virtual control for the next tick only.</summary>
+    public void AddToVirtualControl(string name, Vector2 delta) => AddToVirtualControl(name, new Vector4(delta.X, delta.Y, 0f, 0f));
 
     /// <summary>Forgets all raw input; held actions finish on the next tick.</summary>
     public void ClearRawInput()
@@ -450,31 +459,43 @@ public partial class InputPlayer : Node, ISourceReader
     /// Feeds a value to an action for the next tick only, as if from an extra binding with no
     /// modifiers or triggers. The action's own modifiers and triggers still apply.
     /// </summary>
-    public void InjectInput(GameAction action, Vector3 value)
+    public void InjectInput(GameAction action, Vector4 value)
     {
         if (action == null || LiveInputBlocked) return;
         Record(new RecordedInput { Kind = RecordedInputKind.Inject, Name = action.Name, Value = value });
         GetInjection(action).AddPeak(value);
     }
 
-    /// <inheritdoc cref="InjectInput(GameAction, Vector3)"/>
-    public void InjectInput(GameAction action, Vector2 value) => InjectInput(action, new Vector3(value.X, value.Y, 0f));
+    /// <inheritdoc cref="InjectInput(GameAction, Vector4)"/>
+    public void InjectInput(GameAction action, Vector3 value) => InjectInput(action, new Vector4(value.X, value.Y, value.Z, 0f));
 
-    /// <inheritdoc cref="InjectInput(GameAction, Vector3)"/>
-    public void InjectInput(GameAction action, float value) => InjectInput(action, new Vector3(value, 0f, 0f));
+    /// <inheritdoc cref="InjectInput(GameAction, Vector4)"/>
+    public void InjectInput(GameAction action, Quaternion value) => InjectInput(action, ActionValue.FromQuaternion(value));
 
-    /// <inheritdoc cref="InjectInput(GameAction, Vector3)"/>
+    /// <inheritdoc cref="InjectInput(GameAction, Vector4)"/>
+    public void InjectInput(GameAction action, Vector2 value) => InjectInput(action, new Vector4(value.X, value.Y, 0f, 0f));
+
+    /// <inheritdoc cref="InjectInput(GameAction, Vector4)"/>
+    public void InjectInput(GameAction action, float value) => InjectInput(action, new Vector4(value, 0f, 0f, 0f));
+
+    /// <inheritdoc cref="InjectInput(GameAction, Vector4)"/>
     public void InjectInput(GameAction action, bool value) => InjectInput(action, value ? 1f : 0f);
 
     /// <summary>Feeds a value to an action on every tick until <see cref="StopInjecting"/>.</summary>
-    public void StartInjecting(GameAction action, Vector3 value)
+    public void StartInjecting(GameAction action, Vector3 value) => StartInjecting(action, new Vector4(value.X, value.Y, value.Z, 0f));
+
+    /// <summary>Feeds a rotation to an action on every tick until <see cref="StopInjecting"/>.</summary>
+    public void StartInjecting(GameAction action, Quaternion value) => StartInjecting(action, ActionValue.FromQuaternion(value));
+
+    /// <summary>Feeds a value to an action on every tick until <see cref="StopInjecting"/>.</summary>
+    public void StartInjecting(GameAction action, Vector4 value)
     {
         if (action == null || LiveInputBlocked) return;
         Record(new RecordedInput { Kind = RecordedInputKind.InjectStart, Name = action.Name, Value = value });
         StartInjectingCore(action, value);
     }
 
-    private void StartInjectingCore(GameAction action, Vector3 value)
+    private void StartInjectingCore(GameAction action, Vector4 value)
     {
         var injection = GetInjection(action);
         injection.Continuous = true;

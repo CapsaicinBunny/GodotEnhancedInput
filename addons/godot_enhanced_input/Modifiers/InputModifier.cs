@@ -14,8 +14,14 @@ public sealed class ModifierMemory
     /// <summary>Whether <see cref="Previous"/> has been set.</summary>
     public bool HasPrevious;
 
+    /// <summary>The four-component value produced last tick (modifiers that work on all four components).</summary>
+    public Vector4 Previous4;
+
     /// <summary>A ring of recent samples (allocated by the modifier when needed).</summary>
     public Vector3[] Samples;
+
+    /// <summary>A ring of recent four-component samples (allocated by the modifier when needed).</summary>
+    public Vector4[] Samples4;
 
     /// <summary>How many samples are stored.</summary>
     public int SampleCount;
@@ -30,6 +36,7 @@ public sealed class ModifierMemory
     public void Reset()
     {
         Previous = Vector3.Zero;
+        Previous4 = Vector4.Zero;
         HasPrevious = false;
         SampleCount = 0;
         SampleIndex = 0;
@@ -77,9 +84,31 @@ public abstract partial class InputModifier : Resource
     /// <summary>A disabled modifier passes values through unchanged.</summary>
     [Export] public bool Enabled { get; set; } = true;
 
-    /// <summary>Returns the changed value.</summary>
-    public abstract Vector3 Apply(Vector3 value, in ModifierContext context);
+    /// <summary>
+    /// Returns the changed value for the first three components. Most modifiers only override this;
+    /// the fourth component (W of a 4D value or a quaternion) then passes through unchanged.
+    /// </summary>
+    public virtual Vector3 Apply(Vector3 value, in ModifierContext context) => value;
+
+    /// <summary>
+    /// Returns the changed value for all four components. The default applies
+    /// <see cref="Apply(Vector3, in ModifierContext)"/> to X, Y and Z and keeps W. Override for modifiers that
+    /// need all four (4D vectors, quaternions).
+    /// </summary>
+    public virtual Vector4 Apply(Vector4 value, in ModifierContext context)
+    {
+        var xyz = Apply(new Vector3(value.X, value.Y, value.Z), context);
+        return new Vector4(xyz.X, xyz.Y, xyz.Z, value.W);
+    }
 
     /// <summary>Applies this modifier if it is enabled.</summary>
-    public Vector3 Run(Vector3 value, in ModifierContext context) => Enabled ? Apply(value, context) : value;
+    public Vector4 Run(Vector4 value, in ModifierContext context) => Enabled ? Apply(value, context) : value;
+
+    /// <summary>Applies this modifier to a three-component value if it is enabled.</summary>
+    public Vector3 Run(Vector3 value, in ModifierContext context)
+    {
+        if (!Enabled) return value;
+        var result = Apply(new Vector4(value.X, value.Y, value.Z, 0f), context);
+        return new Vector3(result.X, result.Y, result.Z);
+    }
 }

@@ -30,6 +30,12 @@ public abstract class InputBackend
     /// <summary>Vibration request for one of this backend's devices (ignore it if the device cannot vibrate).</summary>
     public virtual void Rumble(InputDeviceInfo device, float weak, float strong, float seconds) { }
 
+    /// <summary>Vibrates a device at a frequency in Hz (0: the device's default). Defaults to <see cref="Rumble(InputDeviceInfo, float, float, float)"/>.</summary>
+    public virtual void Rumble(InputDeviceInfo device, float weak, float strong, float seconds, float frequency) => Rumble(device, weak, strong, seconds);
+
+    /// <summary>Applies force feedback to a device (wheels, force-feedback sticks). Does nothing unless overridden.</summary>
+    public virtual void SetForceFeedback(InputDeviceInfo device, ForceFeedback force) { }
+
     /// <summary>Registers (or re-connects) a device of this backend and returns its record.</summary>
     protected InputDeviceInfo AddDevice(string deviceType, int index, string name, string guid = null)
         => System?.RegisterCustomDevice(this, deviceType, index, name, guid);
@@ -39,9 +45,17 @@ public abstract class InputBackend
 
     /// <summary>Writes a control value (buttons 0/1, axes, vectors, positions).</summary>
     protected void SetControl(string deviceType, int index, string control, Vector3 value)
+        => SetControl(deviceType, index, control, new Vector4(value.X, value.Y, value.Z, 0f));
+
+    /// <summary>Sets a control to a rotation (stored as x, y, z, w).</summary>
+    protected void SetControl(string deviceType, int index, string control, Quaternion value)
+        => SetControl(deviceType, index, control, ActionValue.FromQuaternion(value));
+
+    /// <summary>Sets a control of one of this backend's devices (up to four components).</summary>
+    protected void SetControl(string deviceType, int index, string control, Vector4 value)
         => System?.SetDeviceControl(deviceType, index, control, value);
 
     /// <summary>Writes a scalar control value.</summary>
     protected void SetControl(string deviceType, int index, string control, float value)
-        => SetControl(deviceType, index, control, new Vector3(value, 0f, 0f));
+        => SetControl(deviceType, index, control, new Vector4(value, 0f, 0f, 0f));
 }

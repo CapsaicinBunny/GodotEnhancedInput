@@ -209,7 +209,10 @@ public partial class InputSource : Resource
     // ------------------------------------------------------------------
 
     /// <summary>Reads this source's value through a reader (normally the player's masked raw state).</summary>
-    public Vector3 Read(ISourceReader reader)
+    private static Vector4 V4(float x, float y, float z) => new(x, y, z, 0f);
+
+    /// <summary>Reads the source's value (up to four components) through a reader.</summary>
+    public Vector4 Read(ISourceReader reader)
     {
         switch (_kind)
         {
@@ -217,12 +220,12 @@ public partial class InputSource : Resource
                 return Scalar(reader, SourceKey.ForKey(Key, KeyMatch));
 
             case SourceKind.KeyAxis1D:
-                return new Vector3(
+                return V4(
                     Scalar(reader, SourceKey.ForKey(PositiveKey, KeyMatch)).X - Scalar(reader, SourceKey.ForKey(NegativeKey, KeyMatch)).X,
                     0f, 0f);
 
             case SourceKind.KeyAxis2D:
-                return new Vector3(
+                return V4(
                     Scalar(reader, SourceKey.ForKey(PositiveKey, KeyMatch)).X - Scalar(reader, SourceKey.ForKey(NegativeKey, KeyMatch)).X,
                     Scalar(reader, SourceKey.ForKey(DownKey, KeyMatch)).X - Scalar(reader, SourceKey.ForKey(UpKey, KeyMatch)).X,
                     0f);
@@ -242,7 +245,7 @@ public partial class InputSource : Resource
             case SourceKind.JoyAxis:
             {
                 float v = reader.Read(SourceKey.ForJoyAxis(EffectiveJoyAxis, Device)).X;
-                return new Vector3(AxisRange switch
+                return V4(AxisRange switch
                 {
                     JoyAxisRange.Positive => Mathf.Max(v, 0f),
                     JoyAxisRange.Negative => Mathf.Max(-v, 0f),
@@ -255,7 +258,7 @@ public partial class InputSource : Resource
                 // Both axes from the same pad: two pads never combine into a direction neither points.
                 var (x, y) = StickAxes(JoyStick);
                 var stick = reader.ReadStick(x, y, Device);
-                return new Vector3(stick.X, stick.Y, 0f);
+                return V4(stick.X, stick.Y, 0f);
             }
 
             case SourceKind.InputMapAction:
@@ -286,7 +289,7 @@ public partial class InputSource : Resource
                 return ReadComposite(reader, 0);
 
             default:
-                return Vector3.Zero;
+                return Vector4.Zero;
         }
     }
 
@@ -520,25 +523,25 @@ public partial class InputSource : Resource
         _ => _kind.ToString(),
     };
 
-    private static Vector3 Scalar(ISourceReader reader, in SourceKey key) => reader.Read(key);
+    private static Vector4 Scalar(ISourceReader reader, in SourceKey key) => reader.Read(key);
 
-    private Vector3 ReadComposite(ISourceReader reader, int depth)
+    private Vector4 ReadComposite(ISourceReader reader, int depth)
     {
-        if (depth > 8 || Parts.Count == 0) return Vector3.Zero;
-        Vector3 Part(int i) => i < Parts.Count && Parts[i] != null
+        if (depth > 8 || Parts.Count == 0) return Vector4.Zero;
+        Vector4 Part(int i) => i < Parts.Count && Parts[i] != null
             ? (Parts[i].Kind == SourceKind.Composite ? Parts[i].ReadComposite(reader, depth + 1) : Parts[i].Read(reader))
-            : Vector3.Zero;
+            : Vector4.Zero;
         float Strength(int i) => Part(i).Length();
 
         switch (CompositeMode)
         {
             case CompositeMode.Axis1D:
-                return new Vector3(Strength(1) - Strength(0), 0f, 0f);
+                return V4(Strength(1) - Strength(0), 0f, 0f);
             case CompositeMode.Axis2D:
-                return new Vector3(Strength(3) - Strength(2), Strength(1) - Strength(0), 0f);
+                return V4(Strength(3) - Strength(2), Strength(1) - Strength(0), 0f);
             case CompositeMode.AnyOf:
             {
-                var best = Vector3.Zero;
+                var best = Vector4.Zero;
                 for (int i = 0; i < Parts.Count; i++)
                 {
                     var v = Part(i);
@@ -548,7 +551,7 @@ public partial class InputSource : Resource
             }
             default:   // WithModifiers
                 for (int i = 0; i < Parts.Count - 1; i++)
-                    if (Part(i) == Vector3.Zero) return Vector3.Zero;
+                    if (Part(i) == Vector4.Zero) return Vector4.Zero;
                 return Part(Parts.Count - 1);
         }
     }

@@ -221,6 +221,10 @@ public partial class EnhancedInput
     /// owns it — to players that take unowned devices.
     /// </summary>
     public void SetDeviceControl(string deviceType, int index, string control, Vector3 value)
+        => SetDeviceControl(deviceType, index, control, new Vector4(value.X, value.Y, value.Z, 0f));
+
+    /// <summary>Sets a control of a backend device (up to four components, e.g. a rotation as x, y, z, w).</summary>
+    public void SetDeviceControl(string deviceType, int index, string control, Vector4 value)
     {
         EnsureDefaultPlayer();
         string id = $"{deviceType}:{index}";

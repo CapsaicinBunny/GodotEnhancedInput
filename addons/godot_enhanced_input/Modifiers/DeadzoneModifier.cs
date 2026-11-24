@@ -39,6 +39,24 @@ public partial class DeadzoneModifier : InputModifier
         return value / length * Remap(length, lower);
     }
 
+    public override Vector4 Apply(Vector4 value, in ModifierContext context)
+    {
+        float lower = !string.IsNullOrEmpty(LowerSetting) && context.Player != null ? (float)context.Player.GetSetting(LowerSetting, Lower) : Lower;
+        if (context.Kind == ActionValueKind.Quaternion)
+        {
+            // Small rotations are ignored and the rest rescaled, on the rotation angle.
+            float angle = ActionValue.MagnitudeOf(context.Kind, value);
+            if (angle <= 0f) return Vector4.Zero;
+            float remapped = Remap(angle, lower);
+            return remapped == 0f ? Vector4.Zero : ActionValue.ScaleRotation(value, remapped / angle);
+        }
+        if (Shape == DeadzoneShape.Axial)
+            return new Vector4(Remap(value.X, lower), Remap(value.Y, lower), Remap(value.Z, lower), Remap(value.W, lower));
+        float length = value.Length();
+        if (length <= 0f) return Vector4.Zero;
+        return value / length * Remap(length, lower);
+    }
+
     private float Remap(float v, float lower)
     {
         float magnitude = Mathf.Abs(v);

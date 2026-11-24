@@ -23,7 +23,7 @@ public partial class FlickTrigger : InputTrigger
     protected override TriggerPhase Update(in TriggerContext context, bool actuated, bool wasActuated)
     {
         var m = context.Memory;   // Flag: armed (left rest, not yet fired) · Count: 1 once fired until rest · Timer
-        float magnitude = context.Value.Length();
+        float magnitude = context.Magnitude;
         if (magnitude <= RestRadius)
         {
             m.Flag = false;

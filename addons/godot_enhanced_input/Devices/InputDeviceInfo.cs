@@ -71,8 +71,31 @@ public sealed class InputDeviceInfo
     /// <summary>Whether the device has a light that can be coloured.</summary>
     public bool HasLight { get; internal set; }
 
-    /// <summary>A name for menus: the profile's display name, or the device's own.</summary>
-    public string DisplayName => Profile != null && !string.IsNullOrEmpty(Profile.DisplayName) ? Profile.DisplayName : Name;
+    /// <summary>Which controller this is (joypads), from its USB ids and name.</summary>
+    public ControllerFamily Family { get; internal set; } = ControllerFamily.Unknown;
+
+    /// <summary>What the controller has in hardware (some of it Godot cannot drive; see <see cref="Features"/>).</summary>
+    public ControllerFeatures HardwareFeatures { get; internal set; }
+
+    /// <summary>What can be used through Godot on this device right now.</summary>
+    public ControllerFeatures Features { get; internal set; }
+
+    /// <summary>USB vendor id (0 when unknown).</summary>
+    public int VendorId { get; internal set; }
+
+    /// <summary>USB product id (0 when unknown).</summary>
+    public int ProductId { get; internal set; }
+
+    /// <summary>The button-label style for prompts.</summary>
+    public JoypadStyle Style => ControllerDetection.StyleOf(Family);
+
+    /// <summary>When the device was last connected (engine ticks in milliseconds).</summary>
+    public ulong ConnectedAtMs { get; internal set; }
+
+    /// <summary>A name for menus: the profile's display name, the recognised family, or the device's own.</summary>
+    public string DisplayName => Profile != null && !string.IsNullOrEmpty(Profile.DisplayName) ? Profile.DisplayName
+        : Family is not (ControllerFamily.Unknown or ControllerFamily.Generic) ? ControllerDetection.DisplayName(Family)
+        : Name;
 
     public override string ToString() => $"{Id} ({Kind}, {Role}{(IsConnected ? "" : ", disconnected")})";
 

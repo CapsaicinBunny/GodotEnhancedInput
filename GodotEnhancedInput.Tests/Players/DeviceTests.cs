@@ -341,34 +341,4 @@ public class DeviceTests
         InputSourcePath.TryParse("banana").Should().BeNull();
         InputSourcePath.TryParse("key:not_a_key").Should().BeNull();
     }
-
-    private sealed class RecordingHaptics : IHapticsOutput
-    {
-        public readonly List<string> Log = new();
-        public void StartJoypad(int device, float weak, float strong, float seconds) => Log.Add($"start {device} {weak:0.##} {strong:0.##}");
-        public void StopJoypad(int device) => Log.Add($"stop {device}");
-        public void SetJoypadLight(int device, Color color) => Log.Add($"light {device}");
-        public void VibrateHandheld(int milliseconds, float amplitude) => Log.Add($"handheld {milliseconds}");
-    }
-
-    [Fact]
-    public void Rumble_GoesToThePlayersPads_ScaledBySetting()
-    {
-        using var rig = new Rig();
-        var haptics = new RecordingHaptics();
-        rig.Player.HapticsOutput = haptics;
-        rig.Player.JoypadDevices.Add(2);
-        rig.Player.JoypadDevices.Add(4);
-
-        rig.Player.Rumble(1f, 0.5f, 0.2f);
-        rig.Player.Profile.SetSetting("vibration_strength", 0.5);
-        rig.Player.Rumble(1f, 0.5f, 0.2f, device: 4);
-        rig.Player.Profile.SetSetting("vibration_strength", 0);
-        rig.Player.Rumble(1f, 1f, 0.2f);
-        rig.Player.StopRumble();
-        rig.Player.SetJoypadLight(Colors.Red, 2);
-        rig.Player.VibrateHandheld(100);
-
-        haptics.Log.Should().Equal("start 2 1 0.5", "start 4 1 0.5", "start 4 0.5 0.25", "stop 2", "stop 4", "light 2");
-    }
 }

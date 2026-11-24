@@ -36,7 +36,20 @@ public partial class EnhancedInput : Node
     [Signal] public delegate void JoypadConnectionChangedEventHandler(int device, bool connected);
 
     /// <summary>When players are ticked.</summary>
-    [Export] public TickMode TickMode { get; set; } = TickMode.Process;
+    [Export] public TickMode TickMode { get; set; } = TickMode.Auto;
+
+    /// <summary>
+    /// Release keys and buttons that Godot's <c>Input</c> no longer reports as held — when game code
+    /// marked their release as handled before it reached this node, they would otherwise stay held.
+    /// Only ever releases; checked once per tick for held channels only. On by default.
+    /// </summary>
+    [Export] public bool ReleaseStuckInput { get; set; } = true;
+
+    /// <summary>How many stuck keys or buttons <see cref="ReleaseStuckInput"/> has released (diagnostics).</summary>
+    public int StuckInputReleased { get; private set; }
+
+    private bool _tickedThisFrame;
+    private ulong _lastTickUsec;
 
     /// <summary>How event intake shares input with the GUI.</summary>
     [Export] public GuiPolicy GuiPolicy { get; set; } = GuiPolicy.RespectGui;
@@ -62,6 +75,9 @@ public partial class EnhancedInput : Node
         Name = "EnhancedInput";
         // Keep receiving events and ticking while the tree is paused; actions decide for themselves.
         ProcessMode = ProcessModeEnum.Always;
+        // Tick before any gameplay node reads input, whatever priorities the game uses.
+        ProcessPriority = int.MinValue;
+        ProcessPhysicsPriority = int.MinValue;
     }
 
     // ------------------------------------------------------------------
@@ -341,7 +357,25 @@ public partial class EnhancedInput : Node
     {
         EnsureDefaultPlayer();
         PollBackends(delta);
-        for (int i = 0; i < _players.Count; i++) _players[i].Tick(delta);
+        bool live = ReleaseStuckInput && IsInsideTree() && !Engine.IsEditorHint();
+        for (int i = 0; i < _players.Count; i++)
+        {
+            var player = _players[i];
+            if (live && !player.IsReplaying) StuckInputReleased += player.Raw.ReleaseStuck();
+            player.Tick(delta);
+        }
+    }
+
+    private void AutoTick(double fallbackDelta)
+    {
+        if (_tickedThisFrame) return;
+        _tickedThisFrame = true;
+        ulong now = Time.GetTicksUsec();
+        double delta = _lastTickUsec == 0 || now <= _lastTickUsec
+            ? fallbackDelta
+            : System.Math.Min(1.0, (now - _lastTickUsec) / 1_000_000.0) * Engine.TimeScale;
+        _lastTickUsec = now;
+        Tick(delta);
     }
 
     public override void _Input(InputEvent @event)
@@ -361,10 +395,16 @@ public partial class EnhancedInput : Node
     public override void _Process(double delta)
     {
         if (TickMode == TickMode.Process) Tick(delta);
+        else if (TickMode == TickMode.Auto)
+        {
+            AutoTick(delta);
+            _tickedThisFrame = false;   // this node processes first; the next frame ticks again
+        }
     }
 
     public override void _PhysicsProcess(double delta)
     {
         if (TickMode == TickMode.Physics) Tick(delta);
+        else if (TickMode == TickMode.Auto) AutoTick(delta);
     }
 }

@@ -17,7 +17,7 @@ public partial class HysteresisTrigger : InputTrigger
     protected override TriggerPhase Update(in TriggerContext context, bool actuated, bool wasActuated)
     {
         var m = context.Memory;
-        float magnitude = context.Value.Length();
+        float magnitude = context.Magnitude;
         if (!m.Flag && magnitude > 0f && magnitude >= PressThreshold) m.Flag = true;
         else if (m.Flag && (magnitude == 0f || magnitude < ReleaseThreshold)) m.Flag = false;
         return m.Flag ? TriggerPhase.Triggered : TriggerPhase.Idle;

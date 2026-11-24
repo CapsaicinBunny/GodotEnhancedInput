@@ -32,7 +32,7 @@ public partial class ThresholdTrigger : InputTrigger
     protected override TriggerPhase Update(in TriggerContext context, bool actuated, bool wasActuated)
     {
         var m = context.Memory;   // Flag: currently above
-        float magnitude = context.Value.Length();
+        float magnitude = context.Magnitude;
         bool crossedUp = !m.Flag && magnitude >= Threshold + Band * 0.5f;
         bool crossedDown = m.Flag && magnitude <= Threshold - Band * 0.5f;
         if (crossedUp) m.Flag = true;

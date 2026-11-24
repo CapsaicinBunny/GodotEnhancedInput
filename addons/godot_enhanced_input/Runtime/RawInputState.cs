@@ -22,8 +22,8 @@ public interface IChannelMask
 /// </summary>
 public sealed class RawInputState
 {
-    private readonly Dictionary<SourceKey, Vector3> _current = new();
-    private readonly Dictionary<SourceKey, List<Vector3>> _pending = new();
+    private readonly Dictionary<SourceKey, Vector4> _current = new();
+    private readonly Dictionary<SourceKey, List<Vector4>> _pending = new();
     private readonly Dictionary<RawKind, SortedSet<int>> _devices = new();
     private readonly SortedSet<int> _joyDevices = new();
     private readonly SortedSet<int> _fingers = new();
@@ -43,10 +43,10 @@ public sealed class RawInputState
     /// <summary>The slowest finger speed at release, in pixels per second, that counts as a swipe.</summary>
     public float SwipeMinSpeed { get; set; } = 400f;
     private readonly Dictionary<int, Vector2> _touchDrag = new();
-    private readonly Dictionary<string, Vector3> _virtualDelta = new(System.StringComparer.Ordinal);
+    private readonly Dictionary<string, Vector4> _virtualDelta = new(System.StringComparer.Ordinal);
     private readonly Dictionary<SourceKey, SourceKey> _physicalOf = new();
     private readonly List<SourceKey> _scratch = new();
-    private readonly Stack<List<Vector3>> _listPool = new();
+    private readonly Stack<List<Vector4>> _listPool = new();
     private Vector2 _motion;
     private Vector2 _position;
 
@@ -71,23 +71,31 @@ public sealed class RawInputState
     /// <summary>Touch fingers this state has seen.</summary>
     public IReadOnlyCollection<int> Fingers => _fingers;
 
+    private static Vector4 V4(float x, float y, float z) => new(x, y, z, 0f);
+
+    /// <summary>Sets a channel's value (three components; the fourth is zero).</summary>
+    public void Set(in SourceKey key, Vector3 value) => Set(key, new Vector4(value.X, value.Y, value.Z, 0f));
+
+    /// <summary>Sets a channel's value from a rotation (x, y, z, w).</summary>
+    public void Set(in SourceKey key, Quaternion value) => Set(key, new Vector4(value.X, value.Y, value.Z, value.W));
+
     /// <summary>Sets a channel's value. On/off changes are queued so each tick sees at most one.</summary>
-    public void Set(in SourceKey key, Vector3 value)
+    public void Set(in SourceKey key, Vector4 value)
     {
-        bool on = value != Vector3.Zero;
+        bool on = value != Vector4.Zero;
         if (_pending.TryGetValue(key, out var queue) && queue.Count > 0)
         {
-            if ((queue[^1] != Vector3.Zero) == on) queue[^1] = value;   // same side of zero: just the latest value
+            if ((queue[^1] != Vector4.Zero) == on) queue[^1] = value;   // same side of zero: just the latest value
             else queue.Add(value);
         }
         else
         {
-            bool wasOn = GetCurrent(key) != Vector3.Zero;
+            bool wasOn = GetCurrent(key) != Vector4.Zero;
             if (wasOn != on)
             {
                 if (queue == null)
                 {
-                    queue = _listPool.Count > 0 ? _listPool.Pop() : new List<Vector3>(4);
+                    queue = _listPool.Count > 0 ? _listPool.Pop() : new List<Vector4>(4);
                     _pending[key] = queue;
                 }
                 queue.Add(value);
@@ -109,9 +117,35 @@ public sealed class RawInputState
     {
         float min = threshold * threshold;
         foreach (var pair in _current)
-            if (pair.Value != Vector3.Zero && pair.Value.LengthSquared() >= min
+            if (pair.Value != Vector4.Zero && pair.Value.LengthSquared() >= min
                 && pair.Key.Kind is RawKind.PhysicalKey or RawKind.LogicalKey or RawKind.MouseButton or RawKind.JoyButton or RawKind.JoyAxis)
                 into.Add(pair.Key);
+    }
+
+    /// <summary>
+    /// Releases keys and buttons this state holds that Godot's <c>Input</c> reports as not held (their
+    /// release never reached the player). Never presses anything. Returns how many were released.
+    /// </summary>
+    public int ReleaseStuck()
+    {
+        _scratch.Clear();
+        foreach (var pair in _current)
+        {
+            if (pair.Value == Vector4.Zero) continue;
+            var key = pair.Key;
+            bool held = key.Kind switch
+            {
+                RawKind.PhysicalKey => Input.IsPhysicalKeyPressed((Key)key.Code),
+                RawKind.LogicalKey => Input.IsKeyPressed((Key)key.Code),
+                RawKind.KeyLabel => Input.IsKeyLabelPressed((Key)key.Code),
+                RawKind.MouseButton => IsWheel((MouseButton)key.Code) || Input.IsMouseButtonPressed((MouseButton)key.Code),
+                RawKind.JoyButton when key.Device >= 0 => Input.IsJoyButtonPressed(key.Device, (JoyButton)key.Code),
+                _ => true,
+            };
+            if (!held) _scratch.Add(key);
+        }
+        for (int i = 0; i < _scratch.Count; i++) Set(_scratch[i], Vector4.Zero);
+        return _scratch.Count;
     }
 
     /// <summary>Adds scrolling for this tick.</summary>
@@ -126,13 +160,16 @@ public sealed class RawInputState
     }
 
     /// <summary>Sets a scalar channel's value.</summary>
-    public void Set(in SourceKey key, float value) => Set(key, new Vector3(value, 0f, 0f));
+    public void Set(in SourceKey key, float value) => Set(key, V4(value, 0f, 0f));
+
+    /// <summary>Adds to a virtual control for this tick only (three components).</summary>
+    public void AddVirtualDelta(string name, Vector3 delta) => AddVirtualDelta(name, new Vector4(delta.X, delta.Y, delta.Z, 0f));
 
     /// <summary>Adds to a virtual control for this tick only (on top of its held value).</summary>
-    public void AddVirtualDelta(string name, Vector3 delta)
+    public void AddVirtualDelta(string name, Vector4 delta)
     {
         name ??= string.Empty;
-        _virtualDelta[name] = (_virtualDelta.TryGetValue(name, out var sum) ? sum : Vector3.Zero) + delta;
+        _virtualDelta[name] = (_virtualDelta.TryGetValue(name, out var sum) ? sum : Vector4.Zero) + delta;
     }
 
     /// <summary>Adds finger movement for this tick.</summary>
@@ -143,7 +180,7 @@ public sealed class RawInputState
     }
 
     /// <summary>The value last written to a channel, ignoring changes not yet observed by a tick.</summary>
-    public Vector3 GetCurrent(in SourceKey key) => _current.TryGetValue(key, out var v) ? v : Vector3.Zero;
+    public Vector4 GetCurrent(in SourceKey key) => _current.TryGetValue(key, out var v) ? v : Vector4.Zero;
 
     /// <summary>Adds mouse movement for this tick.</summary>
     public void AddMouseMotion(Vector2 relative) => _motion += relative;
@@ -160,45 +197,45 @@ public sealed class RawInputState
         => key.Kind is RawKind.LogicalKey or RawKind.KeyLabel && _physicalOf.TryGetValue(key, out var physical) ? physical : key;
 
     /// <summary>The value a channel has for this tick (see the class summary). Nothing is masked.</summary>
-    public Vector3 Read(in SourceKey key) => Read(key, null);
+    public Vector4 Read(in SourceKey key) => Read(key, null);
 
     /// <summary>
     /// The value a channel has for this tick. Channels with <see cref="SourceKey.AnyDevice"/> read the
     /// strongest unmasked device (joypads) or finger (touch); a masked exact channel reads zero.
     /// </summary>
-    public Vector3 Read(in SourceKey key, IChannelMask mask)
+    public Vector4 Read(in SourceKey key, IChannelMask mask)
     {
         switch (key.Kind)
         {
             case RawKind.MouseMotion:
-                return Masked(mask, key) ? Vector3.Zero : new Vector3(_motion.X, _motion.Y, 0f);
+                return Masked(mask, key) ? Vector4.Zero : V4(_motion.X, _motion.Y, 0f);
             case RawKind.MouseWheel:
-                return Masked(mask, key) ? Vector3.Zero : new Vector3(_wheel.X, _wheel.Y, 0f);
+                return Masked(mask, key) ? Vector4.Zero : V4(_wheel.X, _wheel.Y, 0f);
             case RawKind.Gesture:
-                if (Masked(mask, key)) return Vector3.Zero;
+                if (Masked(mask, key)) return Vector4.Zero;
                 return (GestureChannel)key.Code switch
                 {
-                    GestureChannel.Pinch => new Vector3(_pinch, 0f, 0f),
-                    GestureChannel.Rotate => new Vector3(_rotate, 0f, 0f),
-                    GestureChannel.TwoFingerDrag => new Vector3(_twoFingerDrag.X, _twoFingerDrag.Y, 0f),
-                    _ => new Vector3(_swipe.X, _swipe.Y, 0f),
+                    GestureChannel.Pinch => V4(_pinch, 0f, 0f),
+                    GestureChannel.Rotate => V4(_rotate, 0f, 0f),
+                    GestureChannel.TwoFingerDrag => V4(_twoFingerDrag.X, _twoFingerDrag.Y, 0f),
+                    _ => V4(_swipe.X, _swipe.Y, 0f),
                 };
             case RawKind.MousePosition:
-                return Masked(mask, key) ? Vector3.Zero : new Vector3(_position.X, _position.Y, 0f);
+                return Masked(mask, key) ? Vector4.Zero : V4(_position.X, _position.Y, 0f);
             case RawKind.Virtual:
             {
-                if (Masked(mask, key)) return Vector3.Zero;
+                if (Masked(mask, key)) return Vector4.Zero;
                 var held = Observed(key);
                 return _virtualDelta.TryGetValue(key.Name ?? string.Empty, out var delta) ? held + delta : held;
             }
             case RawKind.TouchDrag:
             {
                 if (key.Device >= 0)
-                    return Masked(mask, key) || !_touchDrag.TryGetValue(key.Device, out var d) ? Vector3.Zero : new Vector3(d.X, d.Y, 0f);
+                    return Masked(mask, key) || !_touchDrag.TryGetValue(key.Device, out var d) ? Vector4.Zero : V4(d.X, d.Y, 0f);
                 var sum = Vector2.Zero;
                 foreach (var pair in _touchDrag)
                     if (!Masked(mask, key with { Device = pair.Key })) sum += pair.Value;
-                return new Vector3(sum.X, sum.Y, 0f);
+                return V4(sum.X, sum.Y, 0f);
             }
             case RawKind.TouchPosition when key.Device == SourceKey.AnyDevice:
                 // The lowest-numbered finger that is down this tick.
@@ -206,17 +243,17 @@ public sealed class RawInputState
                 {
                     var position = key with { Device = finger };
                     if (Masked(mask, position)) continue;
-                    if (Observed(SourceKey.ForTouch(TouchChannel.Pressed, finger)) != Vector3.Zero) return GetCurrent(position);
+                    if (Observed(SourceKey.ForTouch(TouchChannel.Pressed, finger)) != Vector4.Zero) return GetCurrent(position);
                 }
-                return Vector3.Zero;
+                return Vector4.Zero;
             case RawKind.TouchPosition:
-                return Masked(mask, key) ? Vector3.Zero : GetCurrent(key);
+                return Masked(mask, key) ? Vector4.Zero : GetCurrent(key);
         }
 
         if (key.Device == SourceKey.AnyDevice && key.IsPerDevice)
         {
             var devices = DevicesOf(key.Kind);
-            var best = Vector3.Zero;
+            var best = Vector4.Zero;
             foreach (var device in devices)
             {
                 var exact = key with { Device = device };
@@ -227,7 +264,7 @@ public sealed class RawInputState
             return best;
         }
 
-        return Masked(mask, key) ? Vector3.Zero : Observed(key);
+        return Masked(mask, key) ? Vector4.Zero : Observed(key);
     }
 
     /// <summary>
@@ -257,7 +294,7 @@ public sealed class RawInputState
     private static bool Masked(IChannelMask mask, in SourceKey key) => mask != null && mask.IsMasked(key);
 
     /// <summary>The value this tick observes: the oldest unobserved change, or the current value.</summary>
-    private Vector3 Observed(in SourceKey key)
+    private Vector4 Observed(in SourceKey key)
         => _pending.TryGetValue(key, out var queue) && queue.Count > 0 ? queue[0] : GetCurrent(key);
 
     /// <summary>Called by the player after each tick: moves every channel on by one queued change and clears per-tick data.</summary>
@@ -382,10 +419,10 @@ public sealed class RawInputState
                 {
                     _position = motion.Position;
                     // Pen data rides on motion events (a plain mouse reports zero pressure and no tilt).
-                    if (motion.Pressure > 0f || motion.Tilt != Vector2.Zero || motion.PenInverted || GetCurrent(SourceKey.ForPen(PenChannel.Pressure)) != Vector3.Zero)
+                    if (motion.Pressure > 0f || motion.Tilt != Vector2.Zero || motion.PenInverted || GetCurrent(SourceKey.ForPen(PenChannel.Pressure)) != Vector4.Zero)
                     {
                         Set(SourceKey.ForPen(PenChannel.Pressure), motion.Pressure);
-                        Set(SourceKey.ForPen(PenChannel.Tilt), new Vector3(motion.Tilt.X, motion.Tilt.Y, 0f));
+                        Set(SourceKey.ForPen(PenChannel.Tilt), V4(motion.Tilt.X, motion.Tilt.Y, 0f));
                         Set(SourceKey.ForPen(PenChannel.Eraser), motion.PenInverted && motion.Pressure > 0f ? 1f : 0f);
                     }
                 }
@@ -419,7 +456,7 @@ public sealed class RawInputState
                 bool down = touch.Pressed && !touch.Canceled;
                 if (!StageAllows(stage, raising: down)) return false;
                 GestureTouch(touch.Index, touch.Position, down, touch.Canceled);
-                Set(SourceKey.ForTouch(TouchChannel.Position, touch.Index), new Vector3(touch.Position.X, touch.Position.Y, 0f));
+                Set(SourceKey.ForTouch(TouchChannel.Position, touch.Index), V4(touch.Position.X, touch.Position.Y, 0f));
                 Set(SourceKey.ForTouch(TouchChannel.Pressed, touch.Index), down ? 1f : 0f);
                 return true;
             }
@@ -427,7 +464,7 @@ public sealed class RawInputState
             {
                 // Like the mouse: position is never contested; movement is "raising" input.
                 if (stage != IntakeStage.Unhandled)
-                    Set(SourceKey.ForTouch(TouchChannel.Position, drag.Index), new Vector3(drag.Position.X, drag.Position.Y, 0f));
+                    Set(SourceKey.ForTouch(TouchChannel.Position, drag.Index), V4(drag.Position.X, drag.Position.Y, 0f));
                 if (StageAllows(stage, raising: true))
                 {
                     AddTouchDrag(drag.Index, drag.Relative);

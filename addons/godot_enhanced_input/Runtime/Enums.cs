@@ -13,6 +13,15 @@ public enum ActionValueKind
     Axis2D,
     /// <summary>Three axes.</summary>
     Axis3D,
+    /// <summary>Four axes (X, Y, Z, W).</summary>
+    Axis4D,
+    /// <summary>
+    /// A rotation as a quaternion (X, Y, Z, W): tracked controllers and headsets, device orientation.
+    /// "No input" is the identity rotation; magnitude is the rotation angle as a fraction of half a turn.
+    /// </summary>
+    Quaternion,
+    /// <summary>A rotation as Euler angles in radians (X pitch, Y yaw, Z roll, Godot's YXZ order).</summary>
+    Euler,
 }
 
 /// <summary>Result of evaluating triggers for one tick. Ordered from weakest to strongest.</summary>
@@ -250,6 +259,8 @@ public enum JoypadStyle
     PlayStation,
     /// <summary>B/A/Y/X by position, L/R, ZL/ZR, −/+.</summary>
     Nintendo,
+    /// <summary>Steam Deck: A/B/X/Y, L1/R1, L2/R2, View/Menu, L4/L5/R4/R5 back buttons.</summary>
+    SteamDeck,
 }
 
 /// <summary>When an on-screen control is shown.</summary>
@@ -315,7 +326,15 @@ public enum ConflictScope
 /// <summary>When <see cref="EnhancedInput"/> ticks its players.</summary>
 public enum TickMode
 {
-    /// <summary>In <c>_Process</c>.</summary>
+    /// <summary>
+    /// Once per frame, at the first moment after Godot has delivered the frame's input: the first physics
+    /// step if the frame has one, otherwise <c>_Process</c>. Code in <c>_PhysicsProcess</c> and in
+    /// <c>_Process</c> both see this frame's input (no frame of delay), and one-tick events (a press)
+    /// stay visible for the whole frame. Time steps are measured on the real clock (times
+    /// <c>Engine.TimeScale</c>). The default.
+    /// </summary>
+    Auto,
+    /// <summary>In <c>_Process</c>. Code in <c>_PhysicsProcess</c> then sees the previous frame's input.</summary>
     Process,
     /// <summary>In <c>_PhysicsProcess</c>.</summary>
     Physics,

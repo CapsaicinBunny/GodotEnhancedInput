@@ -36,18 +36,12 @@ public static class InputPrompts
     /// <summary>Guesses a joypad's style from its name (as reported by <c>Input.GetJoyName</c>).</summary>
     public static JoypadStyle DetectStyle(string joypadName)
     {
-        var name = (joypadName ?? string.Empty).ToLowerInvariant();
-        if (name.Contains("xbox") || name.Contains("xinput")) return JoypadStyle.Xbox;
-        if (name.Contains("playstation") || name.Contains("ps3") || name.Contains("ps4") || name.Contains("ps5")
-            || name.Contains("dualshock") || name.Contains("dualsense")) return JoypadStyle.PlayStation;
-        if (name.Contains("nintendo") || name.Contains("switch") || name.Contains("joy-con") || name.Contains("joycon"))
-            return JoypadStyle.Nintendo;
-        return JoypadStyle.Generic;
+        return ControllerDetection.StyleOf(ControllerDetection.Detect(joypadName));
     }
 
     /// <summary>The style of a connected joypad (generic when unknown or not connected).</summary>
     public static JoypadStyle DetectStyle(int device)
-        => device >= 0 ? DetectStyle(Input.GetJoyName(device)) : JoypadStyle.Generic;
+        => device >= 0 ? ControllerDetection.StyleOf(ControllerDetection.Detect(device)) : JoypadStyle.Generic;
 
     // ------------------------------------------------------------------
     //  Names
@@ -174,6 +168,40 @@ public static class InputPrompts
     /// <summary>A joypad button's name in a style.</summary>
     public static string JoyButtonName(JoyButton button, JoypadStyle style = JoypadStyle.Generic)
     {
+        if (style == JoypadStyle.SteamDeck)
+        {
+            switch (button)
+            {
+                case JoyButton.LeftShoulder: return "L1";
+                case JoyButton.RightShoulder: return "R1";
+                case JoyButton.Guide: return "Steam";
+                case JoyButton.Misc1: return "Quick Access";
+                case JoyButton.Paddle1: return "R4";
+                case JoyButton.Paddle2: return "L4";
+                case JoyButton.Paddle3: return "R5";
+                case JoyButton.Paddle4: return "L5";
+            }
+            style = JoypadStyle.Xbox;   // A/B/X/Y, L3/R3, View/Menu
+        }
+        if (style == JoypadStyle.Xbox)
+        {
+            switch (button)
+            {
+                case JoyButton.Paddle1: return "P1";
+                case JoyButton.Paddle2: return "P3";
+                case JoyButton.Paddle3: return "P2";
+                case JoyButton.Paddle4: return "P4";
+            }
+        }
+        if (style == JoypadStyle.PlayStation)
+        {
+            switch (button)
+            {
+                case JoyButton.Paddle1: return "Right Back Button";
+                case JoyButton.Paddle2: return "Left Back Button";
+                case JoyButton.Touchpad: return "Touchpad Press";
+            }
+        }
         switch (button)
         {
             case JoyButton.A: return style switch { JoypadStyle.Xbox => "A", JoypadStyle.PlayStation => "Cross", JoypadStyle.Nintendo => "B", _ => "South" };
@@ -206,8 +234,8 @@ public static class InputPrompts
     {
         switch (axis)
         {
-            case JoyAxis.TriggerLeft: return style switch { JoypadStyle.Xbox => "LT", JoypadStyle.PlayStation => "L2", JoypadStyle.Nintendo => "ZL", _ => "Left Trigger" };
-            case JoyAxis.TriggerRight: return style switch { JoypadStyle.Xbox => "RT", JoypadStyle.PlayStation => "R2", JoypadStyle.Nintendo => "ZR", _ => "Right Trigger" };
+            case JoyAxis.TriggerLeft: return style switch { JoypadStyle.Xbox => "LT", JoypadStyle.PlayStation or JoypadStyle.SteamDeck => "L2", JoypadStyle.Nintendo => "ZL", _ => "Left Trigger" };
+            case JoyAxis.TriggerRight: return style switch { JoypadStyle.Xbox => "RT", JoypadStyle.PlayStation or JoypadStyle.SteamDeck => "R2", JoypadStyle.Nintendo => "ZR", _ => "Right Trigger" };
         }
 
         string stick = axis is JoyAxis.LeftX or JoyAxis.LeftY ? "Left Stick" : axis is JoyAxis.RightX or JoyAxis.RightY ? "Right Stick" : $"Axis {(int)axis}";

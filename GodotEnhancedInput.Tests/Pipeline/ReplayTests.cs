@@ -132,7 +132,7 @@ public class ReplayTests
             new InputEventAction { Action = "ui_accept", Pressed = true, Strength = 0.8f },
         };
         foreach (var e in events) tick.Inputs.Add(new RecordedInput { Kind = RecordedInputKind.Event, Event = e, Stage = IntakeStage.Unhandled });
-        tick.Inputs.Add(new RecordedInput { Kind = RecordedInputKind.InjectStart, Name = "x", Value = Vector3.One });
+        tick.Inputs.Add(new RecordedInput { Kind = RecordedInputKind.InjectStart, Name = "x", Value = Vector4.One });
         recording.Ticks.Add(tick);
 
         var back = InputRecording.FromJson(recording.ToJson());
