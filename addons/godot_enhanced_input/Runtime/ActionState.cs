@@ -74,6 +74,10 @@ public sealed class ActionState
     /// Ongoing→Triggered: Triggered · Triggered→Triggered: Triggered · Triggered→Ongoing: Ongoing ·
     /// Ongoing→Idle: Canceled · Triggered→Idle: Completed · Idle→Idle: nothing.
     /// </summary>
+    // The action as a signal argument, made once.
+    internal Variant SignalArg;
+    internal bool SignalArgReady;
+
     internal void Advance(TriggerPhase next, ActionValue value, double delta) => Advance(next, value, delta, value);
 
     internal void Advance(TriggerPhase next, ActionValue value, double delta, ActionValue rawValue)

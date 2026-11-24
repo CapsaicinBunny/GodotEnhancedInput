@@ -115,15 +115,36 @@ public partial class InputPlayer : Node, ISourceReader
         public readonly HashSet<SourceKey> Ignored = new();
         public BindingMemory[] Memories = System.Array.Empty<BindingMemory>();
 
-        public BindingMemory GetMemory(int index, ActionBinding binding)
+        // What the compiled plan saw of the context.
+        public int PlanVersion = -1;
+        public int PlanCount = -1;
+        public Godot.Collections.Array<ActionBinding> PlanArray;
+
+        public BindingMemory GetMemory(CompiledBinding compiled)
         {
-            if (Memories.Length <= index) System.Array.Resize(ref Memories, Math.Max(index + 1, Context.Bindings.Count));
+            int index = compiled.Index;
+            if (Memories.Length <= index) System.Array.Resize(ref Memories, index + 1);
             var memory = Memories[index];
-            if (memory == null || !ReferenceEquals(memory.Binding, binding))
-                Memories[index] = memory = new BindingMemory { Binding = binding };
-            memory.Ensure(binding.Modifiers?.Count ?? 0, binding.Triggers?.Count ?? 0);
+            if (memory == null || !ReferenceEquals(memory.Binding, compiled.Binding))
+                Memories[index] = memory = new BindingMemory { Binding = compiled.Binding };
+            memory.Ensure(compiled.Modifiers.Length, compiled.Triggers.Length);
             return memory;
         }
+    }
+
+    /// <summary>One active binding, read once from its resources when the plan is compiled.</summary>
+    private sealed class CompiledBinding
+    {
+        public ContextEntry Entry;
+        public int Index;
+        public ActionBinding Binding;
+        public GameAction Action;
+        public InputSource Source;
+        public SourceKey[] Keys;
+        public InputModifier[] Modifiers;
+        public InputTrigger[] Triggers;
+        public bool HasTriggers;
+        public bool PollsSensors;
     }
 
     private sealed class BindingMemory
@@ -191,7 +212,9 @@ public partial class InputPlayer : Node, ISourceReader
     private readonly List<ContextEntry> _entries = new();
     private readonly List<ContextEntry> _ordered = new();
     private readonly System.Collections.Generic.Dictionary<GameAction, ActionState> _states = new();
-    private readonly System.Collections.Generic.Dictionary<GameAction, List<(ContextEntry Entry, int Index)>> _bindingsByAction = new();
+    private readonly System.Collections.Generic.Dictionary<GameAction, List<CompiledBinding>> _bindingsByAction = new();
+    private readonly List<CompiledBinding> _plan = new();
+    private bool _planDirty = true;
     private readonly System.Collections.Generic.Dictionary<string, GameAction> _actionsByName = new(StringComparer.Ordinal);
     private readonly System.Collections.Generic.Dictionary<SourceKey, int> _consumedBy = new();
     private readonly System.Collections.Generic.Dictionary<GameAction, Injection> _injections = new();
@@ -200,7 +223,6 @@ public partial class InputPlayer : Node, ISourceReader
     private readonly List<GameAction> _tickActions = new();
     private readonly HashSet<GameAction> _tickActionSet = new();
     private readonly List<SourceKey> _keyScratch = new();
-    private readonly Stack<List<(ContextEntry, int)>> _listPool = new();
 
     private ulong _sequence;
     private ulong _tick;
@@ -256,6 +278,7 @@ public partial class InputPlayer : Node, ISourceReader
             }
         }
 
+        _planDirty = true;
         RebuildNameIndex();
         EmitSignal(SignalName.ContextAdded, context, priority);
     }
@@ -266,6 +289,7 @@ public partial class InputPlayer : Node, ISourceReader
         var entry = FindEntry(context);
         if (entry == null) return false;
         _entries.Remove(entry);
+        _planDirty = true;
         RebuildNameIndex();
         EmitSignal(SignalName.ContextRemoved, context);
         return true;
@@ -358,8 +382,9 @@ public partial class InputPlayer : Node, ISourceReader
     /// </summary>
     public bool FeedEvent(InputEvent @event, IntakeStage stage)
     {
-        if (@event == null) return false;
+        if (@event == null || LiveInputBlocked) return false;
         if (TryCapture(@event, stage)) return true;
+        RecordEvent(@event, stage);
         if (stage != IntakeStage.Unhandled) TrackDevice(@event);
 
         if (@event is InputEventAction actionEvent && RouteGameActionEvents)
@@ -375,8 +400,8 @@ public partial class InputPlayer : Node, ISourceReader
                 };
                 if (allowed)
                 {
-                    if (actionEvent.Pressed) StartInjecting(action, new Vector3(actionEvent.Strength, 0f, 0f));
-                    else StopInjecting(action);
+                    if (actionEvent.Pressed) StartInjectingCore(action, new Vector3(actionEvent.Strength, 0f, 0f));
+                    else StopInjectingCore(action);
                 }
             }
         }
@@ -386,7 +411,12 @@ public partial class InputPlayer : Node, ISourceReader
     }
 
     /// <summary>Sets a named virtual control (on-screen sticks, touch, tests).</summary>
-    public void SetVirtualControl(string name, Vector3 value) => Raw.Set(SourceKey.ForVirtual(name), value);
+    public void SetVirtualControl(string name, Vector3 value)
+    {
+        if (LiveInputBlocked) return;
+        Record(new RecordedInput { Kind = RecordedInputKind.Virtual, Name = name ?? string.Empty, Value = value });
+        Raw.Set(SourceKey.ForVirtual(name), value);
+    }
 
     /// <summary>Sets a named virtual control.</summary>
     public void SetVirtualControl(string name, Vector2 value) => SetVirtualControl(name, new Vector3(value.X, value.Y, 0f));
@@ -395,7 +425,12 @@ public partial class InputPlayer : Node, ISourceReader
     public void SetVirtualControl(string name, float value) => SetVirtualControl(name, new Vector3(value, 0f, 0f));
 
     /// <summary>Adds to a named virtual control for the next tick only, on top of its held value (drags, flicks).</summary>
-    public void AddToVirtualControl(string name, Vector3 delta) => Raw.AddVirtualDelta(name, delta);
+    public void AddToVirtualControl(string name, Vector3 delta)
+    {
+        if (LiveInputBlocked) return;
+        Record(new RecordedInput { Kind = RecordedInputKind.VirtualDelta, Name = name ?? string.Empty, Value = delta });
+        Raw.AddVirtualDelta(name, delta);
+    }
 
     /// <summary>Adds to a named virtual control for the next tick only.</summary>
     public void AddToVirtualControl(string name, Vector2 delta) => AddToVirtualControl(name, new Vector3(delta.X, delta.Y, 0f));
@@ -417,7 +452,8 @@ public partial class InputPlayer : Node, ISourceReader
     /// </summary>
     public void InjectInput(GameAction action, Vector3 value)
     {
-        if (action == null) return;
+        if (action == null || LiveInputBlocked) return;
+        Record(new RecordedInput { Kind = RecordedInputKind.Inject, Name = action.Name, Value = value });
         GetInjection(action).AddPeak(value);
     }
 
@@ -433,7 +469,13 @@ public partial class InputPlayer : Node, ISourceReader
     /// <summary>Feeds a value to an action on every tick until <see cref="StopInjecting"/>.</summary>
     public void StartInjecting(GameAction action, Vector3 value)
     {
-        if (action == null) return;
+        if (action == null || LiveInputBlocked) return;
+        Record(new RecordedInput { Kind = RecordedInputKind.InjectStart, Name = action.Name, Value = value });
+        StartInjectingCore(action, value);
+    }
+
+    private void StartInjectingCore(GameAction action, Vector3 value)
+    {
         var injection = GetInjection(action);
         injection.Continuous = true;
         injection.ContinuousValue = value;
@@ -443,7 +485,14 @@ public partial class InputPlayer : Node, ISourceReader
     /// <summary>Stops a continuous injection. A press that started this tick is still seen once.</summary>
     public void StopInjecting(GameAction action)
     {
-        if (action != null && _injections.TryGetValue(action, out var injection)) injection.Continuous = false;
+        if (action == null || LiveInputBlocked) return;
+        Record(new RecordedInput { Kind = RecordedInputKind.InjectStop, Name = action.Name });
+        StopInjectingCore(action);
+    }
+
+    private void StopInjectingCore(GameAction action)
+    {
+        if (_injections.TryGetValue(action, out var injection)) injection.Continuous = false;
     }
 
     private Injection GetInjection(GameAction action)

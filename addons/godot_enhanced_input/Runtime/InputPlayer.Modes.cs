@@ -25,6 +25,7 @@ public partial class InputPlayer
         {
             if (ReferenceEquals(_activeMode, value)) return;
             _activeMode = value;
+            _planDirty = true;
             EmitSignal(SignalName.ModeChanged, value);
         }
     }
@@ -111,7 +112,17 @@ public partial class InputPlayer
     public void SetHoldToToggle(GameAction action, bool toggle) => Profile.SetFlag(ToggleSettingName(action), toggle);
 
     /// <summary>Whether an action toggles instead of being held.</summary>
-    public bool IsHoldToToggle(GameAction action) => action != null && GetFlag(ToggleSettingName(action));
+    public bool IsHoldToToggle(GameAction action)
+    {
+        if (action == null) return false;
+        // Cached per action name: this runs for every action on every tick.
+        var name = action.Name ?? string.Empty;
+        if (!_toggleNames.TryGetValue(action, out var cached) || !ReferenceEquals(cached.Name, name))
+            _toggleNames[action] = cached = (name, "toggle:" + name);
+        return GetFlag(cached.Setting);
+    }
+
+    private readonly System.Collections.Generic.Dictionary<GameAction, (string Name, string Setting)> _toggleNames = new();
 }
 
 /// <summary>Ready-made accessibility and comfort settings to apply to a profile (<see cref="InputProfile.Apply"/>).</summary>

@@ -28,8 +28,25 @@ public partial class BindingContext : Resource
         set => _name = value ?? string.Empty;
     }
 
-    /// <summary>The bindings in this context.</summary>
-    [Export] public Array<ActionBinding> Bindings { get; set; } = new();
+    private Array<ActionBinding> _bindings = new();
+
+    /// <summary>
+    /// The bindings in this context. Players compile active contexts once and reuse the result; adding
+    /// or removing bindings is noticed, but after changing a binding in place (its source, modifiers,
+    /// triggers or groups) while the context is active, call <see cref="NotifyBindingsChanged"/>.
+    /// </summary>
+    [Export]
+    public Array<ActionBinding> Bindings
+    {
+        get => _bindings;
+        set { _bindings = value ?? new(); Version++; }
+    }
+
+    /// <summary>Goes up whenever the bindings are known to have changed.</summary>
+    public int Version { get; private set; }
+
+    /// <summary>Tells players using this context that its bindings changed in place.</summary>
+    public void NotifyBindingsChanged() => Version++;
 
     /// <summary>
     /// When on, every lower-priority context reads zero from all sources while this one is active —
@@ -48,6 +65,7 @@ public partial class BindingContext : Resource
     {
         var binding = ActionBinding.Create(action, source, modifiersAndTriggers);
         Bindings.Add(binding);
+        Version++;
         return binding;
     }
 

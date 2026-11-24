@@ -22,8 +22,20 @@ public partial class InputPlayer : IChannelMask
     /// </summary>
     public void Tick(double delta)
     {
-        if (_ticking) return;
+        if (_ticking || _dispatching)
+        {
+            // Called from a trigger, modifier or event callback: a nested tick would advance the state
+            // half-way through this one. Ignored; the next regular tick sees everything.
+            if (!_warnedReentrantTick)
+            {
+                _warnedReentrantTick = true;
+                GD.PushWarning($"InputPlayer {PlayerIndex}: Tick was called from inside a tick and was ignored.");
+            }
+            ReentrantTicksIgnored++;
+            return;
+        }
 
+        delta = BeginTickRecording(delta);
         _tick++;
         _delta = Math.Max(0.0, delta);
         UpdateCapture(_delta);
@@ -40,19 +52,119 @@ public partial class InputPlayer : IChannelMask
 
         Dispatch();
         EndTick();
+        EndTickRecording();
+    }
+
+    /// <summary>
+    /// Forces the active bindings to be compiled again on the next tick. Needed only after changing a
+    /// binding, source, modifier list or trigger list in place while its context is active (adding or
+    /// removing bindings, contexts, rebinding and mode changes are noticed on their own).
+    /// </summary>
+    public void RefreshBindings() => _planDirty = true;
+
+    /// <summary>How many times the active bindings were compiled (for profiling and tests).</summary>
+    public int PlanCompileCount { get; private set; }
+
+    /// <summary>How many calls to <see cref="Tick"/> were ignored because they came from inside a tick.</summary>
+    public int ReentrantTicksIgnored { get; private set; }
+
+    private bool _warnedReentrantTick;
+
+    private bool PlanIsStale()
+    {
+        if (_planDirty) return true;
+        foreach (var entry in _ordered)
+        {
+            var context = entry.Context;
+            var bindings = context.Bindings;
+            if (entry.PlanVersion != context.Version || !ReferenceEquals(entry.PlanArray, bindings) || entry.PlanCount != bindings.Count)
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Reads every active binding once — its action, effective source, the channels it reads, and its
+    /// modifier and trigger lists — in context order. Reused until something it depends on changes.
+    /// </summary>
+    private void CompilePlan()
+    {
+        _planDirty = false;
+        PlanCompileCount++;
+        OrderEntries();
+        _plan.Clear();
+        foreach (var list in _bindingsByAction.Values) list.Clear();
+
+        foreach (var entry in _ordered)
+        {
+            var context = entry.Context;
+            var bindings = context.Bindings;
+            entry.PlanVersion = context.Version;
+            entry.PlanArray = bindings;
+            int count = bindings.Count;
+            entry.PlanCount = count;
+
+            for (int i = 0; i < count; i++)
+            {
+                var binding = bindings[i];
+                var action = binding?.Action;
+                if (action == null) continue;
+                if (!IsBindingActive(binding)) continue;   // not in the active mode's groups
+
+                var source = GetEffectiveSource(binding);
+                _keyScratch.Clear();
+                source?.CollectKeys(_keyScratch);
+                var compiled = new CompiledBinding
+                {
+                    Entry = entry,
+                    Index = i,
+                    Binding = binding,
+                    Action = action,
+                    Source = source,
+                    Keys = _keyScratch.ToArray(),
+                    Modifiers = ToArray(binding.Modifiers),
+                    Triggers = ToArray(binding.Triggers),
+                    PollsSensors = source != null && UsesSensors(source),
+                };
+                compiled.HasTriggers = HasTriggers(compiled.Triggers);
+                _plan.Add(compiled);
+
+                if (!_bindingsByAction.TryGetValue(action, out var list))
+                    _bindingsByAction[action] = list = new List<CompiledBinding>();
+                list.Add(compiled);
+            }
+        }
+
+        // Drop lists of actions no longer bound (keeps the dictionary from growing forever).
+        _keyActions.Clear();
+        foreach (var pair in _bindingsByAction)
+            if (pair.Value.Count == 0) _keyActions.Add(pair.Key);
+        foreach (var action in _keyActions) _bindingsByAction.Remove(action);
+    }
+
+    private readonly List<GameAction> _keyActions = new();
+
+    private static T[] ToArray<[MustBeVariant] T>(Godot.Collections.Array<T> array) where T : GodotObject
+    {
+        if (array == null || array.Count == 0) return System.Array.Empty<T>();
+        var result = new T[array.Count];
+        for (int i = 0; i < result.Length; i++) result[i] = array[i];
+        return result;
+    }
+
+    private static bool UsesSensors(InputSource source)
+    {
+        if (source.Kind == SourceKind.Motion) return true;
+        if (source.Kind != SourceKind.Composite || source.Parts == null) return false;
+        foreach (var part in source.Parts)
+            if (part != null && UsesSensors(part)) return true;
+        return false;
     }
 
     private void PrepareTick()
     {
-        OrderEntries();
+        if (PlanIsStale()) CompilePlan();
 
-        // Release per-action binding lists back to the pool.
-        foreach (var list in _bindingsByAction.Values)
-        {
-            list.Clear();
-            _listPool.Push(list);
-        }
-        _bindingsByAction.Clear();
         _tickActions.Clear();
         _tickActionSet.Clear();
         _consumedBy.Clear();
@@ -62,37 +174,24 @@ public partial class InputPlayer : IChannelMask
         foreach (var entry in _ordered)
         {
             UpdateIgnored(entry);
-
-            var bindings = entry.Context.Bindings;
-            for (int i = 0; i < bindings.Count; i++)
-            {
-                var binding = bindings[i];
-                var action = binding?.Action;
-                if (action == null) continue;
-                if (!IsBindingActive(binding)) continue;   // not in the active mode's groups
-
-                if (!_bindingsByAction.TryGetValue(action, out var list))
-                {
-                    list = _listPool.Count > 0 ? _listPool.Pop() : new List<(ContextEntry, int)>();
-                    _bindingsByAction[action] = list;
-                }
-                list.Add((entry, i));
-                AddTickAction(action);
-
-                // Consumption depends only on which contexts are active, never on this tick's results,
-                // so actions can be evaluated in any order. Channels keep their device or finger; a
-                // source reading "any device" consumes the channel on every device.
-                var source = GetEffectiveSource(binding);
-                if (source != null) PollSensors(source);
-                if (action.ConsumeInput && source != null)
-                {
-                    _keyScratch.Clear();
-                    source.CollectKeys(_keyScratch);
-                    foreach (var key in _keyScratch) _consumedBy.TryAdd(Raw.PhysicalOf(key), entry.Rank);
-                }
-            }
-
             if (entry.Context.BlockLowerPriority && _blockRank == int.MaxValue) _blockRank = entry.Rank;
+        }
+
+        for (int p = 0; p < _plan.Count; p++)
+        {
+            var compiled = _plan[p];
+            var action = compiled.Action;
+            AddTickAction(action);
+            if (compiled.PollsSensors) PollSensors(compiled.Source);
+
+            // Consumption depends only on which contexts are active, never on this tick's results, so
+            // actions can be evaluated in any order. Channels keep their device or finger; a source
+            // reading "any device" consumes the channel on every device.
+            if (action.ConsumeInput)
+            {
+                var keys = compiled.Keys;
+                for (int k = 0; k < keys.Length; k++) _consumedBy.TryAdd(Raw.PhysicalOf(keys[k]), compiled.Entry.Rank);
+            }
         }
 
         foreach (var pair in _injections)
@@ -155,14 +254,12 @@ public partial class InputPlayer : IChannelMask
             {
                 for (int i = 0; i < list.Count; i++)
                 {
-                    var (entry, index) = list[i];
-                    if (index >= entry.Context.Bindings.Count) continue;
-                    var binding = entry.Context.Bindings[index];
-                    if (binding == null) continue;
-                    var memory = entry.GetMemory(index, binding);
-                    var source = GetEffectiveSource(binding);
+                    var compiled = list[i];
+                    var entry = compiled.Entry;
+                    var memory = entry.GetMemory(compiled);
+                    var source = compiled.Source;
 
-                    if (silenced || entry.Rank > _blockRank || IsFullySuppressed(entry, source))
+                    if (silenced || entry.Rank > _blockRank || IsFullySuppressed(entry, source, compiled.Keys))
                     {
                         memory.Reset();
                         continue;
@@ -174,12 +271,12 @@ public partial class InputPlayer : IChannelMask
                     _readEntry = null;
 
                     value = ActionValue.Shape(kind, value);
-                    value = ApplyModifiers(binding.Modifiers, memory.Modifiers, value, kind, source?.Nature ?? ValueNature.State);
+                    value = ApplyModifiers(compiled.Modifiers, memory.Modifiers, value, kind, source?.Nature ?? ValueNature.State);
                     raw = Accumulate(raw, value, action.Accumulation);
 
-                    if (HasTriggers(binding.Triggers))
+                    if (compiled.HasTriggers)
                     {
-                        var phase = TriggerSet.Evaluate(binding.Triggers, memory.Triggers, value, kind, _delta, this);
+                        var phase = TriggerSet.Evaluate(compiled.Triggers, memory.Triggers, value, kind, _delta, this);
                         if (phase > bindingPhase) bindingPhase = phase;
                         if (phase == TriggerPhase.Triggered) firing = Accumulate(firing, value, action.Accumulation);
                     }
@@ -258,14 +355,12 @@ public partial class InputPlayer : IChannelMask
     }
 
     /// <summary>Whether every channel a source reads is consumed above this context or ignored in it.</summary>
-    private bool IsFullySuppressed(ContextEntry entry, InputSource source)
+    private bool IsFullySuppressed(ContextEntry entry, InputSource source, SourceKey[] keys)
     {
-        if (source == null || source.Kind == SourceKind.None) return false;
-        _keyScratch.Clear();
-        source.CollectKeys(_keyScratch);
-        if (_keyScratch.Count == 0) return false;
-        foreach (var key in _keyScratch)
-            if (!ChannelHidden(entry, Raw.PhysicalOf(key))) return false;
+        if (source == null || source.Kind == SourceKind.None || keys.Length == 0) return false;
+        if (_consumedBy.Count == 0 && entry.Ignored.Count == 0) return false;
+        for (int i = 0; i < keys.Length; i++)
+            if (!ChannelHidden(entry, Raw.PhysicalOf(keys[i]))) return false;
         return true;
     }
 
@@ -325,7 +420,7 @@ public partial class InputPlayer : IChannelMask
     private Vector3 ReadRaw(in SourceKey key, IChannelMask mask)
     {
         var value = Raw.Read(key, mask);
-        if (key.Kind == RawKind.InputMapAction && PollInputMap && !string.IsNullOrEmpty(key.Name) && (mask == null || !mask.IsMasked(key)))
+        if (key.Kind == RawKind.InputMapAction && PollInputMap && _replay == null && !string.IsNullOrEmpty(key.Name) && (mask == null || !mask.IsMasked(key)))
         {
             if (!_inputMapNames.TryGetValue(key.Name, out var name))
                 _inputMapNames[key.Name] = name = new StringName(key.Name);
@@ -401,8 +496,26 @@ public partial class InputPlayer : IChannelMask
             ActionEvents.Completed => SignalName.ActionCompleted,
             _ => SignalName.ActionCanceled,
         };
-        EmitSignal(signal, action);
+        if (!EmitActionSignals) return;
+        // The argument list and the action's variant are reused, so emitting does not allocate.
+        if (!state.SignalArgReady)
+        {
+            state.SignalArg = Variant.From(action);
+            state.SignalArgReady = true;
+        }
+        _signalArgs[0] = state.SignalArg;
+        EmitSignal(signal, _signalArgs);
+        _signalArgs[0] = default;
     }
+
+    private readonly Variant[] _signalArgs = new Variant[1];
+
+    /// <summary>
+    /// Emit the action signals (<c>ActionStarted</c>, <c>ActionTriggered</c>…) as well as the C# callbacks.
+    /// Turn off when only <see cref="Bind"/> and <see cref="ActionEventRaised"/> are used, to save the
+    /// cost of a Godot signal per event.
+    /// </summary>
+    [Export] public bool EmitActionSignals { get; set; } = true;
 
     private void PurgeInactiveSubscriptions()
     {

@@ -45,7 +45,11 @@ public partial class InputPlayer
         }
     }
 
-    private void OnProfileChanged() => EmitSignal(SignalName.BindingsChanged);
+    private void OnProfileChanged()
+    {
+        _planDirty = true;
+        EmitSignal(SignalName.BindingsChanged);
+    }
 
     /// <summary>The default file for this player's profile.</summary>
     public string DefaultProfilePath => $"user://input/{ProfileId}.json";

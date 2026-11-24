@@ -17,7 +17,7 @@ public partial class InputPlayer
 
     private void PollSensors(InputSource source)
     {
-        if (!PollMotionSensors) return;
+        if (!PollMotionSensors || _replay != null) return;
         if (source.Kind == SourceKind.Composite)
         {
             foreach (var part in source.Parts)
