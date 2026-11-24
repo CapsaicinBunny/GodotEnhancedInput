@@ -152,7 +152,7 @@ public class StressTests
             system.AssignJoypad(p1, 0, "pad");
             system.Tick(Rig.Dt);
             p0.IsTriggered(jump).Should().BeFalse();
-            p0.WasCompleted(jump).Should().BeTrue();
+            p0.WasCanceled(jump).Should().BeTrue("reassignment cuts input off");
             p1.IsTriggered(jump).Should().BeFalse("the held button belonged to the old route");
 
             system.FeedEvent(new InputEventJoypadButton { ButtonIndex = JoyButton.A, Pressed = false, Device = 0 });

@@ -29,6 +29,25 @@ public partial class EnhancedInput
         }
     }
 
+    private readonly List<int> _connectedJoypads = new();
+    private bool _connectedJoypadsValid;
+    private double _joypadCheckTimer;
+
+    /// <summary>The joypad indices connected now (cached; refreshed on connection changes and checked every few seconds).</summary>
+    public List<int> ConnectedJoypads
+    {
+        get
+        {
+            if (!_connectedJoypadsValid)
+            {
+                _connectedJoypads.Clear();
+                foreach (var d in Input.GetConnectedJoypads()) _connectedJoypads.Add(d);
+                _connectedJoypadsValid = true;
+            }
+            return _connectedJoypads;
+        }
+    }
+
     /// <summary>The backends added with <see cref="AddBackend"/>.</summary>
     public IReadOnlyList<InputBackend> Backends => _backends;
 
@@ -125,14 +144,23 @@ public partial class EnhancedInput
                 break;
             case InputDeviceKind.KeyboardMouse:
             case InputDeviceKind.Pen:
-                foreach (var p in _players) { p.AcceptKeyboardMouse = p == player; if (p != player) p.ClearRawInput(); }
+                foreach (var p in _players)
+                {
+                    if (p != player && p.AcceptKeyboardMouse) p.Raw.ClearKeyboardMouse(InputEndReason.DeviceReassigned);
+                    p.AcceptKeyboardMouse = p == player;
+                }
                 break;
             case InputDeviceKind.Touch:
-                foreach (var p in _players) p.AcceptTouch = p == player;
+                foreach (var p in _players)
+                {
+                    // Fingers held now belong to the previous player; their releases would go elsewhere.
+                    if (p != player && p.AcceptTouch) p.Raw.ClearTouch(InputEndReason.DeviceReassigned);
+                    p.AcceptTouch = p == player;
+                }
                 break;
             case InputDeviceKind.Custom:
                 foreach (var p in _players)
-                    if (p != player && p.OwnedCustomDevices.Remove(device.Id)) p.Raw.ClearCustomDevice(device.DeviceType, device.Index);
+                    if (p != player && p.OwnedCustomDevices.Remove(device.Id)) p.Raw.ClearCustomDevice(device.DeviceType, device.Index, InputEndReason.DeviceReassigned);
                 player.OwnedCustomDevices.Add(device.Id);
                 break;
         }
@@ -232,9 +260,9 @@ public partial class EnhancedInput
         InputPlayer owner = null;
         foreach (var p in _players)
             if (p.OwnedCustomDevices.Contains(id)) { owner = p; break; }
-        if (owner != null) { owner.Raw.Set(key, value); return; }
+        if (owner != null) { owner.ReceiveDeviceControl(key, value); return; }
         foreach (var p in _players)
-            if (p.ReceivesUnownedJoypads) p.Raw.Set(key, value);
+            if (p.ReceivesUnownedJoypads && p.OwnedCustomDevices.Count == 0) p.ReceiveDeviceControl(key, value);
     }
 
     private void PollBackends(double delta)

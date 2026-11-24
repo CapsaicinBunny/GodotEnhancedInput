@@ -45,8 +45,23 @@ public sealed class ActionState
     /// <summary>The phase the tick before.</summary>
     public TriggerPhase PreviousPhase { get; private set; }
 
-    /// <summary>The events raised by the last tick.</summary>
+    /// <summary>
+    /// The events raised during the last tick. When several changes arrived in one frame (a press and its
+    /// release), the tick evaluates them in order and this holds all their events (Started, Triggered,
+    /// Completed…); callbacks receive them one by one.
+    /// </summary>
     public ActionEvents Events { get; private set; }
+
+    /// <summary>The events of the latest evaluation step only.</summary>
+    public ActionEvents StepEvents { get; private set; }
+
+    /// <summary>
+    /// Why the action last went idle: <see cref="InputEndReason.Released"/> for a genuine release, or the
+    /// reason it was cut off (device lost, focus lost, context removed…). Cut-off actions raise
+    /// <see cref="ActionEvents.Canceled"/>, never <see cref="ActionEvents.Completed"/>, and release-based
+    /// triggers do not fire for them.
+    /// </summary>
+    public InputEndReason EndReason { get; private set; }
 
     /// <summary>
     /// Seconds since the action started (left idle), including the tick it started on. Kept on the
@@ -64,10 +79,12 @@ public sealed class ActionState
     public bool IsTriggered => Phase == TriggerPhase.Triggered;
 
     /// <summary>True when the phase is not idle or something was raised this tick (so it still needs ticking).</summary>
-    internal bool IsActive => Phase != TriggerPhase.Idle || Events != ActionEvents.None;
+    internal bool IsActive => Phase != TriggerPhase.Idle || StepEvents != ActionEvents.None;
 
     // Evaluation bookkeeping (owned by InputPlayer).
     internal ulong ResolvedTick;
+    internal ulong StepId;
+    internal bool HadBindings;
     internal bool ToggleOn;
     internal bool TogglePressed;
     internal Vector4 ToggleValue;
@@ -87,7 +104,9 @@ public sealed class ActionState
 
     internal void Advance(TriggerPhase next, ActionValue value, double delta) => Advance(next, value, delta, value);
 
-    internal void Advance(TriggerPhase next, ActionValue value, double delta, ActionValue rawValue)
+    internal void Advance(TriggerPhase next, ActionValue value, double delta, ActionValue rawValue) => Advance(next, value, delta, rawValue, 0, null);
+
+    internal void Advance(TriggerPhase next, ActionValue value, double delta, ActionValue rawValue, ulong tick, InputEndReason? cut)
     {
         var previous = Phase;
         PreviousPhase = previous;
@@ -98,7 +117,8 @@ public sealed class ActionState
         var events = ActionEvents.None;
         if (next == TriggerPhase.Idle)
         {
-            if (previous == TriggerPhase.Triggered) events = ActionEvents.Completed;
+            if (previous != TriggerPhase.Idle) EndReason = cut ?? InputEndReason.Released;
+            if (previous == TriggerPhase.Triggered) events = cut.HasValue ? ActionEvents.Canceled : ActionEvents.Completed;
             else if (previous == TriggerPhase.Ongoing) events = ActionEvents.Canceled;
             else
             {
@@ -127,7 +147,9 @@ public sealed class ActionState
             }
         }
 
-        Events = events;
+        StepEvents = events;
+        if (tick == 0 || LastTick != tick) Events = events;
+        else Events |= events;
     }
 
     /// <summary>Back to idle without raising anything (used when a player is reset).</summary>
@@ -136,6 +158,7 @@ public sealed class ActionState
         Phase = TriggerPhase.Idle;
         PreviousPhase = TriggerPhase.Idle;
         Events = ActionEvents.None;
+        StepEvents = ActionEvents.None;
         ElapsedSeconds = 0;
         TriggeredSeconds = 0;
         Value = ActionValue.Zero(Action?.ValueKind ?? ActionValueKind.Digital);

@@ -31,13 +31,14 @@ public partial class InputPlayer
             if (!AcceptTouch) return;
             var key = SourceKey.ForMotion(source.MotionSensor, SourceKey.Handheld);
             if (!_polledSensors.Add(key)) return;
-            Raw.Set(key, source.MotionSensor switch
+            var v = source.MotionSensor switch
             {
                 MotionSensor.Accelerometer => Input.GetAccelerometer(),
                 MotionSensor.Gyroscope => Input.GetGyroscope(),
                 MotionSensor.Gravity => Input.GetGravity(),
                 _ => Input.GetMagnetometer(),
-            });
+            };
+            ReceiveSensor(source.MotionSensor, SourceKey.Handheld, new Vector4(v.X, v.Y, v.Z, 0f));
             return;
         }
 
@@ -48,22 +49,27 @@ public partial class InputPlayer
             if (!_polledSensors.Add(key)) continue;
             if (!Input.HasJoyMotionSensors(device)) continue;
             if (!Input.IsJoyMotionSensorsEnabled(device)) Input.SetJoyMotionSensorsEnabled(device, true);
-            Raw.Set(key, source.MotionSensor switch
+            var v = source.MotionSensor switch
             {
                 MotionSensor.Accelerometer => Input.GetJoyAccelerometer(device),
                 MotionSensor.Gravity => Input.GetJoyGravity(device),
                 _ => Input.GetJoyGyroscope(device),
-            });
+            };
+            ReceiveSensor(source.MotionSensor, device, new Vector4(v.X, v.Y, v.Z, 0f));
         }
     }
 
-    /// <summary>The connected joypads this player reads: one device, its own, or (when it takes unowned pads) every connected one.</summary>
+    /// <summary>
+    /// The connected joypads this player reads: one device (only if the player may use it), its own, or
+    /// (when it takes unowned pads) every connected pad nobody owns.
+    /// </summary>
     private IEnumerable<int> JoypadsToRead(int device)
     {
-        var connected = Input.GetConnectedJoypads();
+        var system = GetParent() as EnhancedInput;
+        IList<int> connected = system != null ? system.ConnectedJoypads : Input.GetConnectedJoypads();
         if (device >= 0)
         {
-            if (connected.Contains(device)) yield return device;
+            if (connected.Contains(device) && MayUseJoypad(device, system)) yield return device;
             yield break;
         }
         if (JoypadDevices.Count > 0)
@@ -73,8 +79,16 @@ public partial class InputPlayer
             yield break;
         }
         if (!ReceivesUnownedJoypads) yield break;
-        var system = GetParent() as EnhancedInput;
         foreach (var d in connected)
             if (system?.GetJoypadOwner(d) == null) yield return d;
+    }
+
+    /// <summary>Whether this player may read or drive a joypad: its own, or an unowned one when it takes unowned pads.</summary>
+    public bool MayUseJoypad(int device, EnhancedInput system = null)
+    {
+        if (JoypadDevices.Contains(device)) return true;
+        if (JoypadDevices.Count > 0 || !ReceivesUnownedJoypads) return false;
+        system ??= GetParent() as EnhancedInput;
+        return system?.GetJoypadOwner(device) == null;
     }
 }

@@ -69,17 +69,21 @@ public class RawInputTests
     }
 
     [Fact]
-    public void TapWithinOneTick_IsSeenForOneTick()
+    public void TapWithinOneTick_IsSeenInThatTick_InOrder()
     {
         var (rig, action) = Single(InputSource.ForKey(Key.Space));
         using (rig)
         {
+            var seen = new List<ActionEvents>();
+            rig.Player.Bind(action, ActionEvents.Started | ActionEvents.Triggered | ActionEvents.Completed, e => seen.Add(e.Event));
             rig.Press(Key.Space).Release(Key.Space).Tick();
-            rig.Player.WasTriggered(action).Should().BeTrue();
+            rig.Player.WasTriggered(action).Should().BeTrue("the press is seen in the frame it happened");
+            rig.Player.WasCompleted(action).Should().BeTrue("and so is the release: no frame of delay");
+            rig.Player.GetPhase(action).Should().Be(TriggerPhase.Idle, "polling reads the frame's final state");
+            rig.Player.LastTickSteps.Should().Be(2);
+            seen.Should().Equal(ActionEvents.Started, ActionEvents.Triggered, ActionEvents.Completed);
             rig.Tick();
-            rig.Player.WasCompleted(action).Should().BeTrue();
-            rig.Tick();
-            rig.Player.GetPhase(action).Should().Be(TriggerPhase.Idle);
+            rig.Player.GetEvents(action).Should().Be(ActionEvents.None);
         }
     }
 
@@ -95,12 +99,15 @@ public class RawInputTests
         rig.Player.FeedEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true });
         rig.Player.FeedEvent(new InputEventMouseButton { ButtonIndex = MouseButton.WheelUp, Pressed = true, Factor = 2f });
         rig.Player.FeedEvent(new InputEventMouseButton { ButtonIndex = MouseButton.WheelUp, Pressed = false, Factor = 2f });
+
+        float notch = 0f;
+        rig.Player.Bind(wheel, ActionEvents.Triggered, e => notch = e.Value.AsFloat());
         rig.Tick();
 
         rig.Player.IsTriggered(click).Should().BeTrue();
-        rig.Player.GetValue(wheel).AsFloat().Should().Be(2f, "one notch gives one tick of its strength");
-        rig.Tick();
-        rig.Player.GetValue(wheel).AsFloat().Should().Be(0f);
+        rig.Player.WasTriggered(wheel).Should().BeTrue("a notch is a press and release within the frame");
+        notch.Should().Be(2f, "the press step carries its strength");
+        rig.Player.GetValue(wheel).AsFloat().Should().Be(0f, "the frame ends released");
     }
 
     [Fact]
@@ -198,7 +205,7 @@ public class RawInputTests
 
             rig.Player.Raw.ClearDevice(2);
             rig.Tick();
-            rig.Player.WasCompleted(action).Should().BeTrue();
+            rig.Player.WasCanceled(action).Should().BeTrue("a lost pad cuts input off");
         }
     }
 

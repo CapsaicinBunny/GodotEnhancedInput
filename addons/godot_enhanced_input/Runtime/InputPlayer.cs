@@ -120,13 +120,24 @@ public partial class InputPlayer : Node, ISourceReader
         public int PlanCount = -1;
         public Godot.Collections.Array<ActionBinding> PlanArray;
 
-        public BindingMemory GetMemory(CompiledBinding compiled)
+        /// <summary>
+        /// The binding's memory; a fresh one when the binding, its effective source, or its modifier or
+        /// trigger lists changed (so a half-done hold or smoothing history never survives a rebind).
+        /// </summary>
+        public BindingMemory GetMemory(CompiledBinding compiled, out bool replaced)
         {
             int index = compiled.Index;
             if (Memories.Length <= index) System.Array.Resize(ref Memories, index + 1);
             var memory = Memories[index];
-            if (memory == null || !ReferenceEquals(memory.Binding, compiled.Binding))
-                Memories[index] = memory = new BindingMemory { Binding = compiled.Binding };
+            replaced = false;
+            if (memory == null || !memory.Matches(compiled))
+            {
+                replaced = memory != null;
+                Memories[index] = memory = new BindingMemory
+                {
+                    Binding = compiled.Binding, Source = compiled.Source, ModifierRefs = compiled.Modifiers, TriggerRefs = compiled.Triggers,
+                };
+            }
             memory.Ensure(compiled.Modifiers.Length, compiled.Triggers.Length);
             return memory;
         }
@@ -150,7 +161,28 @@ public partial class InputPlayer : Node, ISourceReader
     private sealed class BindingMemory
     {
         public ActionBinding Binding;
+        public InputSource Source;
+        public InputModifier[] ModifierRefs;
+        public InputTrigger[] TriggerRefs;
         public ModifierMemory[] Modifiers = System.Array.Empty<ModifierMemory>();
+
+        public bool Matches(CompiledBinding compiled)
+        {
+            if (!ReferenceEquals(Binding, compiled.Binding) || !ReferenceEquals(Source, compiled.Source)) return false;
+            if (ReferenceEquals(ModifierRefs, compiled.Modifiers) && ReferenceEquals(TriggerRefs, compiled.Triggers)) return true;
+            if (!SameItems(ModifierRefs, compiled.Modifiers) || !SameItems(TriggerRefs, compiled.Triggers)) return false;
+            ModifierRefs = compiled.Modifiers;   // same items, recompiled array
+            TriggerRefs = compiled.Triggers;
+            return true;
+        }
+
+        private static bool SameItems<T>(T[] a, T[] b) where T : class
+        {
+            if (a == null || b == null || a.Length != b.Length) return false;
+            for (int i = 0; i < a.Length; i++)
+                if (!ReferenceEquals(a[i], b[i])) return false;
+            return true;
+        }
         public TriggerMemory[] Triggers = System.Array.Empty<TriggerMemory>();
 
         public void Ensure(int modifiers, int triggers)
@@ -215,6 +247,8 @@ public partial class InputPlayer : Node, ISourceReader
     private readonly System.Collections.Generic.Dictionary<GameAction, List<CompiledBinding>> _bindingsByAction = new();
     private readonly List<CompiledBinding> _plan = new();
     private bool _planDirty = true;
+    private InputEndReason _planChangeReason = InputEndReason.ContextRemoved;
+    private ulong _step;
     private readonly System.Collections.Generic.Dictionary<string, GameAction> _actionsByName = new(StringComparer.Ordinal);
     private readonly System.Collections.Generic.Dictionary<SourceKey, int> _consumedBy = new();
     private readonly System.Collections.Generic.Dictionary<GameAction, Injection> _injections = new();
@@ -279,6 +313,7 @@ public partial class InputPlayer : Node, ISourceReader
         }
 
         _planDirty = true;
+        _planChangeReason = InputEndReason.ContextRemoved;
         RebuildNameIndex();
         EmitSignal(SignalName.ContextAdded, context, priority);
     }
@@ -290,6 +325,7 @@ public partial class InputPlayer : Node, ISourceReader
         if (entry == null) return false;
         _entries.Remove(entry);
         _planDirty = true;
+        _planChangeReason = InputEndReason.ContextRemoved;
         RebuildNameIndex();
         EmitSignal(SignalName.ContextRemoved, context);
         return true;
@@ -430,6 +466,13 @@ public partial class InputPlayer : Node, ISourceReader
     /// <summary>Sets a named virtual control.</summary>
     public void SetVirtualControl(string name, float value) => SetVirtualControl(name, new Vector4(value, 0f, 0f, 0f));
 
+    /// <summary>Sets a virtual control to zero as cut off (not released): release-based triggers do not fire.</summary>
+    public void CancelVirtualControl(string name, InputEndReason reason = InputEndReason.Cleared)
+    {
+        if (LiveInputBlocked) return;
+        Raw.Cancel(SourceKey.ForVirtual(name), reason);
+    }
+
     /// <summary>Adds to a named virtual control for the next tick only, on top of its held value (drags, flicks).</summary>
     public void AddToVirtualControl(string name, Vector4 delta)
     {
@@ -444,10 +487,13 @@ public partial class InputPlayer : Node, ISourceReader
     /// <summary>Adds to a named virtual control for the next tick only.</summary>
     public void AddToVirtualControl(string name, Vector2 delta) => AddToVirtualControl(name, new Vector4(delta.X, delta.Y, 0f, 0f));
 
-    /// <summary>Forgets all raw input; held actions finish on the next tick.</summary>
-    public void ClearRawInput()
+    /// <summary>
+    /// Forgets all raw input. Held actions end on the next tick as cut off (<see cref="ActionEvents.Canceled"/>
+    /// with <paramref name="reason"/>), so release-based triggers do not fire.
+    /// </summary>
+    public void ClearRawInput(InputEndReason reason = InputEndReason.Cleared)
     {
-        Raw.Clear();
+        Raw.Clear(reason);
         foreach (var injection in _injections.Values) injection.Continuous = false;
     }
 

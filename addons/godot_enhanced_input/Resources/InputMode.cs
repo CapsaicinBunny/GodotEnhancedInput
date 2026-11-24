@@ -20,6 +20,15 @@ public partial class InputMode : Resource
     /// <summary>Device kinds the mode cannot work without (it is only chosen automatically when they are available).</summary>
     [Export] public DeviceKinds RequiredDevices { get; set; }
 
+    /// <summary>
+    /// Device roles that must each be present among the devices the player can use — e.g. Wheel and
+    /// Pedals as two separate devices, or FlightStick and Throttle.
+    /// </summary>
+    [Export] public DeviceRoles RequiredRoles { get; set; }
+
+    /// <summary>Capabilities at least one usable device must offer (e.g. motion sensors for gyro aiming).</summary>
+    [Export] public ControllerFeatures RequiredFeatures { get; set; }
+
     /// <summary>Device kinds the mode can also use (motion sensors, a pen…).</summary>
     [Export] public DeviceKinds OptionalDevices { get; set; }
 

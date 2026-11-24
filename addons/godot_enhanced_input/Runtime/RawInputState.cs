@@ -10,20 +10,103 @@ public interface IChannelMask
     bool IsMasked(in SourceKey exactKey);
 }
 
+/// <summary>Why held input ended without being released by the player.</summary>
+public enum InputEndReason
+{
+    /// <summary>A genuine release (or the action simply stopped firing).</summary>
+    Released,
+    DeviceDisconnected,
+    FocusLost,
+    ApplicationSuspended,
+    ContextRemoved,
+    DeviceReassigned,
+    BindingChanged,
+    ModeChanged,
+    /// <summary>Blocked by a higher context, consumed, or ignored until released.</summary>
+    Blocked,
+    /// <summary>The scene tree was paused and the action does not run while paused.</summary>
+    Paused,
+    /// <summary>Raw input was cleared by code (<see cref="InputPlayer.ClearRawInput"/>).</summary>
+    Cleared,
+    /// <summary>A replay started or stopped.</summary>
+    Replay,
+}
+
 /// <summary>
 /// The raw input one player has received. Events only write here; all evaluation happens when the
 /// player ticks.
 ///
-/// Every on/off change of a channel (press, release, an axis leaving or returning to zero) is kept in
-/// order in a per-channel queue, and each tick observes at most one of them. So no press is lost: two
-/// presses that arrive between the same two ticks are seen as press, release, press, release on four
-/// consecutive ticks, in the order they happened. Changes that do not cross zero (an axis moving from
-/// 0.4 to 0.7) simply update the latest value.
+/// Every on/off change of a channel (press, release, an axis leaving or returning to zero) is queued
+/// with a global sequence number. A tick evaluates in steps: each step observes the longest run of
+/// queued changes, in arrival order, in which no channel changes twice; so all changes received since
+/// the last tick are processed in that tick, in the order they happened (a press and release in one
+/// frame are both seen in that frame, and a chord pressed in order stays in order). Changes that do
+/// not cross zero (an axis moving from 0.4 to 0.7) simply update the latest value. The last step is
+/// "now": it carries the frame's per-frame amounts (mouse motion, scrolling, drags, gestures); earlier
+/// steps are the instants in between.
 /// </summary>
 public sealed class RawInputState
 {
+    /// <summary>A channel's queued on/off changes (a small ring buffer).</summary>
+    private sealed class ChannelQueue
+    {
+        public SourceKey Key;
+        public Vector4 Base;          // the value observed before the first queued change
+        private Vector4[] _values = new Vector4[4];
+        private long[] _seq = new long[4];
+        private int _head;
+        public int Count;
+        public bool Active;
+
+        public Vector4 First => _values[_head];
+        public long FirstSeq => _seq[_head];
+        public long SeqAt(int i) => _seq[(_head + i) % _seq.Length];
+        public Vector4 Last => _values[(_head + Count - 1) % _values.Length];
+
+        public void ReplaceLast(Vector4 value) => _values[(_head + Count - 1) % _values.Length] = value;
+
+        public void Push(Vector4 value, long seq)
+        {
+            if (Count == _values.Length)
+            {
+                var values = new Vector4[_values.Length * 2];
+                var seqs = new long[_seq.Length * 2];
+                for (int i = 0; i < Count; i++)
+                {
+                    values[i] = _values[(_head + i) % _values.Length];
+                    seqs[i] = _seq[(_head + i) % _seq.Length];
+                }
+                _values = values;
+                _seq = seqs;
+                _head = 0;
+            }
+            int at = (_head + Count) % _values.Length;
+            _values[at] = value;
+            _seq[at] = seq;
+            Count++;
+        }
+
+        public void PopFirst()
+        {
+            Base = _values[_head];
+            _head = (_head + 1) % _values.Length;
+            Count--;
+        }
+
+        public void Clear()
+        {
+            Count = 0;
+            _head = 0;
+        }
+    }
+
     private readonly Dictionary<SourceKey, Vector4> _current = new();
-    private readonly Dictionary<SourceKey, List<Vector4>> _pending = new();
+    private readonly Dictionary<SourceKey, ChannelQueue> _pending = new();
+    private readonly List<ChannelQueue> _active = new();
+    private long _sequence;
+    private long _boundary = long.MaxValue;
+    private bool _frameStep = true;
+    private readonly Dictionary<SourceKey, InputEndReason> _canceled = new();
     private readonly Dictionary<RawKind, SortedSet<int>> _devices = new();
     private readonly SortedSet<int> _joyDevices = new();
     private readonly SortedSet<int> _fingers = new();
@@ -46,7 +129,6 @@ public sealed class RawInputState
     private readonly Dictionary<string, Vector4> _virtualDelta = new(System.StringComparer.Ordinal);
     private readonly Dictionary<SourceKey, SourceKey> _physicalOf = new();
     private readonly List<SourceKey> _scratch = new();
-    private readonly Stack<List<Vector4>> _listPool = new();
     private Vector2 _motion;
     private Vector2 _position;
 
@@ -85,20 +167,18 @@ public sealed class RawInputState
         bool on = value != Vector4.Zero;
         if (_pending.TryGetValue(key, out var queue) && queue.Count > 0)
         {
-            if ((queue[^1] != Vector4.Zero) == on) queue[^1] = value;   // same side of zero: just the latest value
-            else queue.Add(value);
+            if ((queue.Last != Vector4.Zero) == on) queue.ReplaceLast(value);   // same side of zero: just the latest value
+            else queue.Push(value, ++_sequence);
         }
         else
         {
-            bool wasOn = GetCurrent(key) != Vector4.Zero;
-            if (wasOn != on)
+            var previous = GetCurrent(key);
+            if ((previous != Vector4.Zero) != on)
             {
-                if (queue == null)
-                {
-                    queue = _listPool.Count > 0 ? _listPool.Pop() : new List<Vector4>(4);
-                    _pending[key] = queue;
-                }
-                queue.Add(value);
+                if (queue == null) _pending[key] = queue = new ChannelQueue { Key = key };
+                queue.Base = previous;
+                queue.Push(value, ++_sequence);
+                if (!queue.Active) { queue.Active = true; _active.Add(queue); }
             }
         }
 
@@ -152,6 +232,9 @@ public sealed class RawInputState
     public void AddWheel(Vector2 amount) => _wheel += amount;
 
     private static readonly SortedSet<int> NoDevices = new();
+
+    /// <summary>The devices (or fingers) that have written a channel of this kind.</summary>
+    public IReadOnlyCollection<int> DevicesWithChannel(RawKind kind) => DevicesOf(kind);
 
     private SortedSet<int> DevicesOf(RawKind kind)
     {
@@ -208,11 +291,11 @@ public sealed class RawInputState
         switch (key.Kind)
         {
             case RawKind.MouseMotion:
-                return Masked(mask, key) ? Vector4.Zero : V4(_motion.X, _motion.Y, 0f);
+                return !_frameStep || Masked(mask, key) ? Vector4.Zero : V4(_motion.X, _motion.Y, 0f);
             case RawKind.MouseWheel:
-                return Masked(mask, key) ? Vector4.Zero : V4(_wheel.X, _wheel.Y, 0f);
+                return !_frameStep || Masked(mask, key) ? Vector4.Zero : V4(_wheel.X, _wheel.Y, 0f);
             case RawKind.Gesture:
-                if (Masked(mask, key)) return Vector4.Zero;
+                if (!_frameStep || Masked(mask, key)) return Vector4.Zero;
                 return (GestureChannel)key.Code switch
                 {
                     GestureChannel.Pinch => V4(_pinch, 0f, 0f),
@@ -226,10 +309,11 @@ public sealed class RawInputState
             {
                 if (Masked(mask, key)) return Vector4.Zero;
                 var held = Observed(key);
-                return _virtualDelta.TryGetValue(key.Name ?? string.Empty, out var delta) ? held + delta : held;
+                return _frameStep && _virtualDelta.TryGetValue(key.Name ?? string.Empty, out var delta) ? held + delta : held;
             }
             case RawKind.TouchDrag:
             {
+                if (!_frameStep) return Vector4.Zero;
                 if (key.Device >= 0)
                     return Masked(mask, key) || !_touchDrag.TryGetValue(key.Device, out var d) ? Vector4.Zero : V4(d.X, d.Y, 0f);
                 var sum = Vector2.Zero;
@@ -293,15 +377,91 @@ public sealed class RawInputState
 
     private static bool Masked(IChannelMask mask, in SourceKey key) => mask != null && mask.IsMasked(key);
 
-    /// <summary>The value this tick observes: the oldest unobserved change, or the current value.</summary>
+    /// <summary>The value the current step observes: its first queued change if it belongs to this step, else the last observed value.</summary>
     private Vector4 Observed(in SourceKey key)
-        => _pending.TryGetValue(key, out var queue) && queue.Count > 0 ? queue[0] : GetCurrent(key);
+    {
+        if (!_pending.TryGetValue(key, out var queue) || queue.Count == 0) return GetCurrent(key);
+        return queue.FirstSeq < _boundary ? queue.First : queue.Base;
+    }
 
-    /// <summary>Called by the player after each tick: moves every channel on by one queued change and clears per-tick data.</summary>
+    /// <summary>Whether queued changes are waiting for another evaluation step.</summary>
+    public bool HasPendingChanges
+    {
+        get
+        {
+            for (int i = 0; i < _active.Count; i++)
+                if (_active[i].Count > 0) return true;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Starts an evaluation step: decides which queued changes it observes (the longest in-order run with
+    /// no channel twice). Returns true when this is the tick's last step (nothing remains after it), which
+    /// carries the per-frame amounts. <paramref name="forceLast"/> makes it the last step regardless
+    /// (changes beyond it wait for the next tick).
+    /// </summary>
+    public bool BeginStep(bool forceLast = false)
+    {
+        _boundary = long.MaxValue;
+        for (int i = 0; i < _active.Count; i++)
+        {
+            var q = _active[i];
+            if (q.Count >= 2 && q.SeqAt(1) < _boundary) _boundary = q.SeqAt(1);
+        }
+        _frameStep = forceLast || _boundary == long.MaxValue;
+        return _frameStep;
+    }
+
+    /// <summary>Ends an evaluation step: the changes it observed become the channels' settled values.</summary>
+    public void EndStep()
+    {
+        for (int i = _active.Count - 1; i >= 0; i--)
+        {
+            var q = _active[i];
+            if (q.Count > 0 && q.FirstSeq < _boundary) q.PopFirst();
+            if (q.Count == 0)
+            {
+                q.Active = false;
+                _active[i] = _active[^1];
+                _active.RemoveAt(_active.Count - 1);
+            }
+        }
+        _boundary = long.MaxValue;
+        _canceled.Clear();
+    }
+
+    /// <summary>Whether a channel was cut off this step (device lost, focus lost…) rather than released, and why.</summary>
+    public bool WasCanceled(in SourceKey key, out InputEndReason reason)
+    {
+        if (_canceled.TryGetValue(key, out reason)) return true;
+        if (key.Device == SourceKey.AnyDevice && key.IsPerDevice)
+            foreach (var pair in _canceled)
+                if (pair.Key.Kind == key.Kind && pair.Key.Code == key.Code && pair.Key.Name == key.Name) { reason = pair.Value; return true; }
+        return false;
+    }
+
+    /// <summary>Whether any channel was cut off this step.</summary>
+    public bool AnyCanceled => _canceled.Count > 0;
+
+    /// <summary>Sets a channel to zero at once (no queued release), remembering that it was cut off and why.</summary>
+    public void Cancel(in SourceKey key, InputEndReason reason)
+    {
+        bool held = _current.TryGetValue(key, out var value) && value != Vector4.Zero;
+        if (_pending.TryGetValue(key, out var queue))
+        {
+            if (queue.Count > 0 && queue.Base != Vector4.Zero) held = true;   // a release queued but not yet observed
+            queue.Clear();
+            queue.Base = Vector4.Zero;
+        }
+        if (held) _canceled[key] = reason;
+        _current[key] = Vector4.Zero;
+    }
+
+    /// <summary>Called by the player after each tick: clears per-frame data (mouse motion, scrolling, drags, gestures).</summary>
     public void EndTick()
     {
-        foreach (var queue in _pending.Values)
-            if (queue.Count > 0) queue.RemoveAt(0);
+        _frameStep = true;
         _motion = Vector2.Zero;
         _wheel = Vector2.Zero;
         _touchDrag.Clear();
@@ -312,12 +472,18 @@ public sealed class RawInputState
         _swipe = Vector2.Zero;
     }
 
-    /// <summary>Forgets everything (e.g. when the window loses focus).</summary>
-    public void Clear()
+    /// <summary>Forgets everything (e.g. when the window loses focus). Held channels are cut off, not released.</summary>
+    public void Clear() => Clear(InputEndReason.Cleared);
+
+    /// <summary>Forgets everything; held channels count as cut off for <paramref name="reason"/>.</summary>
+    public void Clear(InputEndReason reason)
     {
+        foreach (var pair in _current)
+            if (pair.Value != Vector4.Zero) _canceled[pair.Key] = reason;
         _current.Clear();
-        foreach (var queue in _pending.Values) { queue.Clear(); _listPool.Push(queue); }
+        foreach (var queue in _pending.Values) { queue.Clear(); queue.Active = false; }
         _pending.Clear();
+        _active.Clear();
         _joyDevices.Clear();
         _devices.Clear();
         _fingers.Clear();
@@ -331,35 +497,51 @@ public sealed class RawInputState
         _motion = Vector2.Zero;
     }
 
-    /// <summary>Forgets all channels of one joypad (e.g. when it disconnects).</summary>
-    public void ClearDevice(int device)
+    /// <summary>Forgets all channels of one joypad (e.g. when it disconnects). Held channels are cut off, not released.</summary>
+    public void ClearDevice(int device, InputEndReason reason = InputEndReason.DeviceDisconnected)
     {
         _scratch.Clear();
         foreach (var key in _current.Keys)
             if (key.IsJoypad && key.Device == device) _scratch.Add(key);
-        foreach (var key in _scratch)
-        {
-            _current.Remove(key);
-            if (_pending.Remove(key, out var queue)) { queue.Clear(); _listPool.Push(queue); }
-        }
+        foreach (var key in _scratch) Cancel(key, reason);
         _joyDevices.Remove(device);
         foreach (var pair in _devices)
             if (pair.Key is RawKind.JoyButton or RawKind.JoyAxis or RawKind.Motion) pair.Value.Remove(device);
     }
 
-    /// <summary>Forgets all channels of one custom device (e.g. when its backend removes it).</summary>
-    public void ClearCustomDevice(string deviceType, int device)
+    /// <summary>Forgets all channels of one custom device (e.g. when its backend removes it). Held channels are cut off.</summary>
+    public void ClearCustomDevice(string deviceType, int device, InputEndReason reason = InputEndReason.DeviceDisconnected)
     {
         _scratch.Clear();
         var prefix = deviceType + "/";
         foreach (var key in _current.Keys)
             if (key.Kind == RawKind.DeviceControl && key.Device == device && key.Name != null && key.Name.StartsWith(prefix, System.StringComparison.Ordinal))
                 _scratch.Add(key);
-        foreach (var key in _scratch)
-        {
-            _current.Remove(key);
-            if (_pending.Remove(key, out var queue)) { queue.Clear(); _listPool.Push(queue); }
-        }
+        foreach (var key in _scratch) Cancel(key, reason);
+    }
+
+    /// <summary>Cuts off every touch channel (fingers move to another player, or the touchscreen is taken away).</summary>
+    public void ClearTouch(InputEndReason reason = InputEndReason.DeviceReassigned)
+    {
+        _scratch.Clear();
+        foreach (var key in _current.Keys)
+            if (key.IsTouch) _scratch.Add(key);
+        foreach (var key in _scratch) Cancel(key, reason);
+        _touchDrag.Clear();
+        _gestureFingers.Clear();
+        _gestureTracks.Clear();
+    }
+
+    /// <summary>Cuts off every keyboard, mouse-button and pen channel (keyboard and mouse move to another player).</summary>
+    public void ClearKeyboardMouse(InputEndReason reason = InputEndReason.DeviceReassigned)
+    {
+        _scratch.Clear();
+        foreach (var key in _current.Keys)
+            if (key.Kind is RawKind.PhysicalKey or RawKind.LogicalKey or RawKind.KeyLabel or RawKind.MouseButton or RawKind.PenPressure or RawKind.PenTilt or RawKind.PenEraser)
+                _scratch.Add(key);
+        foreach (var key in _scratch) Cancel(key, reason);
+        _motion = Vector2.Zero;
+        _wheel = Vector2.Zero;
     }
 
     /// <summary>
@@ -445,10 +627,19 @@ public sealed class RawInputState
             {
                 var key = SourceKey.ForJoyAxis(joyMotion.Axis, joyMotion.Device);
                 float previous = GetCurrent(key).X;
-                // Toward zero, or across it, lowers the current direction: never let the GUI hold it back.
-                bool raising = Mathf.Abs(joyMotion.AxisValue) > Mathf.Abs(previous) && Mathf.Sign(joyMotion.AxisValue) != -Mathf.Sign(previous);
+                float value = joyMotion.AxisValue;
+                if (previous != 0f && value != 0f && Mathf.Sign(value) != Mathf.Sign(previous))
+                {
+                    // A reversal is a release of the old direction and a press of the new one. The release
+                    // is never held back by the GUI; the press must pass it like any other.
+                    if (stage == IntakeStage.Early) { Set(key, 0f); return true; }
+                    if (stage == IntakeStage.Direct) { Set(key, 0f); Set(key, value); return true; }
+                    previous = 0f;   // Unhandled: the early stage already released it
+                }
+                // Toward zero lowers the current direction: never let the GUI hold it back.
+                bool raising = Mathf.Abs(value) > Mathf.Abs(previous);
                 if (!StageAllows(stage, raising)) return false;
-                Set(key, joyMotion.AxisValue);
+                Set(key, value);
                 return true;
             }
             case InputEventScreenTouch touch:

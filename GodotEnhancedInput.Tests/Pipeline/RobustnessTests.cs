@@ -133,11 +133,13 @@ public class RobustnessTests(EngineFixture fixture)
         rig.Player.Bind(jump, ActionEvents.Triggered, _ => presses++);
 
         rig.Press(Key.Space).Release(Key.Space).Press(Key.Space).Release(Key.Space);
-        var phases = new List<bool>();
-        for (int i = 0; i < 5; i++) { rig.Tick(); phases.Add(rig.Player.GetState(jump).RawValue.AsBool()); }
+        rig.Tick();
 
+        presses.Should().Be(2, "both presses are evaluated in the frame they arrived, in order");
+        rig.Player.LastTickSteps.Should().Be(4);
+        rig.Player.GetState(jump).RawValue.AsBool().Should().BeFalse("the frame ends released");
+        rig.Tick();
         presses.Should().Be(2);
-        phases.Should().Equal(true, false, true, false, false);
     }
 
     [Fact]
@@ -356,7 +358,9 @@ public class RobustnessTests(EngineFixture fixture)
 
             system._Notification((int)Node.NotificationApplicationFocusOut);
             system.Tick(Rig.Dt);
-            player.WasCompleted(run).Should().BeTrue();
+            player.IsTriggered(run).Should().BeFalse();
+            player.WasCanceled(run).Should().BeTrue("focus loss cuts input off; it is not a release");
+            player.GetState(run).EndReason.Should().Be(InputEndReason.FocusLost);
         }
         finally { system.Free(); }
     }
@@ -386,13 +390,24 @@ public class RobustnessTests(EngineFixture fixture)
     // ------------------------------------------------------------------
 
     [Fact]
-    public void StickReversal_IsReadBeforeTheGui()
+    public void StickReversal_ReleasesBeforeTheGui_AndPressesOnlyIfTheGuiAllows()
     {
         var steer = Make.Action("steer", ActionValueKind.Axis1D);
         using var rig = new Rig().Add(Make.Context("C", Make.Bind(steer, InputSource.ForJoyAxis(JoyAxis.LeftX))));
         rig.Player.FeedEvent(new InputEventJoypadMotion { Axis = JoyAxis.LeftX, AxisValue = 0.8f }, IntakeStage.Unhandled);
         rig.Tick();
-        rig.Player.FeedEvent(new InputEventJoypadMotion { Axis = JoyAxis.LeftX, AxisValue = -0.9f }, IntakeStage.Early);
+
+        // The GUI took the reversal: the old direction is released, the new one never reaches gameplay.
+        var reversal = new InputEventJoypadMotion { Axis = JoyAxis.LeftX, AxisValue = -0.9f };
+        rig.Player.FeedEvent(reversal, IntakeStage.Early);
+        rig.Tick();
+        rig.Player.GetValue(steer).AsFloat().Should().Be(0f);
+
+        // The GUI let it through.
+        rig.Player.FeedEvent(new InputEventJoypadMotion { Axis = JoyAxis.LeftX, AxisValue = 0.8f }, IntakeStage.Unhandled);
+        rig.Tick();
+        rig.Player.FeedEvent(reversal, IntakeStage.Early);
+        rig.Player.FeedEvent(reversal, IntakeStage.Unhandled);
         rig.Tick();
         rig.Player.GetValue(steer).AsFloat().Should().BeApproximately(-0.9f, 1e-6f);
     }

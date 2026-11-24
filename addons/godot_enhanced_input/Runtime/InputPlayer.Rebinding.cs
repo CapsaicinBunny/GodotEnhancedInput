@@ -48,6 +48,7 @@ public partial class InputPlayer
     private void OnProfileChanged()
     {
         _planDirty = true;
+        _planChangeReason = InputEndReason.BindingChanged;
         EmitSignal(SignalName.BindingsChanged);
     }
 

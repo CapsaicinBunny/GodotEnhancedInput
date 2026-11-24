@@ -184,8 +184,8 @@ public partial class EnhancedInput : Node
         if (!player.JoypadDevices.Contains(device)) player.JoypadDevices.Add(device);
         if (string.IsNullOrEmpty(guid)) _joypadGuids.Remove(device);
         else _joypadGuids[device] = guid;
-        // Whatever the joypad was doing belongs to its previous route.
-        foreach (var other in _players) other.Raw.ClearDevice(device);
+        // Whatever the joypad was doing belongs to its previous route: cut it off there.
+        foreach (var other in _players) other.Raw.ClearDevice(device, InputEndReason.DeviceReassigned);
         EmitSignal(SignalName.JoypadAssigned, player, device);
     }
 
@@ -198,7 +198,7 @@ public partial class EnhancedInput : Node
             if (player.JoypadDevices.Remove(device))
             {
                 removed = true;
-                player.Raw.ClearDevice(device);
+                player.Raw.ClearDevice(device, InputEndReason.DeviceReassigned);
                 EmitSignal(SignalName.JoypadUnassigned, player, device);
             }
         return removed;
@@ -236,6 +236,7 @@ public partial class EnhancedInput : Node
     /// </summary>
     public void NotifyJoypadConnection(int device, bool connected, string guid = null)
     {
+        _connectedJoypadsValid = false;
         EnsureBuiltinDevices();
         if (!connected)
         {
@@ -253,16 +254,19 @@ public partial class EnhancedInput : Node
     [Export] public bool ResetInputOnFocusLoss { get; set; } = true;
 
     /// <summary>Releases all held input of every player (their actions finish on the next tick).</summary>
-    public void ResetAllInput()
+    public void ResetAllInput() => ResetAllInput(InputEndReason.Cleared);
+
+    /// <summary>Releases all held input of every player as cut off for a reason (release triggers do not fire).</summary>
+    public void ResetAllInput(InputEndReason reason)
     {
-        foreach (var player in _players) player.ClearRawInput();
+        foreach (var player in _players) player.ClearRawInput(reason);
     }
 
     public override void _Notification(int what)
     {
         if (!ResetInputOnFocusLoss) return;
-        if (what == NotificationApplicationFocusOut || what == NotificationWMWindowFocusOut || what == NotificationApplicationPaused)
-            ResetAllInput();
+        if (what == NotificationApplicationFocusOut || what == NotificationWMWindowFocusOut) ResetAllInput(InputEndReason.FocusLost);
+        else if (what == NotificationApplicationPaused) ResetAllInput(InputEndReason.ApplicationSuspended);
     }
 
     // ------------------------------------------------------------------

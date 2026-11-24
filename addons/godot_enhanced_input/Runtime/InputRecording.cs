@@ -21,6 +21,10 @@ public enum RecordedInputKind
     InjectStart,
     /// <summary>A continuous injection stopped.</summary>
     InjectStop,
+    /// <summary>A control of a backend device changed (XR, wheels, custom hardware).</summary>
+    DeviceControl,
+    /// <summary>A motion sensor was read (pads or the handheld device).</summary>
+    Sensor,
 }
 
 /// <summary>One input that reached a player between two ticks.</summary>
@@ -39,6 +43,12 @@ public sealed class RecordedInput
 
     /// <summary>The value set, added or injected.</summary>
     public Vector4 Value { get; init; }
+
+    /// <summary>The device index (device controls, sensors).</summary>
+    public int Device { get; init; } = -1;
+
+    /// <summary>The sensor (for <see cref="RecordedInputKind.Sensor"/>).</summary>
+    public MotionSensor Sensor { get; init; }
 }
 
 /// <summary>Everything a player received before one tick, and the time step of that tick.</summary>
@@ -171,6 +181,8 @@ public sealed class InputRecording
             case RecordedInputKind.Inject: return new JsonObject { ["t"] = "inject", ["name"] = input.Name, ["v"] = V3(input.Value) };
             case RecordedInputKind.InjectStart: return new JsonObject { ["t"] = "inject_start", ["name"] = input.Name, ["v"] = V3(input.Value) };
             case RecordedInputKind.InjectStop: return new JsonObject { ["t"] = "inject_stop", ["name"] = input.Name };
+            case RecordedInputKind.DeviceControl: return new JsonObject { ["t"] = "device_control", ["name"] = input.Name, ["dev"] = input.Device, ["v"] = V3(input.Value) };
+            case RecordedInputKind.Sensor: return new JsonObject { ["t"] = "sensor", ["sensor"] = input.Sensor.ToString(), ["dev"] = input.Device, ["v"] = V3(input.Value) };
         }
         return null;
     }
@@ -187,6 +199,13 @@ public sealed class InputRecording
             case "inject": return new RecordedInput { Kind = RecordedInputKind.Inject, Name = name, Value = value };
             case "inject_start": return new RecordedInput { Kind = RecordedInputKind.InjectStart, Name = name, Value = value };
             case "inject_stop": return new RecordedInput { Kind = RecordedInputKind.InjectStop, Name = name };
+            case "device_control": return new RecordedInput { Kind = RecordedInputKind.DeviceControl, Name = name, Device = (int?)node["dev"] ?? -1, Value = value };
+            case "sensor":
+                return new RecordedInput
+                {
+                    Kind = RecordedInputKind.Sensor, Device = (int?)node["dev"] ?? -1, Value = value,
+                    Sensor = Enum.TryParse<MotionSensor>((string)node["sensor"], out var sensor) ? sensor : MotionSensor.Gyroscope,
+                };
         }
         var @event = ReadEvent(type, node);
         if (@event == null) return null;

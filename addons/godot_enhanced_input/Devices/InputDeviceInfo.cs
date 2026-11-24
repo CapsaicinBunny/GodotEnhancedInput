@@ -17,6 +17,22 @@ public enum DeviceRole
     XRController,
 }
 
+/// <summary>Several <see cref="DeviceRole"/>s at once (for <see cref="InputMode.RequiredRoles"/>).</summary>
+[System.Flags]
+public enum DeviceRoles
+{
+    None = 0,
+    KeyboardMouse = 1 << DeviceRole.KeyboardMouse,
+    Touchscreen = 1 << DeviceRole.Touchscreen,
+    Pen = 1 << DeviceRole.Pen,
+    Gamepad = 1 << DeviceRole.Gamepad,
+    Wheel = 1 << DeviceRole.Wheel,
+    Pedals = 1 << DeviceRole.Pedals,
+    FlightStick = 1 << DeviceRole.FlightStick,
+    Throttle = 1 << DeviceRole.Throttle,
+    XRController = 1 << DeviceRole.XRController,
+}
+
 /// <summary>
 /// One input device known to <see cref="EnhancedInput"/>: the keyboard and mouse, the touchscreen, the
 /// pen, each joypad, and each device of a custom backend. Joypads are identified by their GUID when

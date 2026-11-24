@@ -36,8 +36,9 @@ public class TouchTests
         rig.Player.FeedEvent(new InputEventScreenTouch { Index = 0, Pressed = false });
         rig.Tick();
         rig.Player.WasTriggered(tap).Should().BeTrue();
+        rig.Player.WasCompleted(tap).Should().BeTrue("a tap within one frame starts and ends in that frame");
         rig.Tick();
-        rig.Player.WasCompleted(tap).Should().BeTrue();
+        rig.Player.GetEvents(tap).Should().Be(ActionEvents.None, "and is seen once");
     }
 
     [Fact]

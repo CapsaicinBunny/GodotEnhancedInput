@@ -290,7 +290,8 @@ public class PipelineTests(EngineFixture fixture)
 
             fixture.Tree.Paused = true;
             rig.Press(Key.Escape).Tick();
-            rig.Player.WasCompleted(jump).Should().BeTrue("paused actions lose their input and finish");
+            rig.Player.WasCanceled(jump).Should().BeTrue("paused actions lose their input");
+            rig.Player.GetState(jump).EndReason.Should().Be(InputEndReason.Paused);
             rig.Player.IsTriggered(unpause).Should().BeTrue();
         }
         finally

@@ -92,9 +92,16 @@ public abstract partial class TouchControl : Control
     public override void _Notification(int what)
     {
         // Hidden, removed, or the app lost focus / was suspended: fingers may never send their release.
-        if (what == NotificationVisibilityChanged && !IsVisibleInTree() || what == NotificationExitTree
-            || what == NotificationApplicationFocusOut || what == NotificationWMWindowFocusOut || what == NotificationApplicationPaused)
+        if (what == NotificationVisibilityChanged && !IsVisibleInTree() || what == NotificationExitTree)
             ReleaseAll();
+        else if (what == NotificationApplicationFocusOut || what == NotificationWMWindowFocusOut || what == NotificationApplicationPaused)
+        {
+            // Fingers lost to focus loss or suspension were not lifted: cut the control off, do not release it.
+            bool held = Pointers.Count > 0;
+            ReleaseAll();
+            if (held && !string.IsNullOrEmpty(ControlName))
+                Player?.CancelVirtualControl(ControlName, what == NotificationApplicationPaused ? InputEndReason.ApplicationSuspended : InputEndReason.FocusLost);
+        }
     }
 
     /// <summary>

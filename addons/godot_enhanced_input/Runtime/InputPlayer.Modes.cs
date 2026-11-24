@@ -26,6 +26,7 @@ public partial class InputPlayer
             if (ReferenceEquals(_activeMode, value)) return;
             _activeMode = value;
             _planDirty = true;
+            _planChangeReason = InputEndReason.ModeChanged;
             EmitSignal(SignalName.ModeChanged, value);
         }
     }
@@ -65,10 +66,57 @@ public partial class InputPlayer
         }
     }
 
-    /// <summary>Whether the device kinds a mode requires are available to this player now.</summary>
+    /// <summary>
+    /// The connected devices this player can use now: the keyboard and mouse if it listens to them, the
+    /// touchscreen if one exists and it listens to touch, its joypads (or unowned ones it takes), and the
+    /// backend devices it owns (or unowned ones it takes).
+    /// </summary>
+    public List<InputDeviceInfo> GetUsableDevices()
+    {
+        var list = new List<InputDeviceInfo>();
+        if (GetParent() is not EnhancedInput system) return list;
+        foreach (var device in system.Devices)
+        {
+            if (!device.IsConnected) continue;
+            bool usable = device.Kind switch
+            {
+                InputDeviceKind.KeyboardMouse or InputDeviceKind.Pen => AcceptKeyboardMouse,
+                InputDeviceKind.Touch => AcceptTouch,
+                InputDeviceKind.Joypad => MayUseJoypad(device.Index, system),
+                InputDeviceKind.Custom => OwnedCustomDevices.Contains(device.Id) || (ReceivesUnownedJoypads && OwnedCustomDevices.Count == 0 && system.GetDeviceOwner(device) == null),
+                _ => false,
+            };
+            if (usable) list.Add(device);
+        }
+        return list;
+    }
+
+    /// <summary>
+    /// Whether a mode's requirements are met by devices this player can use right now (connected, and
+    /// its own or unowned): the device kinds, each required role as a separate device, and the required
+    /// capabilities.
+    /// </summary>
     public bool RequiredDevicesAvailable(InputMode mode)
     {
         if (mode == null) return false;
+        if (GetParent() is EnhancedInput)
+        {
+            var usable = GetUsableDevices();
+            foreach (var kind in new[] { InputDeviceKind.KeyboardMouse, InputDeviceKind.Joypad, InputDeviceKind.Touch, InputDeviceKind.Pen, InputDeviceKind.Custom })
+                if (mode.RequiredDevices.Has(kind) && !usable.Exists(d => d.Kind == kind)) return false;
+            for (int role = 0; role < 31; role++)
+            {
+                var flag = (DeviceRoles)(1 << role);
+                if ((mode.RequiredRoles & flag) != 0 && !usable.Exists(d => (int)d.Role == role)) return false;
+            }
+            if (mode.RequiredFeatures != ControllerFeatures.None)
+            {
+                var features = ControllerFeatures.None;
+                foreach (var d in usable) features |= d.Features;
+                if ((features & mode.RequiredFeatures) != mode.RequiredFeatures) return false;
+            }
+            return true;
+        }
         foreach (var kind in new[] { InputDeviceKind.KeyboardMouse, InputDeviceKind.Joypad, InputDeviceKind.Touch, InputDeviceKind.Pen, InputDeviceKind.Custom })
         {
             if (!mode.RequiredDevices.Has(kind)) continue;
@@ -76,7 +124,7 @@ public partial class InputPlayer
             {
                 InputDeviceKind.KeyboardMouse or InputDeviceKind.Pen => AcceptKeyboardMouse,
                 InputDeviceKind.Touch => AcceptTouch,
-                InputDeviceKind.Joypad => JoypadDevices.Count > 0 || LastJoypad >= 0 || Input.GetConnectedJoypads().Count > 0,
+                InputDeviceKind.Joypad => JoypadDevices.Count > 0 || Input.GetConnectedJoypads().Count > 0,
                 InputDeviceKind.Custom => OwnedCustomDevices.Count > 0 || ReceivesUnownedJoypads,
                 _ => true,
             };

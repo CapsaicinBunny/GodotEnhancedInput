@@ -213,7 +213,7 @@ public class RebindTests
     }
 
     [Fact]
-    public void RebindWhileHeld_CompletesAction()
+    public void RebindWhileHeld_CancelsAction_WithoutARelease()
     {
         using var s = new Setup();
         s.Rig.Press(Key.Space).Tick();
@@ -221,7 +221,9 @@ public class RebindTests
 
         s.Player.Rebind("jump_key", InputSource.ForKey(Key.J));
         s.Rig.Tick();
-        s.Player.WasCompleted(s.Jump).Should().BeTrue();
+        s.Player.WasCanceled(s.Jump).Should().BeTrue("the binding changed under the held key");
+        s.Player.WasCompleted(s.Jump).Should().BeFalse("that is not a release");
+        s.Player.GetState(s.Jump).EndReason.Should().Be(InputEndReason.BindingChanged);
     }
 
     [Fact]

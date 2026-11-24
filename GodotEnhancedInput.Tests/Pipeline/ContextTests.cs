@@ -156,19 +156,22 @@ public class ContextTests
     }
 
     [Fact]
-    public void RemovingContext_CompletesTriggeredAction()
+    public void RemovingContext_CancelsTriggeredAction_WithItsReason()
     {
         var jump = Make.Action("Jump");
         var context = Make.Context("Gameplay", Make.Bind(jump, Key.Space));
-        var completed = 0;
+        int completed = 0, canceled = 0;
         using var rig = new Rig().Add(context);
         rig.Player.Bind(jump, ActionEvents.Completed, _ => completed++);
+        rig.Player.Bind(jump, ActionEvents.Canceled, _ => canceled++);
 
         rig.Press(Key.Space).Tick();
         rig.Player.RemoveContext(context);
         rig.Tick();
 
-        completed.Should().Be(1);
+        completed.Should().Be(0, "the key was not released");
+        canceled.Should().Be(1);
+        rig.Player.GetState(jump).EndReason.Should().Be(InputEndReason.ContextRemoved);
         rig.Player.GetPhase(jump).Should().Be(TriggerPhase.Idle);
     }
 

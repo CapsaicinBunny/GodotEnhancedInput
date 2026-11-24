@@ -53,7 +53,7 @@ public partial class InputPlayer
     {
         if (recording == null) return;
         StopRecording();
-        ClearRawInput();
+        ClearRawInput(InputEndReason.Replay);
         _replay = recording;
         _replayIndex = 0;
         _replayEndsThisTick = false;
@@ -64,7 +64,7 @@ public partial class InputPlayer
     public void StopReplay()
     {
         if (_replay == null) return;
-        ClearRawInput();
+        ClearRawInput(InputEndReason.Replay);
         FinishReplay();
     }
 
@@ -74,6 +74,27 @@ public partial class InputPlayer
         _replayIndex = 0;
         _replayEndsThisTick = false;
         EmitSignal(SignalName.ReplayFinished);
+    }
+
+    /// <summary>
+    /// A backend device control reaching this player: ignored during a replay, recorded while recording,
+    /// like every other input.
+    /// </summary>
+    internal void ReceiveDeviceControl(in SourceKey key, Vector4 value)
+    {
+        if (LiveInputBlocked) return;
+        if (_recording != null) _recordingPending.Inputs.Add(new RecordedInput { Kind = RecordedInputKind.DeviceControl, Name = key.Name, Device = key.Device, Value = value });
+        Raw.Set(key, value);
+    }
+
+    /// <summary>A polled sensor value (recorded while recording; replays play it back instead of polling).</summary>
+    internal void ReceiveSensor(MotionSensor sensor, int device, Vector4 value)
+    {
+        if (LiveInputBlocked) return;
+        var key = SourceKey.ForMotion(sensor, device);
+        if (_recording != null && Raw.GetCurrent(key) != value)
+            _recordingPending.Inputs.Add(new RecordedInput { Kind = RecordedInputKind.Sensor, Sensor = sensor, Device = device, Value = value });
+        Raw.Set(key, value);
     }
 
     /// <summary>True when live input must be ignored because a replay is running.</summary>
@@ -145,6 +166,12 @@ public partial class InputPlayer
                 break;
             case RecordedInputKind.InjectStop:
                 StopInjecting(FindAction(input.Name));
+                break;
+            case RecordedInputKind.DeviceControl:
+                Raw.Set(new SourceKey(RawKind.DeviceControl, 0, input.Device, input.Name), input.Value);
+                break;
+            case RecordedInputKind.Sensor:
+                Raw.Set(SourceKey.ForMotion(input.Sensor, input.Device), input.Value);
                 break;
         }
     }

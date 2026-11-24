@@ -37,24 +37,45 @@ public partial class InputPlayer : IChannelMask
 
         delta = BeginTickRecording(delta);
         _tick++;
-        _delta = Math.Max(0.0, delta);
+        double frameDelta = Math.Max(0.0, delta);
+        _delta = frameDelta;
         UpdateCapture(_delta);
-        _ticking = true;
-        try
-        {
-            PrepareTick();
-            for (int i = 0; i < _tickActions.Count; i++) Resolve(_tickActions[i]);
-        }
-        finally
-        {
-            _ticking = false;
-        }
 
-        Dispatch();
+        // One step per run of queued changes (see RawInputState): every change received since the last
+        // tick is evaluated now, in arrival order. Earlier steps are instants; the last one is "now" and
+        // advances time by the frame's delta.
+        for (int step = 0; ; step++)
+        {
+            _step++;
+            LastTickSteps = step + 1;
+            bool last = Raw.BeginStep(forceLast: step + 1 >= MaxStepsPerTick);
+            _delta = last ? frameDelta : 0;
+            _ticking = true;
+            try
+            {
+                PrepareTick(last);
+                for (int i = 0; i < _tickActions.Count; i++) Resolve(_tickActions[i]);
+            }
+            finally
+            {
+                _ticking = false;
+            }
+            Dispatch();
+            Raw.EndStep();
+            if (last) break;
+        }
+        _delta = frameDelta;
+
         EndTick();
         EndTickRecording();
-        UpdateHaptics(_delta);
+        UpdateHaptics(frameDelta);
     }
+
+    /// <summary>Most evaluation steps one tick runs (changes beyond that wait for the next tick).</summary>
+    public const int MaxStepsPerTick = 32;
+
+    /// <summary>The evaluation steps the last tick ran (1 unless several changes of one channel arrived in one frame).</summary>
+    public int LastTickSteps { get; private set; }
 
     /// <summary>
     /// Forces the active bindings to be compiled again on the next tick. Needed only after changing a
@@ -162,7 +183,7 @@ public partial class InputPlayer : IChannelMask
         return false;
     }
 
-    private void PrepareTick()
+    private void PrepareTick(bool firstStep = true)
     {
         if (PlanIsStale()) CompilePlan();
 
@@ -183,7 +204,7 @@ public partial class InputPlayer : IChannelMask
             var compiled = _plan[p];
             var action = compiled.Action;
             AddTickAction(action);
-            if (compiled.PollsSensors) PollSensors(compiled.Source);
+            if (firstStep && compiled.PollsSensors) PollSensors(compiled.Source);
 
             // Consumption depends only on which contexts are active, never on this tick's results, so
             // actions can be evaluated in any order. Channels keep their device or finger; a source
@@ -237,7 +258,7 @@ public partial class InputPlayer : IChannelMask
     private void Resolve(GameAction action)
     {
         var state = GetOrCreateState(action);
-        if (state.ResolvedTick == _tick || state.Resolving) return;
+        if (state.ResolvedTick == _step || state.Resolving) return;
 
         AddTickAction(action);
         state.Resolving = true;
@@ -252,6 +273,8 @@ public partial class InputPlayer : IChannelMask
             var bindingPhase = TriggerPhase.Idle;
             bool triggerlessNonZero = false;
             bool anyEvaluated = false;
+            InputEndReason? cut = null;
+            ValueNature? nature = null;
 
             if (_bindingsByAction.TryGetValue(action, out var list))
             {
@@ -259,8 +282,15 @@ public partial class InputPlayer : IChannelMask
                 {
                     var compiled = list[i];
                     var entry = compiled.Entry;
-                    var memory = entry.GetMemory(compiled);
+                    var memory = entry.GetMemory(compiled, out bool replaced);
                     var source = compiled.Source;
+                    if (replaced && state.Phase != TriggerPhase.Idle) cut ??= InputEndReason.BindingChanged;
+                    if (Raw.AnyCanceled && AnyCanceled(compiled.Keys, out var reason))
+                    {
+                        // Cut off, not released: forget trigger and modifier history so nothing fires on it.
+                        memory.Reset();
+                        cut ??= reason;
+                    }
 
                     if (silenced || entry.Rank > _blockRank || IsFullySuppressed(entry, source, compiled.Keys))
                     {
@@ -268,6 +298,8 @@ public partial class InputPlayer : IChannelMask
                         continue;
                     }
                     anyEvaluated = true;
+                    var bindingNature = source?.Nature ?? ValueNature.State;
+                    nature = nature == null || nature == bindingNature ? bindingNature : ValueNature.State;
 
                     _readEntry = entry;
                     var value = source?.Read(this) ?? Vector4.Zero;
@@ -311,11 +343,20 @@ public partial class InputPlayer : IChannelMask
                 state.ToggleOn = false;
                 state.TogglePressed = false;
                 state.InputValue = ActionValue.Zero(kind);
-                state.Advance(TriggerPhase.Idle, ActionValue.Zero(kind), _delta, ActionValue.Zero(kind));
+                // Nothing left to evaluate is never a release: the input was taken away.
+                InputEndReason? why = cut ?? (silenced ? InputEndReason.Paused
+                    : list != null && list.Count > 0 ? InputEndReason.Blocked
+                    : state.HadBindings ? _planChangeReason
+                    : null);   // only injected input drove it: its end is a genuine release
+                state.HadBindings = false;
+                state.Advance(TriggerPhase.Idle, ActionValue.Zero(kind), _delta, ActionValue.Zero(kind), _tick, why);
             }
             else
             {
-                var value = Trim(kind, ApplyModifiers(action.Modifiers, state.ModifierMemories, firing, kind, ValueNature.State));
+                state.HadBindings = list != null && list.Count > 0;
+                if (cut.HasValue && ActionValue.IsZeroOf(kind, firing)) state.ResetMemories();
+                // Mixed natures count as held state; all-delta or all-absolute keep theirs.
+                var value = Trim(kind, ApplyModifiers(action.Modifiers, state.ModifierMemories, firing, kind, nature ?? ValueNature.State));
                 TriggerPhase finalPhase;
                 if (HasTriggers(action.Triggers))
                 {
@@ -341,11 +382,12 @@ public partial class InputPlayer : IChannelMask
                     value = state.ToggleOn ? state.ToggleValue : Vector4.Zero;
                 }
                 state.InputValue = new ActionValue(kind, Trim(kind, input));
-                state.Advance(finalPhase, new ActionValue(kind, value), _delta, new ActionValue(kind, Trim(kind, raw)));
+                state.Advance(finalPhase, new ActionValue(kind, value), _delta, new ActionValue(kind, Trim(kind, raw)), _tick, cut);
             }
 
             state.LastTick = _tick;
-            state.ResolvedTick = _tick;
+            state.ResolvedTick = _step;
+            state.StepId = _step;
         }
         finally
         {
@@ -358,6 +400,20 @@ public partial class InputPlayer : IChannelMask
         if (triggers == null) return false;
         for (int i = 0; i < triggers.Count; i++)
             if (triggers[i] != null) return true;
+        return false;
+    }
+
+    private bool AnyCanceled(SourceKey[] keys, out InputEndReason reason)
+    {
+        for (int i = 0; i < keys.Length; i++)
+        {
+            var key = keys[i];
+            if (Raw.WasCanceled(Raw.PhysicalOf(key), out reason) || Raw.WasCanceled(key, out reason)) return true;
+            if (key.Device == SourceKey.AnyDevice && key.IsPerDevice)
+                foreach (var d in Raw.DevicesWithChannel(key.Kind))
+                    if (Raw.WasCanceled(key with { Device = d }, out reason)) return true;
+        }
+        reason = InputEndReason.Released;
         return false;
     }
 
@@ -471,11 +527,11 @@ public partial class InputPlayer : IChannelMask
             for (int i = 0; i < _tickActions.Count; i++)
             {
                 var action = _tickActions[i];
-                if (!_states.TryGetValue(action, out var state) || state.LastTick != _tick || state.Events == ActionEvents.None) continue;
+                if (!_states.TryGetValue(action, out var state) || state.StepId != _step || state.StepEvents == ActionEvents.None) continue;
 
                 foreach (var flag in EventOrder)
                 {
-                    if ((state.Events & flag) == 0) continue;
+                    if ((state.StepEvents & flag) == 0) continue;
                     Raise(action, state, flag);
                 }
             }

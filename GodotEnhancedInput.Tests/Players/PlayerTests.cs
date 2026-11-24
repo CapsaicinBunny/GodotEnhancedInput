@@ -179,7 +179,7 @@ public class PlayerTests
 
         w.System.NotifyJoypadConnection(1, false);
         w.Tick();
-        second.WasCompleted(w.Jump).Should().BeTrue();
+        second.WasCanceled(w.Jump).Should().BeTrue("a lost pad cuts input off");
         second.JoypadDevices.Should().Contain(1);
 
         w.System.NotifyJoypadConnection(1, true);
