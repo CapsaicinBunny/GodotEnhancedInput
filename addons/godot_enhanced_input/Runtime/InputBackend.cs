@@ -36,12 +36,24 @@ public abstract class InputBackend
     /// <summary>Applies force feedback to a device (wheels, force-feedback sticks). Does nothing unless overridden.</summary>
     public virtual void SetForceFeedback(InputDeviceInfo device, ForceFeedback force) { }
 
-    /// <summary>Registers (or re-connects) a device of this backend and returns its record.</summary>
+    /// <summary>
+    /// Tells this backend's devices apart from another backend's that use the same device type and index
+    /// (their ids become "type:namespace:index"). The class name by default.
+    /// </summary>
+    public virtual string Namespace => GetType().Name;
+
+    /// <summary>
+    /// Registers (or re-connects) a device of this backend and returns its record. Give a
+    /// <paramref name="guid"/> that identifies the hardware: the device's id ("type:guid") then stays the
+    /// same across reconnections and backends. <paramref name="index"/> is this backend's own number for
+    /// the device; when another backend already uses it for that type, bindings and channels see another
+    /// runtime index (<see cref="InputDeviceInfo.Index"/>), and this backend keeps using its own.
+    /// </summary>
     protected InputDeviceInfo AddDevice(string deviceType, int index, string name, string guid = null)
         => System?.RegisterCustomDevice(this, deviceType, index, name, guid);
 
     /// <summary>Marks a device as disconnected and releases its controls.</summary>
-    protected void RemoveDevice(string deviceType, int index) => System?.UnregisterCustomDevice(deviceType, index);
+    protected void RemoveDevice(string deviceType, int index) => System?.UnregisterCustomDevice(this, deviceType, index);
 
     /// <summary>Writes a control value (buttons 0/1, axes, vectors, positions).</summary>
     protected void SetControl(string deviceType, int index, string control, Vector3 value)
@@ -53,7 +65,27 @@ public abstract class InputBackend
 
     /// <summary>Sets a control of one of this backend's devices (up to four components).</summary>
     protected void SetControl(string deviceType, int index, string control, Vector4 value)
-        => System?.SetDeviceControl(deviceType, index, control, value);
+        => System?.SetDeviceControl(this, deviceType, index, control, value, tracked: false);
+
+    /// <summary>
+    /// Sets a tracked quantity — a pose's position or rotation, a gaze point: while it has a value it
+    /// counts as input even at the origin or identity (see <see cref="ActionState.IsTracked"/>). Call
+    /// <see cref="ClearControl"/> when tracking is lost.
+    /// </summary>
+    protected void SetTrackedControl(string deviceType, int index, string control, Vector4 value)
+        => System?.SetDeviceControl(this, deviceType, index, control, value, tracked: true);
+
+    /// <inheritdoc cref="SetTrackedControl(string, int, string, Vector4)"/>
+    protected void SetTrackedControl(string deviceType, int index, string control, Vector3 value)
+        => SetTrackedControl(deviceType, index, control, new Vector4(value.X, value.Y, value.Z, 0f));
+
+    /// <inheritdoc cref="SetTrackedControl(string, int, string, Vector4)"/>
+    protected void SetTrackedControl(string deviceType, int index, string control, Quaternion value)
+        => SetTrackedControl(deviceType, index, control, ActionValue.FromQuaternion(value));
+
+    /// <summary>A control has no value any more (tracking lost): actions reading it end canceled with <see cref="InputEndReason.TrackingLost"/>.</summary>
+    protected void ClearControl(string deviceType, int index, string control)
+        => System?.ClearDeviceControl(this, deviceType, index, control);
 
     /// <summary>Writes a scalar control value.</summary>
     protected void SetControl(string deviceType, int index, string control, float value)

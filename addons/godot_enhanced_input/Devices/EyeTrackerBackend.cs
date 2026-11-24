@@ -56,7 +56,7 @@ public sealed class EyeTrackerBackend : InputBackend
     public override void Poll(double delta)
     {
         bool available = _tracker != null && _tracker.IsAvailable;
-        if (available && !_added) { AddDevice(DeviceType, _index, _tracker.Name, "eye:" + _tracker.Name); _added = true; }
+        if (available && !_added) { AddDevice(DeviceType, _index, _tracker.Name, _tracker.Name); _added = true; }
         else if (!available && _added) { RemoveDevice(DeviceType, _index); _added = false; }
         if (!available) return;
 
@@ -66,21 +66,34 @@ public sealed class EyeTrackerBackend : InputBackend
         if (valid)
         {
             gaze = gaze.Clamp(Vector2.Zero, Vector2.One);
-            SetControl(DeviceType, _index, "gaze", new Vector3(gaze.X, gaze.Y, 0f));
+            SetTrackedControl(DeviceType, _index, "gaze", new Vector3(gaze.X, gaze.Y, 0f));
             var centered = gaze * 2f - Vector2.One;
-            SetControl(DeviceType, _index, "gaze_centered", new Vector3(centered.X, centered.Y, 0f));
+            SetTrackedControl(DeviceType, _index, "gaze_centered", new Vector3(centered.X, centered.Y, 0f));
             var viewport = Viewport ?? (Engine.GetMainLoop() as SceneTree)?.Root;
             if (viewport != null)
             {
                 var size = viewport.GetVisibleRect().Size;
-                SetControl(DeviceType, _index, "gaze_pixels", new Vector3(gaze.X * size.X, gaze.Y * size.Y, 0f));
+                SetTrackedControl(DeviceType, _index, "gaze_pixels", new Vector3(gaze.X * size.X, gaze.Y * size.Y, 0f));
             }
+        }
+        else
+        {
+            // Blinking or looking away: no gaze (not "the top-left corner").
+            ClearControl(DeviceType, _index, "gaze");
+            ClearControl(DeviceType, _index, "gaze_centered");
+            ClearControl(DeviceType, _index, "gaze_pixels");
         }
         if (_tracker.TryGetHead(out var position, out var rotation))
         {
-            SetControl(DeviceType, _index, "head/position", position);
-            SetControl(DeviceType, _index, "head/orientation", rotation);
-            SetControl(DeviceType, _index, "head/rotation", rotation.GetEuler());
+            SetTrackedControl(DeviceType, _index, "head/position", position);
+            SetTrackedControl(DeviceType, _index, "head/orientation", rotation);
+            SetTrackedControl(DeviceType, _index, "head/rotation", rotation.GetEuler());
+        }
+        else
+        {
+            ClearControl(DeviceType, _index, "head/position");
+            ClearControl(DeviceType, _index, "head/orientation");
+            ClearControl(DeviceType, _index, "head/rotation");
         }
     }
 

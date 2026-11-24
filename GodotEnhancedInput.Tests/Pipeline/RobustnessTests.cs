@@ -136,7 +136,7 @@ public class RobustnessTests(EngineFixture fixture)
         rig.Tick();
 
         presses.Should().Be(2, "both presses are evaluated in the frame they arrived, in order");
-        rig.Player.LastTickSteps.Should().Be(4);
+        rig.Player.LastTickSteps.Should().Be(5, "four changes, then the frame");
         rig.Player.GetState(jump).RawValue.AsBool().Should().BeFalse("the frame ends released");
         rig.Tick();
         presses.Should().Be(2);

@@ -85,6 +85,20 @@ public sealed class ActionState
     internal ulong ResolvedTick;
     internal ulong StepId;
     internal bool HadBindings;
+    internal double EvalTime;            // seconds into the current tick of the last evaluation
+    internal ulong EvalTick;
+    internal ActionEvents FrameDispatched;
+    internal ulong FrameDispatchTick;
+
+    /// <summary>
+    /// True while one of the action's bindings reads a tracked quantity that has a value — an XR pose, a
+    /// tracked position, a gaze — even at the origin or the identity rotation. Such an action counts as
+    /// input (triggered, without triggers of its own) for as long as it is tracked.
+    /// </summary>
+    public bool IsTracked { get; internal set; }
+
+    /// <summary>When the action's value last changed, in seconds on the player's clock.</summary>
+    public double LastChangeTime { get; internal set; }
     internal bool ToggleOn;
     internal bool TogglePressed;
     internal Vector4 ToggleValue;
@@ -174,6 +188,36 @@ public sealed class ActionState
     }
 
     public override string ToString() => $"{Action}: {Phase} {Value} [{Events}] {ElapsedSeconds:0.###}s/{TriggeredSeconds:0.###}s";
+}
+
+/// <summary>
+/// An action's value together with whether it means anything right now: for tracked input (XR poses,
+/// positions, gaze) the identity rotation or the origin is a real reading while <see cref="IsTracked"/>,
+/// and "no reading" when it is not.
+/// </summary>
+public readonly struct InputSample
+{
+    public InputSample(ActionValue value, bool isTracked, bool isValid, double timestamp)
+    {
+        Value = value;
+        IsTracked = isTracked;
+        IsValid = isValid;
+        Timestamp = timestamp;
+    }
+
+    /// <summary>The action's value.</summary>
+    public ActionValue Value { get; }
+
+    /// <summary>True while a tracked quantity the action reads has a value.</summary>
+    public bool IsTracked { get; }
+
+    /// <summary>True when the value is a real reading: tracked, or non-zero input.</summary>
+    public bool IsValid { get; }
+
+    /// <summary>When the value last changed, in seconds on the player's clock.</summary>
+    public double Timestamp { get; }
+
+    public override string ToString() => IsValid ? $"{Value}{(IsTracked ? " (tracked)" : "")} @ {Timestamp:0.###}s" : "no reading";
 }
 
 /// <summary>Passed to action callbacks: one event of one action.</summary>

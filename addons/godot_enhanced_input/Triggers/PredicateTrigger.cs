@@ -13,6 +13,8 @@ namespace GodotEnhancedInput;
 [GlobalClass]
 public partial class PredicateTrigger : InputTrigger
 {
+    public override bool ReadsOtherActions => true;
+
     /// <summary>How this trigger combines with others.</summary>
     [Export] public TriggerRole TriggerRole { get; set; } = TriggerRole.Explicit;
 

@@ -25,6 +25,10 @@ public enum RecordedInputKind
     DeviceControl,
     /// <summary>A motion sensor was read (pads or the handheld device).</summary>
     Sensor,
+    /// <summary>A channel was cut off (device lost, focus lost…) with a reason.</summary>
+    Cancel,
+    /// <summary>All raw input was cut off with a reason (<see cref="InputPlayer.ClearRawInput"/>).</summary>
+    ClearAll,
 }
 
 /// <summary>One input that reached a player between two ticks.</summary>
@@ -49,6 +53,24 @@ public sealed class RecordedInput
 
     /// <summary>The sensor (for <see cref="RecordedInputKind.Sensor"/>).</summary>
     public MotionSensor Sensor { get; init; }
+
+    /// <summary>For a device control: a tracked quantity (pose, gaze) rather than a button or axis.</summary>
+    public bool Tracked { get; init; }
+
+    /// <summary>When within its tick the input arrived (0 = at the start, 1 = at the end).</summary>
+    public double At { get; set; }
+
+    /// <summary>The channel kind and code of a cut-off (for <see cref="RecordedInputKind.Cancel"/>).</summary>
+    public RawKind ChannelKind { get; init; }
+
+    /// <inheritdoc cref="ChannelKind"/>
+    public long Code { get; init; }
+
+    /// <summary>Why input was cut off (for <see cref="RecordedInputKind.Cancel"/> and <see cref="RecordedInputKind.ClearAll"/>).</summary>
+    public InputEndReason Reason { get; init; }
+
+    /// <summary>Arrival time on the player's clock (microseconds), turned into <see cref="At"/> when the tick closes.</summary>
+    internal ulong Stamp;
 }
 
 /// <summary>Everything a player received before one tick, and the time step of that tick.</summary>
@@ -169,6 +191,20 @@ public sealed class InputRecording
 
     private static JsonObject WriteInput(RecordedInput input)
     {
+        var node = WriteInputCore(input);
+        if (node != null && input.At > 0) node["at"] = Math.Round(input.At, 6);
+        return node;
+    }
+
+    private static RecordedInput ReadInput(JsonObject node)
+    {
+        var input = ReadInputCore(node);
+        if (input != null) input.At = Math.Clamp((double?)node["at"] ?? 0.0, 0.0, 1.0);
+        return input;
+    }
+
+    private static JsonObject WriteInputCore(RecordedInput input)
+    {
         switch (input.Kind)
         {
             case RecordedInputKind.Event:
@@ -181,13 +217,26 @@ public sealed class InputRecording
             case RecordedInputKind.Inject: return new JsonObject { ["t"] = "inject", ["name"] = input.Name, ["v"] = V3(input.Value) };
             case RecordedInputKind.InjectStart: return new JsonObject { ["t"] = "inject_start", ["name"] = input.Name, ["v"] = V3(input.Value) };
             case RecordedInputKind.InjectStop: return new JsonObject { ["t"] = "inject_stop", ["name"] = input.Name };
-            case RecordedInputKind.DeviceControl: return new JsonObject { ["t"] = "device_control", ["name"] = input.Name, ["dev"] = input.Device, ["v"] = V3(input.Value) };
+            case RecordedInputKind.DeviceControl:
+                var dc = new JsonObject { ["t"] = "device_control", ["name"] = input.Name, ["dev"] = input.Device, ["v"] = V3(input.Value) };
+                if (input.Tracked) dc["tracked"] = true;
+                return dc;
             case RecordedInputKind.Sensor: return new JsonObject { ["t"] = "sensor", ["sensor"] = input.Sensor.ToString(), ["dev"] = input.Device, ["v"] = V3(input.Value) };
+            case RecordedInputKind.Cancel:
+                return new JsonObject
+                {
+                    ["t"] = "cancel", ["kind"] = input.ChannelKind.ToString(), ["code"] = input.Code, ["dev"] = input.Device,
+                    ["name"] = input.Name, ["why"] = input.Reason.ToString(),
+                };
+            case RecordedInputKind.ClearAll: return new JsonObject { ["t"] = "clear", ["why"] = input.Reason.ToString() };
         }
         return null;
     }
 
-    private static RecordedInput ReadInput(JsonObject node)
+    private static InputEndReason ReasonOf(JsonObject node)
+        => Enum.TryParse<InputEndReason>((string)node["why"], out var reason) ? reason : InputEndReason.Cleared;
+
+    private static RecordedInput ReadInputCore(JsonObject node)
     {
         string type = (string)node["t"];
         string name = (string)node["name"] ?? string.Empty;
@@ -199,13 +248,22 @@ public sealed class InputRecording
             case "inject": return new RecordedInput { Kind = RecordedInputKind.Inject, Name = name, Value = value };
             case "inject_start": return new RecordedInput { Kind = RecordedInputKind.InjectStart, Name = name, Value = value };
             case "inject_stop": return new RecordedInput { Kind = RecordedInputKind.InjectStop, Name = name };
-            case "device_control": return new RecordedInput { Kind = RecordedInputKind.DeviceControl, Name = name, Device = (int?)node["dev"] ?? -1, Value = value };
+            case "device_control": return new RecordedInput { Kind = RecordedInputKind.DeviceControl, Name = name, Device = (int?)node["dev"] ?? -1, Value = value, Tracked = (bool?)node["tracked"] ?? false };
             case "sensor":
                 return new RecordedInput
                 {
                     Kind = RecordedInputKind.Sensor, Device = (int?)node["dev"] ?? -1, Value = value,
                     Sensor = Enum.TryParse<MotionSensor>((string)node["sensor"], out var sensor) ? sensor : MotionSensor.Gyroscope,
                 };
+            case "cancel":
+                return Enum.TryParse<RawKind>((string)node["kind"], out var kind)
+                    ? new RecordedInput
+                    {
+                        Kind = RecordedInputKind.Cancel, ChannelKind = kind, Code = (long?)node["code"] ?? 0, Device = (int?)node["dev"] ?? -1,
+                        Name = (string)node["name"], Reason = ReasonOf(node),
+                    }
+                    : null;
+            case "clear": return new RecordedInput { Kind = RecordedInputKind.ClearAll, Reason = ReasonOf(node) };
         }
         var @event = ReadEvent(type, node);
         if (@event == null) return null;

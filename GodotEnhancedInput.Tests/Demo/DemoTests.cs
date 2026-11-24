@@ -126,6 +126,8 @@ public class DemoTests(EngineFixture fixture)
             player.FeedEvent(Rig.KeyEvent(Key.Escape, true));
             player.Tick(Rig.Dt);
             player.HasContext(demo.Menu).Should().BeFalse();
+            player.Tick(Rig.Dt);
+            player.HasContext(demo.Menu).Should().BeFalse("the Esc that closed the menu is still held: gameplay does not see it as a new press");
         }
         finally
         {

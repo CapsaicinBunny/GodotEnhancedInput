@@ -36,7 +36,19 @@ public partial class EnhancedInput : Node
     [Signal] public delegate void JoypadConnectionChangedEventHandler(int device, bool connected);
 
     /// <summary>When players are ticked.</summary>
-    [Export] public TickMode TickMode { get; set; } = TickMode.Auto;
+    [Export]
+    public TickMode TickMode
+    {
+        get => _tickMode;
+        set
+        {
+            _tickMode = value;
+            // Real-time ticking places each change at the moment it arrived; manual ticks are not wall-clock time.
+            foreach (var player in _players) player.UseEventTimes = value != TickMode.Manual;
+        }
+    }
+
+    private TickMode _tickMode = TickMode.Auto;
 
     /// <summary>
     /// Release keys and buttons that Godot's <c>Input</c> no longer reports as held — when game code
@@ -138,7 +150,7 @@ public partial class EnhancedInput : Node
     private InputPlayer CreatePlayer()
     {
         int index = _players.Count;
-        var player = new InputPlayer { Name = $"Player{index}", PlayerIndex = index, ProfileId = NextProfileId() };
+        var player = new InputPlayer { Name = $"Player{index}", PlayerIndex = index, ProfileId = NextProfileId(), UseEventTimes = TickMode != TickMode.Manual };
         if (index > 0)
         {
             // Added players only hear the devices they are given.
@@ -191,7 +203,7 @@ public partial class EnhancedInput : Node
         var record = GetJoypadDevice(device);
         if (record != null && !record.IsConnected) record.LastOwner = player;   // a missing pad: it comes back to this player
         foreach (var other in _players)
-            if (other != player) other.JoypadDevices.Remove(device);
+            if (other != player && (other.JoypadDevices.Remove(device) || other.MayUseJoypad(device, this))) other.ReleaseHapticDevice(device);
         if (!player.JoypadDevices.Contains(device)) player.JoypadDevices.Add(device);
         if (string.IsNullOrEmpty(guid)) _joypadGuids.Remove(device);
         else _joypadGuids[device] = guid;
@@ -212,6 +224,7 @@ public partial class EnhancedInput : Node
             if (player.JoypadDevices.Remove(device))
             {
                 removed = true;
+                player.ReleaseHapticDevice(device);
                 player.Raw.ClearDevice(device, InputEndReason.DeviceReassigned);
                 EmitSignal(SignalName.JoypadUnassigned, player, device);
             }

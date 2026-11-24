@@ -142,20 +142,26 @@ public sealed class XRInputBackend : InputBackend
         }
     }
 
+    private static readonly string[] PoseParts = { "/position", "/orientation", "/rotation", "/linear_velocity", "/angular_velocity" };
+
     private void PollPoses(XRPositionalTracker tracker, int index)
     {
         foreach (var poseName in Poses)
         {
-            if (!tracker.HasPose(poseName)) continue;
-            var pose = tracker.GetPose(poseName);
-            if (pose == null || !pose.HasTrackingData) continue;
+            var pose = tracker.HasPose(poseName) ? tracker.GetPose(poseName) : null;
+            if (pose == null || !pose.HasTrackingData)
+            {
+                // Not tracked: the pose has no value (not "at the origin").
+                foreach (var part in PoseParts) ClearControl(DeviceType, index, poseName + part);
+                continue;
+            }
             var transform = pose.Transform;
             var rotation = transform.Basis.GetRotationQuaternion();
-            SetControl(DeviceType, index, poseName + "/position", transform.Origin);
-            SetControl(DeviceType, index, poseName + "/orientation", rotation);
-            SetControl(DeviceType, index, poseName + "/rotation", rotation.GetEuler());
-            SetControl(DeviceType, index, poseName + "/linear_velocity", pose.LinearVelocity);
-            SetControl(DeviceType, index, poseName + "/angular_velocity", pose.AngularVelocity);
+            SetTrackedControl(DeviceType, index, poseName + "/position", transform.Origin);
+            SetTrackedControl(DeviceType, index, poseName + "/orientation", rotation);
+            SetTrackedControl(DeviceType, index, poseName + "/rotation", rotation.GetEuler());
+            SetTrackedControl(DeviceType, index, poseName + "/linear_velocity", pose.LinearVelocity);
+            SetTrackedControl(DeviceType, index, poseName + "/angular_velocity", pose.AngularVelocity);
         }
     }
 
@@ -163,13 +169,25 @@ public sealed class XRInputBackend : InputBackend
     {
         bool tracked = hand.HasTrackingData;
         SetControl(DeviceType, index, "hand/tracked", tracked ? 1f : 0f);
-        if (!tracked) return;
+        if (!tracked)
+        {
+            foreach (var (_, name) in Joints)
+            {
+                ClearControl(DeviceType, index, $"hand/{name}/position");
+                ClearControl(DeviceType, index, $"hand/{name}/orientation");
+            }
+            ClearControl(DeviceType, index, "hand/pinch");
+            ClearControl(DeviceType, index, "hand/grab");
+            return;
+        }
         foreach (var (joint, name) in Joints)
         {
             var flags = hand.GetHandJointFlags(joint);
             var t = hand.GetHandJointTransform(joint);
-            if ((flags & XRHandTracker.HandJointFlags.PositionValid) != 0) SetControl(DeviceType, index, $"hand/{name}/position", t.Origin);
-            if ((flags & XRHandTracker.HandJointFlags.OrientationValid) != 0) SetControl(DeviceType, index, $"hand/{name}/orientation", t.Basis.GetRotationQuaternion());
+            if ((flags & XRHandTracker.HandJointFlags.PositionValid) != 0) SetTrackedControl(DeviceType, index, $"hand/{name}/position", t.Origin);
+            else ClearControl(DeviceType, index, $"hand/{name}/position");
+            if ((flags & XRHandTracker.HandJointFlags.OrientationValid) != 0) SetTrackedControl(DeviceType, index, $"hand/{name}/orientation", t.Basis.GetRotationQuaternion());
+            else ClearControl(DeviceType, index, $"hand/{name}/orientation");
         }
         Vector3 Pos(XRHandTracker.HandJoint j) => hand.GetHandJointTransform(j).Origin;
         float pinchDistance = Pos(XRHandTracker.HandJoint.ThumbTip).DistanceTo(Pos(XRHandTracker.HandJoint.IndexFingerTip));
@@ -192,7 +210,7 @@ public sealed class XRInputBackend : InputBackend
             + B(XRFaceTracker.BlendShapeEntry.EyeLookInLeft) - B(XRFaceTracker.BlendShapeEntry.EyeLookOutLeft)) * 0.5f;
         float down = (B(XRFaceTracker.BlendShapeEntry.EyeLookDownRight) - B(XRFaceTracker.BlendShapeEntry.EyeLookUpRight)
             + B(XRFaceTracker.BlendShapeEntry.EyeLookDownLeft) - B(XRFaceTracker.BlendShapeEntry.EyeLookUpLeft)) * 0.5f;
-        SetControl(DeviceType, index, "eyes/gaze", new Vector3(right, down, 0f));
+        SetTrackedControl(DeviceType, index, "eyes/gaze", new Vector3(right, down, 0f));
         SetControl(DeviceType, index, "eyes/closed_left", B(XRFaceTracker.BlendShapeEntry.EyeClosedLeft));
         SetControl(DeviceType, index, "eyes/closed_right", B(XRFaceTracker.BlendShapeEntry.EyeClosedRight));
         SetControl(DeviceType, index, "eyes/wide", Mathf.Max(B(XRFaceTracker.BlendShapeEntry.EyeWideLeft), B(XRFaceTracker.BlendShapeEntry.EyeWideRight)));

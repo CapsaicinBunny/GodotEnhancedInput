@@ -99,7 +99,7 @@ public class PipelineTests(EngineFixture fixture)
         rig.Player.Bind(fire, ActionEvents.Triggered, _ => triggers++);
 
         rig.Press(Key.J).TickFor(1.0);
-        triggers.Should().Be(4, "one on press, then at 0.25, 0.5 and 0.75 s");
+        triggers.Should().Be(5, "the press counts from the start of its frame: one on press, then at 0.25, 0.5, 0.75 and 1.0 s");
     }
 
     [Fact]

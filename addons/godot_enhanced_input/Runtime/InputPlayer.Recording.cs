@@ -54,6 +54,7 @@ public partial class InputPlayer
         if (recording == null) return;
         StopRecording();
         ClearRawInput(InputEndReason.Replay);
+        Raw.Frozen = true;   // live cut-offs (disconnects, focus loss) do not reach the replayed state
         _replay = recording;
         _replayIndex = 0;
         _replayEndsThisTick = false;
@@ -64,12 +65,14 @@ public partial class InputPlayer
     public void StopReplay()
     {
         if (_replay == null) return;
-        ClearRawInput(InputEndReason.Replay);
         FinishReplay();
     }
 
     private void FinishReplay()
     {
+        // Whatever the replay still held ends, as cut off by the replay (natural end or stopped early).
+        Raw.Frozen = false;
+        if (_replay != null) ClearRawInput(InputEndReason.Replay);
         _replay = null;
         _replayIndex = 0;
         _replayEndsThisTick = false;
@@ -80,12 +83,20 @@ public partial class InputPlayer
     /// A backend device control reaching this player: ignored during a replay, recorded while recording,
     /// like every other input.
     /// </summary>
-    internal void ReceiveDeviceControl(in SourceKey key, Vector4 value)
+    internal void ReceiveDeviceControl(in SourceKey key, Vector4 value, bool tracked = false)
     {
         if (LiveInputBlocked) return;
-        if (_recording != null) _recordingPending.Inputs.Add(new RecordedInput { Kind = RecordedInputKind.DeviceControl, Name = key.Name, Device = key.Device, Value = value });
+        if (_recording != null) _recordingPending.Inputs.Add(new RecordedInput { Kind = RecordedInputKind.DeviceControl, Name = key.Name, Device = key.Device, Value = value, Tracked = tracked, Stamp = Raw.Clock() });
+        if (tracked) Raw.MarkTracked(key);
         Raw.Set(key, value);
-        TrackCustomDevice(key, value);
+        if (!tracked) TrackCustomDevice(key, value);
+    }
+
+    /// <summary>A backend device control lost its value (tracking lost): cut off, recorded like other cut-offs.</summary>
+    internal void ClearDeviceControl(in SourceKey key)
+    {
+        if (LiveInputBlocked) return;
+        Raw.Cancel(key, InputEndReason.TrackingLost);
     }
 
     /// <summary>A polled sensor value (recorded while recording; replays play it back instead of polling).</summary>
@@ -94,7 +105,7 @@ public partial class InputPlayer
         if (LiveInputBlocked) return;
         var key = SourceKey.ForMotion(sensor, device);
         if (_recording != null && Raw.GetCurrent(key) != value)
-            _recordingPending.Inputs.Add(new RecordedInput { Kind = RecordedInputKind.Sensor, Sensor = sensor, Device = device, Value = value });
+            _recordingPending.Inputs.Add(new RecordedInput { Kind = RecordedInputKind.Sensor, Sensor = sensor, Device = device, Value = value, Stamp = Raw.Clock() });
         Raw.Set(key, value);
     }
 
@@ -103,29 +114,52 @@ public partial class InputPlayer
 
     private void Record(RecordedInput input)
     {
-        if (_recording != null && !_replayFeeding) _recordingPending.Inputs.Add(input);
+        if (_recording == null || _replayFeeding) return;
+        input.Stamp = Raw.Clock();
+        _recordingPending.Inputs.Add(input);
     }
 
     private void RecordEvent(InputEvent @event, IntakeStage stage)
     {
         if (_recording == null || _replayFeeding) return;
         if (@event.Duplicate() is InputEvent copy)
-            _recordingPending.Inputs.Add(new RecordedInput { Kind = RecordedInputKind.Event, Event = copy, Stage = stage });
+            _recordingPending.Inputs.Add(new RecordedInput { Kind = RecordedInputKind.Event, Event = copy, Stage = stage, Stamp = Raw.Clock() });
     }
 
-    /// <summary>Called at the start of a tick: closes the recorded tick, or feeds the next replayed one. Returns the delta to use.</summary>
-    private double BeginTickRecording(double delta)
+    /// <summary>Records a cut-off of raw input (one channel, or everything when <paramref name="key"/> is null).</summary>
+    private void RecordCutOff(SourceKey? key, InputEndReason reason)
+    {
+        if (_recording == null || _replayFeeding) return;
+        _recordingPending.Inputs.Add(key is { } k
+            ? new RecordedInput { Kind = RecordedInputKind.Cancel, ChannelKind = k.Kind, Code = k.Code, Device = k.Device, Name = k.Name, Reason = reason, Stamp = Raw.Clock() }
+            : new RecordedInput { Kind = RecordedInputKind.ClearAll, Reason = reason, Stamp = Raw.Clock() });
+    }
+
+    /// <summary>
+    /// Called at the start of a tick (after live sensors were polled): closes the recorded tick — placing
+    /// each input at the moment within it that it arrived — or feeds the next replayed one at its recorded
+    /// moments. Returns the delta to use.
+    /// </summary>
+    private double BeginTickRecording(double delta, ulong now)
     {
         if (_replay != null)
         {
             var tick = _replay.Ticks[_replayIndex++];
             _replayFeeding = true;
+            bool frozen = Raw.Frozen;
+            Raw.Frozen = false;
             try
             {
-                foreach (var input in tick.Inputs) Play(input);
+                foreach (var input in tick.Inputs)
+                {
+                    Raw.FractionOverride = input.At;
+                    Play(input);
+                }
             }
             finally
             {
+                Raw.FractionOverride = double.NaN;
+                Raw.Frozen = frozen;
                 _replayFeeding = false;
             }
             if (_replayIndex >= _replay.Ticks.Count) _replayEndsThisTick = true;
@@ -134,6 +168,9 @@ public partial class InputPlayer
 
         if (_recording != null)
         {
+            ulong start = _lastFrameUsec;
+            foreach (var input in _recordingPending.Inputs)
+                input.At = UseEventTimes && now > start && input.Stamp > start ? System.Math.Min(1.0, (double)(input.Stamp - start) / (now - start)) : 0.0;
             _recordingPending.Delta = delta;
             _recording.Ticks.Add(_recordingPending);
             _recordingPending = new RecordedTick();
@@ -169,10 +206,20 @@ public partial class InputPlayer
                 StopInjecting(FindAction(input.Name));
                 break;
             case RecordedInputKind.DeviceControl:
-                Raw.Set(new SourceKey(RawKind.DeviceControl, 0, input.Device, input.Name), input.Value);
+            {
+                var key = new SourceKey(RawKind.DeviceControl, 0, input.Device, input.Name);
+                if (input.Tracked) Raw.MarkTracked(key);
+                Raw.Set(key, input.Value);
                 break;
+            }
             case RecordedInputKind.Sensor:
                 Raw.Set(SourceKey.ForMotion(input.Sensor, input.Device), input.Value);
+                break;
+            case RecordedInputKind.Cancel:
+                Raw.Cancel(new SourceKey(input.ChannelKind, input.Code, input.Device, input.Name), input.Reason);
+                break;
+            case RecordedInputKind.ClearAll:
+                ClearRawInput(input.Reason);
                 break;
         }
     }

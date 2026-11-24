@@ -6,7 +6,8 @@ namespace GodotEnhancedInput;
 /// Look (or point) and hold still to select: ongoing while a position stays within <see cref="Radius"/>
 /// of where it settled, triggered once it has stayed there for <see cref="DwellSeconds"/> (once, until it
 /// moves away). Made for eye-gaze control and head pointers; also works with any pointer or stick.
-/// The value is a position (e.g. "gaze" from <see cref="EyeTrackerBackend"/>); zero counts as "no gaze".
+/// The value is a position (e.g. "gaze" from <see cref="EyeTrackerBackend"/>). When the gaze is lost
+/// (blinking, looking away) the tracker clears it and the dwell starts over; an untracked zero counts as no gaze.
 /// Dwell time scales with the player's "hold_time_scale" setting.
 /// </summary>
 [Tool]

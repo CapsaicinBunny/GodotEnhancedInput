@@ -291,7 +291,7 @@ public class DeviceTests
             var player = system.GetPlayer(0);
             player.GetValue(grab).AsFloat().Should().BeApproximately(0.75f, 1e-6f);
             player.GetValue(hand).AsVector3().Should().Be(new Vector3(0.1f, 1.2f, -0.3f));
-            system.GetDevice($"xr:{backend.IndexOf("gei_test_left_hand")}").Role.Should().Be(DeviceRole.XRController);
+            system.GetCustomDevice("xr", backend.IndexOf("gei_test_left_hand")).Role.Should().Be(DeviceRole.XRController);
         }
         finally
         {

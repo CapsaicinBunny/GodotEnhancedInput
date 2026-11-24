@@ -80,7 +80,7 @@ public class RawInputTests
             rig.Player.WasTriggered(action).Should().BeTrue("the press is seen in the frame it happened");
             rig.Player.WasCompleted(action).Should().BeTrue("and so is the release: no frame of delay");
             rig.Player.GetPhase(action).Should().Be(TriggerPhase.Idle, "polling reads the frame's final state");
-            rig.Player.LastTickSteps.Should().Be(2);
+            rig.Player.LastTickSteps.Should().Be(3, "the press, the release, and the frame");
             seen.Should().Equal(ActionEvents.Started, ActionEvents.Triggered, ActionEvents.Completed);
             rig.Tick();
             rig.Player.GetEvents(action).Should().Be(ActionEvents.None);

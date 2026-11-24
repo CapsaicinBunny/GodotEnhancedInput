@@ -30,20 +30,24 @@ public enum InputEndReason
     Cleared,
     /// <summary>A replay started or stopped.</summary>
     Replay,
+    /// <summary>A tracked pose, gaze or position stopped being tracked (XR, eye trackers).</summary>
+    TrackingLost,
+    /// <summary>The operating system took the input away (a touch canceled by a system gesture).</summary>
+    SystemCanceled,
 }
 
 /// <summary>
 /// The raw input one player has received. Events only write here; all evaluation happens when the
 /// player ticks.
 ///
-/// Every on/off change of a channel (press, release, an axis leaving or returning to zero) is queued
-/// with a global sequence number. A tick evaluates in steps: each step observes the longest run of
-/// queued changes, in arrival order, in which no channel changes twice; so all changes received since
-/// the last tick are processed in that tick, in the order they happened (a press and release in one
-/// frame are both seen in that frame, and a chord pressed in order stays in order). Changes that do
-/// not cross zero (an axis moving from 0.4 to 0.7) simply update the latest value. The last step is
-/// "now": it carries the frame's per-frame amounts (mouse motion, scrolling, drags, gestures); earlier
-/// steps are the instants in between.
+/// Every on/off change of a channel (press, release, an axis leaving or returning to zero, and a cut-off
+/// with its reason) is queued with a sequence number, the input event it came from and the time it
+/// arrived. A tick evaluates the queue in steps, one input event at a time (a channel that changes
+/// twice within one event, like a stick reversal, splits it), in arrival order; so every change
+/// received since the last tick is processed in that tick, in order, at the moment it arrived. Changes
+/// that do not cross zero (an axis moving from 0.4 to 0.7) simply update the latest value. The tick's
+/// final step is "now": it carries the frame's per-frame amounts (mouse motion, scrolling, drags,
+/// gestures).
 /// </summary>
 public sealed class RawInputState
 {
@@ -52,44 +56,54 @@ public sealed class RawInputState
     {
         public SourceKey Key;
         public Vector4 Base;          // the value observed before the first queued change
-        private Vector4[] _values = new Vector4[4];
-        private long[] _seq = new long[4];
+        private Entry[] _entries = new Entry[4];
         private int _head;
         public int Count;
         public bool Active;
 
-        public Vector4 First => _values[_head];
-        public long FirstSeq => _seq[_head];
-        public long SeqAt(int i) => _seq[(_head + i) % _seq.Length];
-        public Vector4 Last => _values[(_head + Count - 1) % _values.Length];
-
-        public void ReplaceLast(Vector4 value) => _values[(_head + Count - 1) % _values.Length] = value;
-
-        public void Push(Vector4 value, long seq)
+        private struct Entry
         {
-            if (Count == _values.Length)
+            public Vector4 Value;
+            public long Seq;
+            public long Group;
+            public ulong Stamp;
+            public double Fraction;   // NaN unless given (replays)
+            public int Cancel;        // −1, or the InputEndReason of a cut-off
+        }
+
+        private ref Entry At(int i) => ref _entries[(_head + i) % _entries.Length];
+
+        public Vector4 First => _entries[_head].Value;
+        public long FirstSeq => _entries[_head].Seq;
+        public long FirstGroup => _entries[_head].Group;
+        public ulong FirstStamp => _entries[_head].Stamp;
+        public double FirstFraction => _entries[_head].Fraction;
+        public int FirstCancel => _entries[_head].Cancel;
+        public long SeqAt(int i) => At(i).Seq;
+        public Vector4 Last => At(Count - 1).Value;
+
+        public void ReplaceLast(Vector4 value) => At(Count - 1).Value = value;
+
+        public void Push(Vector4 value, long seq, long group, ulong stamp, double fraction, int cancel)
+        {
+            if (Count == _entries.Length)
             {
-                var values = new Vector4[_values.Length * 2];
-                var seqs = new long[_seq.Length * 2];
-                for (int i = 0; i < Count; i++)
-                {
-                    values[i] = _values[(_head + i) % _values.Length];
-                    seqs[i] = _seq[(_head + i) % _seq.Length];
-                }
-                _values = values;
-                _seq = seqs;
+                var entries = new Entry[_entries.Length * 2];
+                for (int i = 0; i < Count; i++) entries[i] = At(i);
+                _entries = entries;
                 _head = 0;
             }
-            int at = (_head + Count) % _values.Length;
-            _values[at] = value;
-            _seq[at] = seq;
+            _entries[(_head + Count) % _entries.Length] = new Entry
+            {
+                Value = value, Seq = seq, Group = group, Stamp = stamp, Fraction = fraction, Cancel = cancel,
+            };
             Count++;
         }
 
         public void PopFirst()
         {
-            Base = _values[_head];
-            _head = (_head + 1) % _values.Length;
+            Base = _entries[_head].Value;
+            _head = (_head + 1) % _entries.Length;
             Count--;
         }
 
@@ -104,8 +118,50 @@ public sealed class RawInputState
     private readonly Dictionary<SourceKey, ChannelQueue> _pending = new();
     private readonly List<ChannelQueue> _active = new();
     private long _sequence;
+    private long _groupCounter;
+    private long _currentGroup;
+    private int _groupDepth;
     private long _boundary = long.MaxValue;
+    private long _savedBoundary = long.MaxValue;
     private bool _frameStep = true;
+    private ulong _windowStart, _windowEnd;
+    private bool _useStamps;
+    private bool _clearing;
+    private readonly HashSet<SourceKey> _present = new();
+    private readonly HashSet<SourceKey> _absolute = new();
+
+    /// <summary>The clock changes are stamped with, in microseconds (Godot's monotonic clock by default).</summary>
+    public System.Func<ulong> Clock { get; set; } = Time.GetTicksUsec;
+
+    /// <summary>When set (not NaN), changes are placed at this fraction of the coming tick instead of by their arrival time (replays).</summary>
+    public double FractionOverride { get; set; } = double.NaN;
+
+    /// <summary>While true, cut-offs and clears are ignored (a replay owns the state).</summary>
+    public bool Frozen { get; set; }
+
+    /// <summary>Raised for every cut-off (key, reason) and once for a full clear (null key), for recording.</summary>
+    public event System.Action<SourceKey?, InputEndReason> CutOff;
+
+    /// <summary>Starts a group: every change made until <see cref="EndEventGroup"/> belongs to one input event.</summary>
+    public void BeginEventGroup()
+    {
+        if (_groupDepth++ == 0) _currentGroup = ++_groupCounter;
+    }
+
+    /// <summary>Ends a group started with <see cref="BeginEventGroup"/>.</summary>
+    public void EndEventGroup()
+    {
+        if (_groupDepth > 0) _groupDepth--;
+    }
+
+    private long NextGroup() => _groupDepth > 0 ? _currentGroup : ++_groupCounter;
+
+    private void Enqueue(ChannelQueue queue, in SourceKey key, Vector4 value, Vector4 before, int cancel)
+    {
+        if (queue.Count == 0) queue.Base = before;
+        queue.Push(value, ++_sequence, NextGroup(), Clock(), FractionOverride, cancel);
+        if (!queue.Active) { queue.Active = true; _active.Add(queue); }
+    }
     private readonly Dictionary<SourceKey, InputEndReason> _canceled = new();
     private readonly Dictionary<RawKind, SortedSet<int>> _devices = new();
     private readonly SortedSet<int> _joyDevices = new();
@@ -168,7 +224,7 @@ public sealed class RawInputState
         if (_pending.TryGetValue(key, out var queue) && queue.Count > 0)
         {
             if ((queue.Last != Vector4.Zero) == on) queue.ReplaceLast(value);   // same side of zero: just the latest value
-            else queue.Push(value, ++_sequence);
+            else Enqueue(queue, key, value, queue.Base, -1);
         }
         else
         {
@@ -176,13 +232,12 @@ public sealed class RawInputState
             if ((previous != Vector4.Zero) != on)
             {
                 if (queue == null) _pending[key] = queue = new ChannelQueue { Key = key };
-                queue.Base = previous;
-                queue.Push(value, ++_sequence);
-                if (!queue.Active) { queue.Active = true; _active.Add(queue); }
+                Enqueue(queue, key, value, previous, -1);
             }
         }
 
         _current[key] = value;
+        _present.Add(key);
         if (key.Device >= 0 && key.IsPerDevice)
         {
             if (!_devices.TryGetValue(key.Kind, out var set)) _devices[key.Kind] = set = new SortedSet<int>();
@@ -396,21 +451,84 @@ public sealed class RawInputState
     }
 
     /// <summary>
-    /// Starts an evaluation step: decides which queued changes it observes (the longest in-order run with
-    /// no channel twice). Returns true when this is the tick's last step (nothing remains after it), which
-    /// carries the per-frame amounts. <paramref name="forceLast"/> makes it the last step regardless
-    /// (changes beyond it wait for the next tick).
+    /// Sets the time span the coming tick covers (microseconds on <see cref="Clock"/>), for placing changes
+    /// within it. Without <paramref name="useStamps"/>, every change counts as arriving at the start.
     /// </summary>
-    public bool BeginStep(bool forceLast = false)
+    public void SetFrameWindow(ulong start, ulong end, bool useStamps)
     {
+        _windowStart = start;
+        _windowEnd = end;
+        _useStamps = useStamps;
+    }
+
+    /// <summary>
+    /// Starts the next event step: the earliest queued input event's changes (up to a channel that changes
+    /// twice in it). Fills <paramref name="changed"/> with the channels it changes and gives the fraction of
+    /// the tick at which it arrived (0…1). False when nothing is queued.
+    /// </summary>
+    public bool NextEventStep(List<SourceKey> changed, out double fraction)
+    {
+        changed.Clear();
+        _canceled.Clear();
+        ChannelQueue first = null;
+        for (int i = 0; i < _active.Count; i++)
+        {
+            var q = _active[i];
+            if (q.Count > 0 && (first == null || q.FirstSeq < first.FirstSeq)) first = q;
+        }
+        if (first == null)
+        {
+            fraction = 0;
+            return false;
+        }
+        long group = first.FirstGroup;
         _boundary = long.MaxValue;
         for (int i = 0; i < _active.Count; i++)
         {
             var q = _active[i];
+            if (q.Count == 0) continue;
+            if (q.FirstGroup != group && q.FirstSeq < _boundary) _boundary = q.FirstSeq;
             if (q.Count >= 2 && q.SeqAt(1) < _boundary) _boundary = q.SeqAt(1);
         }
-        _frameStep = forceLast || _boundary == long.MaxValue;
-        return _frameStep;
+        for (int i = 0; i < _active.Count; i++)
+        {
+            var q = _active[i];
+            if (q.Count == 0 || q.FirstSeq >= _boundary) continue;
+            changed.Add(q.Key);
+            if (q.FirstCancel >= 0) _canceled[q.Key] = (InputEndReason)q.FirstCancel;
+        }
+        fraction = FractionOf(first);
+        _frameStep = false;
+        return true;
+    }
+
+    private double FractionOf(ChannelQueue q)
+    {
+        double f = q.FirstFraction;
+        if (double.IsNaN(f))
+        {
+            if (!_useStamps || _windowEnd <= _windowStart || q.FirstStamp <= _windowStart) return 0.0;
+            f = (double)(q.FirstStamp - _windowStart) / (_windowEnd - _windowStart);
+        }
+        return f < 0 ? 0 : f > 1 ? 1 : f;
+    }
+
+    /// <summary>Within an event step: read the channels as they were before its changes (time passing up to it).</summary>
+    public void ObserveBefore()
+    {
+        _savedBoundary = _boundary;
+        _boundary = long.MinValue;
+    }
+
+    /// <summary>Within an event step: read the channels with its changes applied.</summary>
+    public void ObserveStep() => _boundary = _savedBoundary;
+
+    /// <summary>Starts the tick's final step: settled values plus the frame's per-frame amounts.</summary>
+    public void BeginFinalStep()
+    {
+        _boundary = long.MinValue;
+        _canceled.Clear();
+        _frameStep = true;
     }
 
     /// <summary>Ends an evaluation step: the changes it observed become the channels' settled values.</summary>
@@ -444,18 +562,53 @@ public sealed class RawInputState
     /// <summary>Whether any channel was cut off this step.</summary>
     public bool AnyCanceled => _canceled.Count > 0;
 
-    /// <summary>Sets a channel to zero at once (no queued release), remembering that it was cut off and why.</summary>
+    /// <summary>
+    /// Cuts a channel off: it goes to zero as a queued change that carries <paramref name="reason"/>, so the
+    /// tick sees it in order with everything else and actions end canceled instead of released. The
+    /// channel also stops being tracked (see <see cref="IsPresent"/>).
+    /// </summary>
     public void Cancel(in SourceKey key, InputEndReason reason)
     {
-        bool held = _current.TryGetValue(key, out var value) && value != Vector4.Zero;
-        if (_pending.TryGetValue(key, out var queue))
-        {
-            if (queue.Count > 0 && queue.Base != Vector4.Zero) held = true;   // a release queued but not yet observed
-            queue.Clear();
-            queue.Base = Vector4.Zero;
-        }
-        if (held) _canceled[key] = reason;
+        if (Frozen) return;
+        _present.Remove(key);
+        _pending.TryGetValue(key, out var queue);
+        var last = queue != null && queue.Count > 0 ? queue.Last : GetCurrent(key);
         _current[key] = Vector4.Zero;
+        if (last == Vector4.Zero) return;
+        if (queue == null) _pending[key] = queue = new ChannelQueue { Key = key };
+        Enqueue(queue, key, Vector4.Zero, queue.Count > 0 ? queue.Base : last, (int)reason);
+        if (!_clearing) CutOff?.Invoke(key, reason);
+    }
+
+    /// <summary>Whether a channel has a value now (written and not cut off since) — a tracked pose at the origin is present.</summary>
+    public bool IsPresent(in SourceKey key)
+    {
+        if (key.Device == SourceKey.AnyDevice && key.IsPerDevice)
+        {
+            foreach (var d in DevicesOf(key.Kind))
+                if (_present.Contains(key with { Device = d })) return true;
+            return false;
+        }
+        return _present.Contains(key);
+    }
+
+    /// <summary>Marks a channel as a tracked quantity (a pose, position or gaze): while present it counts as input even at zero or identity.</summary>
+    public void MarkTracked(in SourceKey key) => _absolute.Add(key);
+
+    /// <summary>Whether a channel is a tracked quantity that currently has a value.</summary>
+    public bool IsTracked(in SourceKey key)
+    {
+        if (_absolute.Count == 0) return false;
+        if (key.Device == SourceKey.AnyDevice && key.IsPerDevice)
+        {
+            foreach (var d in DevicesOf(key.Kind))
+            {
+                var exact = key with { Device = d };
+                if (_absolute.Contains(exact) && _present.Contains(exact)) return true;
+            }
+            return false;
+        }
+        return _absolute.Contains(key) && _present.Contains(key);
     }
 
     /// <summary>Called by the player after each tick: clears per-frame data (mouse motion, scrolling, drags, gestures).</summary>
@@ -475,18 +628,31 @@ public sealed class RawInputState
     /// <summary>Forgets everything (e.g. when the window loses focus). Held channels are cut off, not released.</summary>
     public void Clear() => Clear(InputEndReason.Cleared);
 
-    /// <summary>Forgets everything; held channels count as cut off for <paramref name="reason"/>.</summary>
-    public void Clear(InputEndReason reason)
+    /// <summary>
+    /// Forgets everything; held channels are cut off for <paramref name="reason"/> (queued, so the tick sees
+    /// them end canceled). Ignored while <see cref="Frozen"/> unless <paramref name="force"/>.
+    /// </summary>
+    public void Clear(InputEndReason reason, bool force = false)
     {
-        foreach (var pair in _current)
-            if (pair.Value != Vector4.Zero) _canceled[pair.Key] = reason;
-        _current.Clear();
-        foreach (var queue in _pending.Values) { queue.Clear(); queue.Active = false; }
-        _pending.Clear();
-        _active.Clear();
-        _joyDevices.Clear();
-        _devices.Clear();
-        _fingers.Clear();
+        if (Frozen && !force) return;
+        bool frozen = Frozen;
+        Frozen = false;
+        _clearing = true;
+        try
+        {
+            _scratch.Clear();
+            foreach (var key in _current.Keys) _scratch.Add(key);
+            foreach (var queue in _pending.Values)
+                if (queue.Count > 0 && !_current.ContainsKey(queue.Key)) _scratch.Add(queue.Key);
+            foreach (var key in _scratch) Cancel(key, reason);
+        }
+        finally
+        {
+            _clearing = false;
+            Frozen = frozen;
+        }
+        _present.Clear();
+        CutOff?.Invoke(null, reason);
         _wheel = Vector2.Zero;
         _gestureFingers.Clear();
         _gestureTracks.Clear();
@@ -500,6 +666,7 @@ public sealed class RawInputState
     /// <summary>Forgets all channels of one joypad (e.g. when it disconnects). Held channels are cut off, not released.</summary>
     public void ClearDevice(int device, InputEndReason reason = InputEndReason.DeviceDisconnected)
     {
+        if (Frozen) return;
         _scratch.Clear();
         foreach (var key in _current.Keys)
             if (key.IsJoypad && key.Device == device) _scratch.Add(key);
@@ -512,6 +679,7 @@ public sealed class RawInputState
     /// <summary>Forgets all channels of one custom device (e.g. when its backend removes it). Held channels are cut off.</summary>
     public void ClearCustomDevice(string deviceType, int device, InputEndReason reason = InputEndReason.DeviceDisconnected)
     {
+        if (Frozen) return;
         _scratch.Clear();
         var prefix = deviceType + "/";
         foreach (var key in _current.Keys)
@@ -523,6 +691,7 @@ public sealed class RawInputState
     /// <summary>Cuts off every touch channel (fingers move to another player, or the touchscreen is taken away).</summary>
     public void ClearTouch(InputEndReason reason = InputEndReason.DeviceReassigned)
     {
+        if (Frozen) return;
         _scratch.Clear();
         foreach (var key in _current.Keys)
             if (key.IsTouch) _scratch.Add(key);
@@ -535,6 +704,7 @@ public sealed class RawInputState
     /// <summary>Cuts off every keyboard, mouse-button and pen channel (keyboard and mouse move to another player).</summary>
     public void ClearKeyboardMouse(InputEndReason reason = InputEndReason.DeviceReassigned)
     {
+        if (Frozen) return;
         _scratch.Clear();
         foreach (var key in _current.Keys)
             if (key.Kind is RawKind.PhysicalKey or RawKind.LogicalKey or RawKind.KeyLabel or RawKind.MouseButton or RawKind.PenPressure or RawKind.PenTilt or RawKind.PenEraser)
@@ -550,6 +720,19 @@ public sealed class RawInputState
     /// <see cref="IntakeStage.Direct"/> applies everything. Returns true when the event changed anything.
     /// </summary>
     public bool Apply(InputEvent @event, IntakeStage stage)
+    {
+        BeginEventGroup();
+        try
+        {
+            return ApplyEvent(@event, stage);
+        }
+        finally
+        {
+            EndEventGroup();
+        }
+    }
+
+    private bool ApplyEvent(InputEvent @event, IntakeStage stage)
     {
         switch (@event)
         {
@@ -648,7 +831,10 @@ public sealed class RawInputState
                 if (!StageAllows(stage, raising: down)) return false;
                 GestureTouch(touch.Index, touch.Position, down, touch.Canceled);
                 Set(SourceKey.ForTouch(TouchChannel.Position, touch.Index), V4(touch.Position.X, touch.Position.Y, 0f));
-                Set(SourceKey.ForTouch(TouchChannel.Pressed, touch.Index), down ? 1f : 0f);
+                var pressed = SourceKey.ForTouch(TouchChannel.Pressed, touch.Index);
+                // A touch the system took away (a system gesture, an incoming call) was not lifted.
+                if (touch.Canceled) Cancel(pressed, InputEndReason.SystemCanceled);
+                else Set(pressed, down ? 1f : 0f);
                 return true;
             }
             case InputEventScreenDrag drag:

@@ -123,6 +123,12 @@ public abstract partial class InputTrigger : Resource
     public virtual TriggerRole Role => TriggerRole.Explicit;
 
     /// <summary>
+    /// True for triggers that look at other actions (chords, blockers, combos, code): their action is
+    /// evaluated at every step of a tick, so it sees the other actions' changes in order.
+    /// </summary>
+    public virtual bool ReadsOtherActions => false;
+
+    /// <summary>
     /// Evaluates this trigger for one tick. Keeps <see cref="TriggerMemory.WasActuated"/> and
     /// <see cref="TriggerMemory.LastPhase"/> up to date around <see cref="Update"/>.
     /// </summary>

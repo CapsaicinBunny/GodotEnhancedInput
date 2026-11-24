@@ -66,7 +66,7 @@ public class StressTests
 
         rig.Press(Key.Space).Press(Key.P).Tick();
         triggered.Should().Be(1);
-        rig.Player.ReentrantTicksIgnored.Should().Be(2);
+        rig.Player.ReentrantTicksIgnored.Should().BeGreaterThanOrEqualTo(2, "the callback and the trigger tried (a trigger reading code runs at every step)");
         rig.Player.GetState(jump).TriggeredSeconds.Should().BeApproximately(Rig.Dt, 1e-9, "no nested tick advanced time");
         rig.Tick();
         triggered.Should().Be(2);

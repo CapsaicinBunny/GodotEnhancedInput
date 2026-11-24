@@ -95,6 +95,11 @@ public partial class InputPlayer : Node, ISourceReader
     /// <summary>The raw input this player has received.</summary>
     public RawInputState Raw { get; } = new();
 
+    public InputPlayer()
+    {
+        Raw.CutOff += RecordCutOff;
+    }
+
     /// <summary>Number of ticks so far.</summary>
     public ulong TickCount => _tick;
 
@@ -196,6 +201,22 @@ public partial class InputPlayer : Node, ISourceReader
         {
             foreach (var m in Modifiers) m?.Reset();
             foreach (var t in Triggers) t?.Reset();
+        }
+
+        /// <summary>Set while the binding is hidden (blocked, consumed, paused); see <see cref="Resume"/>.</summary>
+        public bool Suppressed;
+
+        /// <summary>
+        /// The binding is evaluated again after being hidden. If its input is held now, it was held all
+        /// along: its triggers start as already actuated, so a held key does not look freshly pressed
+        /// (closing a menu with Esc does not also press "pause"), while held actions simply continue.
+        /// </summary>
+        public void Resume(bool held)
+        {
+            Suppressed = false;
+            if (!held) return;
+            foreach (var t in Triggers)
+                if (t != null) t.WasActuated = true;
         }
     }
 
@@ -493,9 +514,19 @@ public partial class InputPlayer : Node, ISourceReader
     /// </summary>
     public void ClearRawInput(InputEndReason reason = InputEndReason.Cleared)
     {
-        Raw.Clear(reason);
-        foreach (var injection in _injections.Values) injection.Continuous = false;
+        bool replayOwnsIt = _replay != null && !_replayFeeding && reason != InputEndReason.Replay;
+        if (replayOwnsIt) return;   // live cut-offs (focus loss…) do not reach a replay
+        Raw.Clear(reason, force: true);
+        foreach (var pair in _injections)
+        {
+            // Injected input is cut off like any other: its action ends canceled, with the reason.
+            if (pair.Value.Continuous || pair.Value.HasPeak) _injectionCuts[pair.Key] = reason;
+            pair.Value.Continuous = false;
+            pair.Value.HasPeak = false;
+        }
     }
+
+    private readonly System.Collections.Generic.Dictionary<GameAction, InputEndReason> _injectionCuts = new();
 
     // ------------------------------------------------------------------
     //  Injection
@@ -605,6 +636,17 @@ public partial class InputPlayer : Node, ISourceReader
 
     /// <summary>Whether the action was canceled on the last tick.</summary>
     public bool WasCanceled(GameAction action) => (GetEvents(action) & ActionEvents.Canceled) != 0;
+
+    /// <summary>
+    /// The action's value with its validity: <see cref="InputSample.IsTracked"/> for tracked input (an XR
+    /// pose at the identity is a reading; a lost pose is not), and when it last changed.
+    /// </summary>
+    public InputSample GetSample(GameAction action)
+    {
+        if (action == null || !_states.TryGetValue(action, out var s))
+            return new InputSample(ActionValue.Zero(action?.ValueKind ?? ActionValueKind.Digital), false, false, 0);
+        return new InputSample(s.Value, s.IsTracked, s.IsTracked || s.Value.IsNonZero, s.LastChangeTime);
+    }
 
     /// <summary>Every action state this player holds.</summary>
     public IEnumerable<ActionState> GetAllStates() => _states.Values;

@@ -87,7 +87,7 @@ public class XRAndEyeTests
 
             player.GetValue(pinch).AsFloat().Should().Be(1f);
             player.GetValue(grab).AsFloat().Should().BeLessThan(0.5f);
-            system.GetDevice($"xr:{backend.IndexOf("/user/hand_tracker/gei_left")}").Role.Should().Be(DeviceRole.XRHand);
+            system.GetCustomDevice("xr", backend.IndexOf("/user/hand_tracker/gei_left")).Role.Should().Be(DeviceRole.XRHand);
         }
         finally
         {
@@ -146,7 +146,7 @@ public class XRAndEyeTests
 
             player.GetValue(look).AsVector2().Should().Be(new Vector2(-0.5f, 0f));
             player.GetValue(head).AsEuler().Y.Should().BeApproximately(0.3f, 1e-4f);
-            var device = system.GetDevice("eye:0");
+            var device = system.GetCustomDevice("eye", 0);
             device.Role.Should().Be(DeviceRole.EyeTracker);
             device.IsConnected.Should().BeTrue();
 

@@ -14,6 +14,8 @@ namespace GodotEnhancedInput;
 [GlobalClass]
 public partial class ComboTrigger : InputTrigger
 {
+    public override bool ReadsOtherActions => true;
+
     /// <summary>The steps, in order.</summary>
     [Export] public Array<ComboStep> Steps { get; set; } = new();
 

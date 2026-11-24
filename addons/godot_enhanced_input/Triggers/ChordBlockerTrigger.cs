@@ -10,6 +10,8 @@ namespace GodotEnhancedInput;
 [GlobalClass]
 public partial class ChordBlockerTrigger : InputTrigger
 {
+    public override bool ReadsOtherActions => true;
+
     /// <summary>The action whose triggering blocks this set.</summary>
     [Export] public GameAction BlockingAction { get; set; }
 

@@ -109,10 +109,11 @@ public class DeviceRuntimeTests
             system.AddBackend(backend);
             backend.Press(1f);
             system.Tick(Rig.Dt);
-            player.CurrentDevice.Id.Should().Be("box:0");
+            player.CurrentDevice.Should().BeSameAs(system.GetCustomDevice("box", 0));
+            player.CurrentDevice.Id.Should().Be("box:box-guid", "backend devices are known by their hardware identity");
             player.LastDeviceKind.Should().Be(InputDeviceKind.Custom);
 
-            switches.Should().Equal(system.GetJoypadDevice(0).Id, "keyboard_mouse", "box:0");
+            switches.Should().Equal(system.GetJoypadDevice(0).Id, "keyboard_mouse", "box:box-guid");
         }
         finally { system.Free(); }
     }

@@ -10,15 +10,19 @@ public partial class InputPlayer : IChannelMask
     public bool IsTreePaused => IsInsideTree() && GetTree().Paused;
 
     /// <summary>
-    /// Evaluates every action once:
+    /// Evaluates the input received since the last tick, then the frame:
     /// <list type="number">
-    /// <item>orders the active contexts and works out which sources each one consumes or blocks;</item>
-    /// <item>for each action (lazily, so triggers can ask for other actions): reads its bindings' sources,
-    /// applies binding modifiers and triggers, combines the bindings that fire, applies the action's
-    /// modifiers and triggers, and moves the phase state machine;</item>
-    /// <item>raises callbacks and signals for the events of this tick;</item>
-    /// <item>moves raw input on by one queued change and clears per-tick data (mouse motion, one-tick injections).</item>
+    /// <item>polls motion sensors (live) and closes or plays the recorded frame;</item>
+    /// <item>for every queued input event, in arrival order: lets time pass up to the moment it arrived for
+    /// the actions it touches (with the input as it was), then applies it and evaluates those actions
+    /// again; their phase changes are raised at once, in order;</item>
+    /// <item>evaluates every action at the end of the frame, with the frame's per-frame amounts (mouse
+    /// motion, scrolling, drags, gestures, injections). Held actions raise their steady events here, at
+    /// most once per frame.</item>
     /// </list>
+    /// Each action's time advances by exactly the frame's delta over the tick, split at the moments its
+    /// input changed. Changes are placed in time by when they reached the player (see
+    /// <see cref="UseEventTimes"/>); Godot does not give events their own timestamps.
     /// </summary>
     public void Tick(double delta)
     {
@@ -35,34 +39,73 @@ public partial class InputPlayer : IChannelMask
             return;
         }
 
-        delta = BeginTickRecording(delta);
+        ulong now = Raw.Clock();
+        if (_lastFrameUsec == 0 || now < _lastFrameUsec) _lastFrameUsec = now;
+        if (_replay == null) PollSensorsForTick();   // before the recorded frame closes, so replays see them in the same frame
+        delta = BeginTickRecording(delta, now);
         _tick++;
         double frameDelta = Math.Max(0.0, delta);
-        _delta = frameDelta;
-        UpdateCapture(_delta);
+        UpdateCapture(frameDelta);
+        Raw.SetFrameWindow(_lastFrameUsec, now, UseEventTimes || _replay != null);
+        _frameStartSeconds = _lastFrameUsec / 1_000_000.0;
+        _frameSeconds = (now - _lastFrameUsec) / 1_000_000.0;
+        _frameDelta = frameDelta;
+        _lastFrameUsec = now;
+        _frameTime = 0;
 
-        // One step per run of queued changes (see RawInputState): every change received since the last
-        // tick is evaluated now, in arrival order. Earlier steps are instants; the last one is "now" and
-        // advances time by the frame's delta.
-        for (int step = 0; ; step++)
+        _ticking = true;
+        try
         {
+            PrepareTick();
+
+            // Input events, one at a time.
+            int steps = 0;
+            while (steps < MaxStepsPerTick && Raw.NextEventStep(_stepKeys, out double fraction))
+            {
+                steps++;
+                double at = Math.Max(_frameTime, fraction * frameDelta);
+                CollectAffected();
+                UpdateIgnoredAll();
+
+                // Time passes up to the event under the input as it was.
+                if (at > _frameTime)
+                {
+                    _frameTime = at;
+                    _step++;
+                    Raw.ObserveBefore();
+                    for (int i = 0; i < _affected.Count; i++)
+                    {
+                        var state = GetOrCreateState(_affected[i]);
+                        if (state.EvalTick != _tick || state.EvalTime < at) Resolve(_affected[i]);
+                    }
+                    Raw.ObserveStep();
+                    Dispatch(final: false);
+                    ReplanIfChanged();
+                }
+
+                // The event happens.
+                _step++;
+                for (int i = 0; i < _affected.Count; i++) Resolve(_affected[i]);
+                Dispatch(final: false);
+                Raw.EndStep();
+                ReplanIfChanged();
+            }
+
+            // The frame: every action, with the frame's per-frame amounts.
+            _frameTime = frameDelta;
             _step++;
-            LastTickSteps = step + 1;
-            bool last = Raw.BeginStep(forceLast: step + 1 >= MaxStepsPerTick);
-            _delta = last ? frameDelta : 0;
-            _ticking = true;
-            try
-            {
-                PrepareTick(last);
-                for (int i = 0; i < _tickActions.Count; i++) Resolve(_tickActions[i]);
-            }
-            finally
-            {
-                _ticking = false;
-            }
-            Dispatch();
+            _finalStep = true;
+            Raw.BeginFinalStep();
+            UpdateIgnoredAll();
+            for (int i = 0; i < _tickActions.Count; i++) Resolve(_tickActions[i]);
+            Dispatch(final: true);
             Raw.EndStep();
-            if (last) break;
+            _finalStep = false;
+            LastTickSteps = steps + 1;
+        }
+        finally
+        {
+            _ticking = false;
         }
         _delta = frameDelta;
 
@@ -71,11 +114,75 @@ public partial class InputPlayer : IChannelMask
         UpdateHaptics(frameDelta);
     }
 
-    /// <summary>Most evaluation steps one tick runs (changes beyond that wait for the next tick).</summary>
-    public const int MaxStepsPerTick = 32;
+    /// <summary>
+    /// Place each change at the moment it reached this player within the frame, so time passes between
+    /// them (a press and release within one slow frame last as long as they really did, as far as
+    /// arrival times tell). Off: every change counts as arriving at the start of the frame. On by default
+    /// for players ticked by <see cref="EnhancedInput"/> in real time; off for manual ticking, where the
+    /// deltas passed in are not wall-clock time. Godot delivers most events once per frame; enable
+    /// <c>input_devices/buffering/agile_event_flushing</c> for finer arrival times.
+    /// </summary>
+    public bool UseEventTimes { get; set; }
 
-    /// <summary>The evaluation steps the last tick ran (1 unless several changes of one channel arrived in one frame).</summary>
+    /// <summary>The clock arrival times are taken from, in microseconds (Godot's monotonic clock by default; tests can set their own).</summary>
+    public Func<ulong> Clock
+    {
+        get => Raw.Clock;
+        set => Raw.Clock = value ?? Time.GetTicksUsec;
+    }
+
+    /// <summary>Most input events one tick evaluates one by one (more wait for the next tick).</summary>
+    public const int MaxStepsPerTick = 128;
+
+    /// <summary>The evaluation steps the last tick ran: one per input event evaluated, plus the frame itself.</summary>
     public int LastTickSteps { get; private set; }
+
+    private ulong _lastFrameUsec;
+    private double _frameStartSeconds, _frameSeconds, _frameDelta;
+    private double _frameTime;   // seconds into the tick of the step being evaluated
+    private bool _finalStep;
+    private readonly List<SourceKey> _stepKeys = new();
+    private readonly List<GameAction> _affected = new();
+    private readonly HashSet<GameAction> _affectedSet = new();
+    private readonly List<GameAction> _stepResolved = new();
+    private readonly Dictionary<SourceKey, List<GameAction>> _actionsByKey = new();
+    private readonly List<GameAction> _alwaysEvaluate = new();
+
+    /// <summary>The actions an input event touches: those reading its channels, plus those whose triggers read other actions.</summary>
+    private void CollectAffected()
+    {
+        _affected.Clear();
+        _affectedSet.Clear();
+        for (int i = 0; i < _stepKeys.Count; i++)
+        {
+            var key = _stepKeys[i];
+            AddAffected(key);
+            if (key.Device != SourceKey.AnyDevice) AddAffected(key with { Device = SourceKey.AnyDevice });
+        }
+        for (int i = 0; i < _alwaysEvaluate.Count; i++)
+            if (_affectedSet.Add(_alwaysEvaluate[i])) _affected.Add(_alwaysEvaluate[i]);
+    }
+
+    private void AddAffected(in SourceKey key)
+    {
+        if (!_actionsByKey.TryGetValue(key, out var actions)) return;
+        for (int i = 0; i < actions.Count; i++)
+            if (_affectedSet.Add(actions[i])) _affected.Add(actions[i]);
+    }
+
+    /// <summary>A callback changed contexts, the mode or bindings mid-tick: the rest of the tick uses the new plan.</summary>
+    private void ReplanIfChanged()
+    {
+        if (PlanIsStale()) PrepareTick();
+    }
+
+    private void PollSensorsForTick()
+    {
+        if (PlanIsStale()) CompilePlan();
+        _polledSensors.Clear();
+        for (int p = 0; p < _plan.Count; p++)
+            if (_plan[p].PollsSensors) PollSensors(_plan[p].Source);
+    }
 
     /// <summary>
     /// Forces the active bindings to be compiled again on the next tick. Needed only after changing a
@@ -157,6 +264,21 @@ public partial class InputPlayer : IChannelMask
             }
         }
 
+        // Which actions each channel drives, and which actions look at other actions.
+        _actionsByKey.Clear();
+        _alwaysEvaluate.Clear();
+        foreach (var compiled in _plan)
+        {
+            for (int k = 0; k < compiled.Keys.Length; k++)
+            {
+                if (!_actionsByKey.TryGetValue(compiled.Keys[k], out var actions))
+                    _actionsByKey[compiled.Keys[k]] = actions = new List<GameAction>(2);
+                if (!actions.Contains(compiled.Action)) actions.Add(compiled.Action);
+            }
+            if (ReadsOtherActions(compiled.Triggers) || ReadsOtherActions(compiled.Action.Triggers))
+                if (!_alwaysEvaluate.Contains(compiled.Action)) _alwaysEvaluate.Add(compiled.Action);
+        }
+
         // Drop lists of actions no longer bound (keeps the dictionary from growing forever).
         _keyActions.Clear();
         foreach (var pair in _bindingsByAction)
@@ -174,6 +296,14 @@ public partial class InputPlayer : IChannelMask
         return result;
     }
 
+    private static bool ReadsOtherActions(IList<InputTrigger> triggers)
+    {
+        if (triggers == null) return false;
+        for (int i = 0; i < triggers.Count; i++)
+            if (triggers[i] != null && triggers[i].ReadsOtherActions) return true;
+        return false;
+    }
+
     private static bool UsesSensors(InputSource source)
     {
         if (source.Kind == SourceKind.Motion) return true;
@@ -183,28 +313,23 @@ public partial class InputPlayer : IChannelMask
         return false;
     }
 
-    private void PrepareTick(bool firstStep = true)
+    private void PrepareTick()
     {
         if (PlanIsStale()) CompilePlan();
 
         _tickActions.Clear();
         _tickActionSet.Clear();
         _consumedBy.Clear();
-        _polledSensors.Clear();
         _blockRank = int.MaxValue;
 
         foreach (var entry in _ordered)
-        {
-            UpdateIgnored(entry);
             if (entry.Context.BlockLowerPriority && _blockRank == int.MaxValue) _blockRank = entry.Rank;
-        }
 
         for (int p = 0; p < _plan.Count; p++)
         {
             var compiled = _plan[p];
             var action = compiled.Action;
             AddTickAction(action);
-            if (firstStep && compiled.PollsSensors) PollSensors(compiled.Source);
 
             // Consumption depends only on which contexts are active, never on this tick's results, so
             // actions can be evaluated in any order. Channels keep their device or finger; a source
@@ -222,6 +347,11 @@ public partial class InputPlayer : IChannelMask
         // Actions that are still active but no longer bound must be ticked so they finish.
         foreach (var pair in _states)
             if (pair.Value.IsActive) AddTickAction(pair.Key);
+    }
+
+    private void UpdateIgnoredAll()
+    {
+        foreach (var entry in _ordered) UpdateIgnored(entry);
     }
 
     private void AddTickAction(GameAction action)
@@ -261,7 +391,19 @@ public partial class InputPlayer : IChannelMask
         if (state.ResolvedTick == _step || state.Resolving) return;
 
         AddTickAction(action);
+        _stepResolved.Add(action);
         state.Resolving = true;
+        // This action's own time: what passed since it was last evaluated in this tick.
+        double savedDelta = _delta;
+        bool evaluatedThisFrame = state.EvalTick == _tick;
+        if (state.EvalTick != _tick)
+        {
+            state.EvalTick = _tick;
+            state.EvalTime = 0;
+        }
+        _delta = Math.Max(0.0, _frameTime - state.EvalTime);
+        bool wasTracked = state.IsTracked;
+        bool tracked = false;
         try
         {
             var kind = action.ValueKind;
@@ -295,6 +437,7 @@ public partial class InputPlayer : IChannelMask
                     if (silenced || entry.Rank > _blockRank || IsFullySuppressed(entry, source, compiled.Keys))
                     {
                         memory.Reset();
+                        memory.Suppressed = true;
                         continue;
                     }
                     anyEvaluated = true;
@@ -304,6 +447,11 @@ public partial class InputPlayer : IChannelMask
                     _readEntry = entry;
                     var value = source?.Read(this) ?? Vector4.Zero;
                     _readEntry = null;
+                    if (memory.Suppressed) memory.Resume(held: value != Vector4.Zero);
+                    bool bindingTracked = false;
+                    for (int k = 0; k < compiled.Keys.Length && !bindingTracked; k++)
+                        bindingTracked = Raw.IsTracked(compiled.Keys[k]);
+                    tracked |= bindingTracked;
 
                     // Rotation actions keep all four components until their modifiers ran (a quaternion
                     // source converted to Euler angles needs its W); every value is shaped afterwards.
@@ -323,7 +471,8 @@ public partial class InputPlayer : IChannelMask
                     else
                     {
                         firing = Accumulate(kind, firing, value, mode);
-                        if (!ActionValue.IsZeroOf(kind, value)) triggerlessNonZero = true;
+                        // A tracked pose is input even at the origin or the identity rotation.
+                        if (bindingTracked || !ActionValue.IsZeroOf(kind, value)) triggerlessNonZero = true;
                     }
                 }
             }
@@ -340,6 +489,10 @@ public partial class InputPlayer : IChannelMask
 
             EnsureArray(ref state.ModifierMemories, action.Modifiers?.Count ?? 0);
             EnsureArray(ref state.TriggerMemories, action.Triggers?.Count ?? 0);
+
+            state.IsTracked = tracked;
+            if (wasTracked && !tracked && state.Phase != TriggerPhase.Idle) cut ??= InputEndReason.TrackingLost;
+            if (_injectionCuts.Count > 0 && _injectionCuts.Remove(action, out var injectionCut)) cut ??= injectionCut;
 
             if (!anyEvaluated)
             {
@@ -385,7 +538,15 @@ public partial class InputPlayer : IChannelMask
                     finalPhase = state.ToggleOn ? TriggerPhase.Triggered : TriggerPhase.Idle;
                     value = state.ToggleOn ? state.ToggleValue : Vector4.Zero;
                 }
+                // A one-shot that fired at an input event this frame (pressed, released, tap, combo…) stays
+                // triggered until the frame ends, as frame-based code expects; it ends on the next frame.
+                if (_finalStep && evaluatedThisFrame && state.Phase == TriggerPhase.Triggered && finalPhase != TriggerPhase.Triggered && !cut.HasValue)
+                {
+                    finalPhase = TriggerPhase.Triggered;
+                    value = state.Value.Raw;
+                }
                 state.InputValue = new ActionValue(kind, Trim(kind, input));
+                if (state.Value.Raw != value) state.LastChangeTime = StepClock;
                 state.Advance(finalPhase, new ActionValue(kind, value), _delta, new ActionValue(kind, Trim(kind, raw)), _tick, cut);
             }
 
@@ -396,6 +557,8 @@ public partial class InputPlayer : IChannelMask
         finally
         {
             state.Resolving = false;
+            state.EvalTime = _frameTime;
+            _delta = savedDelta;
         }
     }
 
@@ -523,25 +686,44 @@ public partial class InputPlayer : IChannelMask
         ActionEvents.Started, ActionEvents.Ongoing, ActionEvents.Triggered, ActionEvents.Completed, ActionEvents.Canceled,
     };
 
-    private void Dispatch()
+    /// <summary>The player's clock, in seconds, at the step being evaluated.</summary>
+    private double StepClock => _frameStartSeconds + (_frameDelta > 0 ? _frameTime / _frameDelta * _frameSeconds : 0.0);
+
+    /// <summary>
+    /// Raises the events of the actions evaluated in this step, in evaluation order. Phase changes (started,
+    /// triggered from ongoing or idle, completed, canceled…) are raised at once; steady events of a held
+    /// action (triggered again, still ongoing) only at the end of the frame, at most once per frame, so an
+    /// unrelated input never makes a held action fire twice in one frame.
+    /// </summary>
+    private void Dispatch(bool final)
     {
         _dispatching = true;
         try
         {
-            for (int i = 0; i < _tickActions.Count; i++)
+            for (int i = 0; i < _stepResolved.Count; i++)
             {
-                var action = _tickActions[i];
+                var action = _stepResolved[i];
                 if (!_states.TryGetValue(action, out var state) || state.StepId != _step || state.StepEvents == ActionEvents.None) continue;
+                if (state.FrameDispatchTick != _tick)
+                {
+                    state.FrameDispatchTick = _tick;
+                    state.FrameDispatched = ActionEvents.None;
+                }
+                bool change = state.PreviousPhase != state.Phase
+                    || (state.StepEvents & (ActionEvents.Started | ActionEvents.Completed | ActionEvents.Canceled)) != 0;
 
                 foreach (var flag in EventOrder)
                 {
                     if ((state.StepEvents & flag) == 0) continue;
+                    if (!change && (!final || (state.FrameDispatched & flag) != 0)) continue;
+                    state.FrameDispatched |= flag;
                     Raise(action, state, flag);
                 }
             }
         }
         finally
         {
+            _stepResolved.Clear();
             _dispatching = false;
             PurgeInactiveSubscriptions();
         }

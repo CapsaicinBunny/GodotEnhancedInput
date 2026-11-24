@@ -91,7 +91,7 @@ public partial class InputPlayer
         int slash = key.Name.IndexOf('/');
         if (slash < 0 || key.Name.IndexOf('/', slash + 1) >= 0) return;   // "type/control" only, not "type/pose/position"
         if (GetParent() is not EnhancedInput system) return;
-        var device = system.GetDevice($"{key.Name.Substring(0, slash)}:{key.Device}");
+        var device = system.GetCustomDevice(key.Name.Substring(0, slash), key.Device);
         if (device == null || device == CurrentDevice) return;
         bool kindChanged = LastDeviceKind != InputDeviceKind.Custom;
         LastDeviceKind = InputDeviceKind.Custom;

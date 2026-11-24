@@ -457,7 +457,11 @@ public partial class EnhancedInput
                 break;
             case InputDeviceKind.Custom:
                 foreach (var p in _players)
-                    if (p != player && p.OwnedCustomDevices.Remove(device.Id)) p.Raw.ClearCustomDevice(device.DeviceType, device.Index, InputEndReason.DeviceReassigned);
+                    if (p != player && p.OwnedCustomDevices.Remove(device.Id))
+                    {
+                        p.ReleaseHapticDevice(device);
+                        p.Raw.ClearCustomDevice(device.DeviceType, device.Index, InputEndReason.DeviceReassigned);
+                    }
                 player.OwnedCustomDevices.Add(device.Id);
                 break;
         }
@@ -513,22 +517,63 @@ public partial class EnhancedInput
         backend.System = null;
     }
 
+    private readonly Dictionary<(InputBackend Backend, string Type, int Local), int> _runtimeIndex = new();
+
+    /// <summary>A backend device by its type and runtime index (the index bindings and channels use); the connected one first.</summary>
+    public InputDeviceInfo GetCustomDevice(string deviceType, int index)
+    {
+        InputDeviceInfo found = null;
+        foreach (var d in _devices)
+            if (d.Kind == InputDeviceKind.Custom && d.DeviceType == deviceType && d.Index == index && (found == null || d.IsConnected)) found = d;
+        return found;
+    }
+
+    private int RuntimeIndexOf(InputBackend backend, string deviceType, int local)
+        => backend != null && _runtimeIndex.TryGetValue((backend, deviceType, local), out var runtime) ? runtime : local;
+
+    private bool CustomIndexTaken(string deviceType, int index, InputDeviceInfo except)
+    {
+        foreach (var d in _devices)
+            if (d != except && d.Kind == InputDeviceKind.Custom && d.IsConnected && d.DeviceType == deviceType && d.Index == index) return true;
+        return false;
+    }
+
     internal InputDeviceInfo RegisterCustomDevice(InputBackend backend, string deviceType, int index, string name, string guid)
     {
         EnsureBuiltinDevices();
-        string id = $"{deviceType}:{index}";
+        guid ??= string.Empty;
+        // A persistent id: the hardware identity when given, else the backend's own index.
+        string id = guid.Length > 0 ? $"{deviceType}:{guid}" : $"{deviceType}:{index}";
         var device = GetDevice(id);
+        if (device != null && device.IsConnected && device.Backend != null && device.Backend != backend && _backends.Contains(device.Backend))
+        {
+            // Another live backend already has this id: keep them apart.
+            id = guid.Length > 0 ? $"{deviceType}:{backend?.Namespace}:{guid}" : $"{deviceType}:{backend?.Namespace}:{index}";
+            device = GetDevice(id);
+        }
+
+        // The runtime index: the one the device had, else the backend's own, else the next free one.
+        int runtime = device?.Index ?? index;
+        if (CustomIndexTaken(deviceType, runtime, device)) runtime = index;
+        while (CustomIndexTaken(deviceType, runtime, device)) runtime++;
+        if (backend != null) _runtimeIndex[(backend, deviceType, index)] = runtime;
+
         if (device == null)
         {
-            device = new InputDeviceInfo(id, InputDeviceKind.Custom, index, name) { DeviceType = deviceType, Backend = backend };
+            device = new InputDeviceInfo(id, InputDeviceKind.Custom, runtime, name) { DeviceType = deviceType };
             _devices.Add(device);
         }
+        device.Index = runtime;
+        device.Backend = backend;   // a replacement backend takes the device over
         device.Name = name;
-        device.Guid = guid ?? string.Empty;
+        device.Guid = guid;
+        bool reconnect = !device.IsConnected || device.ConnectionCount == 0;
         device.IsConnected = true;
+        if (reconnect) device.ConnectionCount++;
         device.Profile = FindProfile(name, guid);
         device.Role = device.Profile?.Role ?? GuessCustomRole(deviceType, name);
         DeviceConnected?.Invoke(device);
+        EmitSignal(SignalName.DeviceConnectionChanged, device.Id, true);
         return device;
     }
 
@@ -543,34 +588,57 @@ public partial class EnhancedInput
         return DeviceRole.XRController;
     }
 
-    internal void UnregisterCustomDevice(string deviceType, int index)
+    internal void UnregisterCustomDevice(InputBackend backend, string deviceType, int index)
     {
-        var device = GetDevice($"{deviceType}:{index}");
-        if (device == null || !device.IsConnected) return;
+        int runtime = RuntimeIndexOf(backend, deviceType, index);
+        var device = GetCustomDevice(deviceType, runtime);
+        if (device == null || !device.IsConnected || (backend != null && device.Backend != backend)) return;
         device.IsConnected = false;
-        foreach (var p in _players) p.Raw.ClearCustomDevice(deviceType, index);
+        foreach (var p in _players) p.Raw.ClearCustomDevice(deviceType, runtime);
         DeviceDisconnected?.Invoke(device);
+        EmitSignal(SignalName.DeviceConnectionChanged, device.Id, false);
     }
 
+    /// <summary>Marks a backend device disconnected by its type and runtime index.</summary>
+    internal void UnregisterCustomDevice(string deviceType, int index) => UnregisterCustomDevice(null, deviceType, index);
+
     /// <summary>
-    /// Writes a control value of a backend device and routes it to the device's owner, or — when nobody
-    /// owns it — to players that take unowned devices.
+    /// Writes a control value of a backend device (by its runtime index) and routes it to the device's
+    /// owner, or — when nobody owns it — to players that take unowned devices.
     /// </summary>
     public void SetDeviceControl(string deviceType, int index, string control, Vector3 value)
         => SetDeviceControl(deviceType, index, control, new Vector4(value.X, value.Y, value.Z, 0f));
 
     /// <summary>Sets a control of a backend device (up to four components, e.g. a rotation as x, y, z, w).</summary>
     public void SetDeviceControl(string deviceType, int index, string control, Vector4 value)
+        => RouteDeviceControl(deviceType, index, control, value, tracked: false, clear: false);
+
+    internal void SetDeviceControl(InputBackend backend, string deviceType, int index, string control, Vector4 value, bool tracked)
+        => RouteDeviceControl(deviceType, RuntimeIndexOf(backend, deviceType, index), control, value, tracked, clear: false);
+
+    internal void ClearDeviceControl(InputBackend backend, string deviceType, int index, string control)
+        => RouteDeviceControl(deviceType, RuntimeIndexOf(backend, deviceType, index), control, Vector4.Zero, tracked: false, clear: true);
+
+    private void RouteDeviceControl(string deviceType, int runtime, string control, Vector4 value, bool tracked, bool clear)
     {
         EnsureDefaultPlayer();
-        string id = $"{deviceType}:{index}";
-        var key = SourceKey.ForDeviceControl(deviceType, control, index);
+        var key = SourceKey.ForDeviceControl(deviceType, control, runtime);
+        var id = GetCustomDevice(deviceType, runtime)?.Id ?? $"{deviceType}:{runtime}";
         InputPlayer owner = null;
         foreach (var p in _players)
             if (p.OwnedCustomDevices.Contains(id)) { owner = p; break; }
-        if (owner != null) { owner.ReceiveDeviceControl(key, value); return; }
+        if (owner != null)
+        {
+            if (clear) owner.ClearDeviceControl(key);
+            else owner.ReceiveDeviceControl(key, value, tracked);
+            return;
+        }
         foreach (var p in _players)
-            if (p.ReceivesUnownedJoypads && p.OwnedCustomDevices.Count == 0) p.ReceiveDeviceControl(key, value);
+            if (p.ReceivesUnownedJoypads && p.OwnedCustomDevices.Count == 0)
+            {
+                if (clear) p.ClearDeviceControl(key);
+                else p.ReceiveDeviceControl(key, value, tracked);
+            }
     }
 
     private void PollBackends(double delta)
