@@ -122,6 +122,24 @@ public sealed class CaptureOptions
     /// <summary>Bind captured joypad input to any joypad the player uses, rather than the one pressed.</summary>
     public bool AnyJoypad { get; set; } = true;
 
+    /// <summary>Keys that never bind (e.g. keys the menu itself uses); pressing them does nothing.</summary>
+    public Key[] ExcludedKeys { get; set; } = System.Array.Empty<Key>();
+
+    /// <summary>Joypad buttons that never bind.</summary>
+    public JoyButton[] ExcludedJoyButtons { get; set; } = System.Array.Empty<JoyButton>();
+
+    /// <summary>Optional rule: a captured source is used only when this returns true (others are ignored).</summary>
+    public System.Func<InputSource, bool> Filter { get; set; }
+
+    /// <summary>Ignore inputs held (and sticks off-centre) when the capture starts until they are released. On by default.</summary>
+    public bool WaitForRelease { get; set; } = true;
+
+    /// <summary>Capture modifier chords: holding Ctrl and pressing S binds "Ctrl + S"; a modifier released alone binds itself.</summary>
+    public bool AllowChords { get; set; }
+
+    /// <summary>Give up after this many seconds without a usable press (0: wait forever). Counted in player ticks.</summary>
+    public double TimeoutSeconds { get; set; }
+
     /// <summary>What to do with conflicting bindings.</summary>
     public RebindConflictPolicy ConflictPolicy { get; set; } = RebindConflictPolicy.Allow;
 

@@ -408,6 +408,78 @@ public partial class InputSource : Resource
         return false;
     }
 
+    /// <summary>
+    /// The parts a player can rebind one by one: the keys of a key composite (negative, positive / up,
+    /// down, left, right), or the parts of a composite. A plain source has itself as its only part.
+    /// </summary>
+    public System.Collections.Generic.List<InputSource> GetParts()
+    {
+        var parts = new System.Collections.Generic.List<InputSource>();
+        switch (_kind)
+        {
+            case SourceKind.KeyAxis1D:
+                parts.Add(ForKey(NegativeKey, KeyMatch));
+                parts.Add(ForKey(PositiveKey, KeyMatch));
+                break;
+            case SourceKind.KeyAxis2D:
+                parts.Add(ForKey(UpKey, KeyMatch));
+                parts.Add(ForKey(DownKey, KeyMatch));
+                parts.Add(ForKey(NegativeKey, KeyMatch));
+                parts.Add(ForKey(PositiveKey, KeyMatch));
+                break;
+            case SourceKind.Composite:
+                foreach (var part in Parts) parts.Add(part);
+                break;
+            default:
+                parts.Add(this);
+                break;
+        }
+        return parts;
+    }
+
+    /// <summary>
+    /// A copy of this source with one part replaced. Key composites stay key composites when the new
+    /// part is a key with the same matching; otherwise they become a composite of sources.
+    /// </summary>
+    public InputSource WithPart(int index, InputSource part)
+    {
+        var parts = GetParts();
+        if (index < 0 || index >= parts.Count) return (InputSource)Duplicate(true);
+        if (_kind is not (SourceKind.KeyAxis1D or SourceKind.KeyAxis2D or SourceKind.Composite)) return part == null ? Nothing() : (InputSource)part.Duplicate(true);
+
+        bool keyStaysKey = part != null && part.Kind == SourceKind.Key && part.KeyMatch == KeyMatch;
+        if (keyStaysKey && _kind != SourceKind.Composite)
+        {
+            var copy = (InputSource)Duplicate(true);
+            if (_kind == SourceKind.KeyAxis1D)
+            {
+                if (index == 0) copy.NegativeKey = part.Key; else copy.PositiveKey = part.Key;
+            }
+            else
+            {
+                switch (index)
+                {
+                    case 0: copy.UpKey = part.Key; break;
+                    case 1: copy.DownKey = part.Key; break;
+                    case 2: copy.NegativeKey = part.Key; break;
+                    default: copy.PositiveKey = part.Key; break;
+                }
+            }
+            return copy;
+        }
+
+        var mode = _kind switch
+        {
+            SourceKind.KeyAxis1D => CompositeMode.Axis1D,
+            SourceKind.KeyAxis2D => CompositeMode.Axis2D,
+            _ => CompositeMode,
+        };
+        var result = new InputSource { Kind = SourceKind.Composite, CompositeMode = mode };
+        for (int i = 0; i < parts.Count; i++)
+            result.Parts.Add(i == index ? (part == null ? Nothing() : (InputSource)part.Duplicate(true)) : (InputSource)parts[i].Duplicate(true));
+        return result;
+    }
+
     /// <summary>A short human-readable description, e.g. "Key Space" or "Joy LeftX".</summary>
     public string Describe() => _kind switch
     {

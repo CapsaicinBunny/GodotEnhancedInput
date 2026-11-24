@@ -201,7 +201,8 @@ public partial class InputPlayer
     /// <summary>
     /// Gives slot <paramref name="id"/> a new source (null or a <see cref="SourceKind.None"/> source clears it),
     /// handling conflicts by <paramref name="policy"/>. Assigning the slot's default source removes the
-    /// override. Takes effect from the next tick.
+    /// override. All changes (including a swap or clearing other slots) reach listeners as one change.
+    /// Takes effect from the next tick.
     /// </summary>
     public RebindResult Rebind(string id, InputSource source, RebindConflictPolicy policy = RebindConflictPolicy.Allow, ConflictScope scope = ConflictScope.SameContext)
     {
@@ -224,29 +225,48 @@ public partial class InputPlayer
             return result;
         }
 
-        SetSlotSource(slot, source);
-
-        bool swapped = false;
-        foreach (var conflict in result.Conflicts)
+        Profile.Batch(() =>
         {
-            if (conflict.RebindId == null) continue;
-            if (policy == RebindConflictPolicy.Swap && !swapped)
+            SetSlotSource(slot, source);
+            bool swapped = false;
+            foreach (var conflict in result.Conflicts)
             {
-                var other = GetRebindSlot(conflict.RebindId);
-                if (other != null) SetSlotSource(other, result.PreviousSource);
-                result.ChangedSlots.Add(conflict.RebindId);
-                swapped = true;
+                if (conflict.RebindId == null) continue;
+                if (policy == RebindConflictPolicy.Swap && !swapped)
+                {
+                    var other = GetRebindSlot(conflict.RebindId);
+                    if (other != null) SetSlotSource(other, result.PreviousSource);
+                    result.ChangedSlots.Add(conflict.RebindId);
+                    swapped = true;
+                }
+                else if (policy == RebindConflictPolicy.ClearOthers)
+                {
+                    Profile.SetOverride(conflict.RebindId, null);
+                    result.ChangedSlots.Add(conflict.RebindId);
+                }
             }
-            else if (policy == RebindConflictPolicy.ClearOthers)
-            {
-                Profile.SetOverride(conflict.RebindId, null);
-                result.ChangedSlots.Add(conflict.RebindId);
-            }
-        }
+        });
 
         result.Applied = true;
         RebindCompleted?.Invoke(result);
         return result;
+    }
+
+    /// <summary>
+    /// Rebinds one part of a slot whose source is made of parts — one key of a four-key composite, one
+    /// part of a composite source — keeping the other parts (see <see cref="InputSource.GetParts"/>).
+    /// </summary>
+    public RebindResult RebindPart(string id, int part, InputSource source, RebindConflictPolicy policy = RebindConflictPolicy.Allow, ConflictScope scope = ConflictScope.SameContext)
+    {
+        var slot = GetRebindSlot(id);
+        var current = slot?.CurrentSource ?? slot?.DefaultSource;
+        if (current == null || part < 0 || part >= current.GetParts().Count)
+        {
+            var failed = new RebindResult(id) { Source = source, FailureReason = $"slot '{id}' has no part {part}" };
+            RebindCompleted?.Invoke(failed);
+            return failed;
+        }
+        return Rebind(id, current.WithPart(part, source), policy, scope);
     }
 
     /// <summary>Leaves a slot with no source.</summary>
@@ -268,6 +288,56 @@ public partial class InputPlayer
     }
 
     // ------------------------------------------------------------------
+    //  Named profiles, presets
+    // ------------------------------------------------------------------
+
+    /// <summary>The folder for this player's named profiles: <c>user://input/&lt;ProfileId&gt;</c>.</summary>
+    public string ProfileFolder => $"user://input/{ProfileId}";
+
+    /// <summary>The names of this player's saved named profiles.</summary>
+    public List<string> ListProfiles()
+    {
+        var names = new List<string>();
+        var absolute = ProjectSettings.GlobalizePath(ProfileFolder);
+        if (!DirAccess.DirExistsAbsolute(absolute)) return names;
+        foreach (var file in DirAccess.GetFilesAt(absolute))
+            if (file.EndsWith(".json", StringComparison.OrdinalIgnoreCase)) names.Add(file[..^5]);
+        names.Sort(StringComparer.Ordinal);
+        return names;
+    }
+
+    /// <summary>Saves the current profile under a name (e.g. "default", "left-handed", "couch").</summary>
+    public Error SaveProfileAs(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name) || name.IndexOfAny(new[] { '/', '\\', ':', '.' }) >= 0) return Error.InvalidParameter;
+        Profile.Name = name;
+        return Profile.Save($"{ProfileFolder}/{name}.json");
+    }
+
+    /// <summary>Loads a named profile. Returns false (keeping the current one) if it is missing or unreadable.</summary>
+    public bool LoadProfileNamed(string name) => !string.IsNullOrWhiteSpace(name) && LoadProfile($"{ProfileFolder}/{name}.json");
+
+    /// <summary>Deletes a named profile file.</summary>
+    public bool DeleteProfile(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return false;
+        var absolute = ProjectSettings.GlobalizePath($"{ProfileFolder}/{name}.json");
+        return FileAccess.FileExists(absolute) && DirAccess.RemoveAbsolute(absolute) == Error.Ok;
+    }
+
+    /// <summary>Applies a preset file (overrides and settings) on top of the current profile, or replacing it.</summary>
+    public bool ImportPreset(string path, bool replace = false)
+    {
+        var preset = InputProfile.Load(path);
+        if (preset == null) return false;
+        Profile.Apply(preset, replace);
+        return true;
+    }
+
+    /// <summary>Writes the current profile to any path, to share as a preset.</summary>
+    public Error ExportProfile(string path) => Profile.Save(path);
+
+    // ------------------------------------------------------------------
     //  Capture
     // ------------------------------------------------------------------
 
@@ -277,16 +347,43 @@ public partial class InputPlayer
     /// <summary>The slot being captured, or null.</summary>
     public string CaptureId => _captureId;
 
+    /// <summary>The part being captured (see <see cref="RebindPart"/>), or −1 for the whole slot.</summary>
+    public int CapturePart => _capturePart;
+
+    /// <summary>Whether the last capture ended because its time ran out.</summary>
+    public bool LastCaptureTimedOut { get; private set; }
+
+    private int _capturePart = -1;
+    private double _captureElapsed;
+    private readonly HashSet<SourceKey> _captureHeld = new();
+    private readonly List<Key> _captureModifiers = new();
+    private readonly List<SourceKey> _captureScratch = new();
+
     /// <summary>
-    /// Waits for the next press this player receives and binds it to slot <paramref name="id"/>. The
-    /// captured press does not reach any action. A cancel key or button ends the capture without a change.
+    /// Waits for the next press this player receives and binds it to slot <paramref name="id"/> (or to one
+    /// <paramref name="part"/> of it). The captured press does not reach any action. A cancel key or button
+    /// ends the capture without a change; so does <see cref="CaptureOptions.TimeoutSeconds"/>. Inputs already
+    /// held, and sticks not at rest, are ignored until released (with <see cref="CaptureOptions.WaitForRelease"/>).
     /// </summary>
-    public bool StartCapture(string id, CaptureOptions options = null)
+    public bool StartCapture(string id, CaptureOptions options = null, int part = -1)
     {
-        if (GetRebindSlot(id) == null) return false;
+        var slot = GetRebindSlot(id);
+        if (slot == null) return false;
+        if (part >= 0 && part >= (slot.CurrentSource ?? slot.DefaultSource)?.GetParts().Count) return false;
         if (_captureId != null) CancelCapture();
         _captureId = id;
+        _capturePart = part;
         _captureOptions = options ?? new CaptureOptions();
+        _captureElapsed = 0;
+        _captureModifiers.Clear();
+        _captureHeld.Clear();
+        LastCaptureTimedOut = false;
+        if (_captureOptions.WaitForRelease)
+        {
+            _captureScratch.Clear();
+            Raw.CollectActiveChannels(_captureScratch, _captureOptions.AxisThreshold * 0.5f);
+            foreach (var key in _captureScratch) _captureHeld.Add(key);
+        }
         return true;
     }
 
@@ -295,10 +392,41 @@ public partial class InputPlayer
     {
         if (_captureId == null) return;
         var id = _captureId;
-        _captureId = null;
-        _captureOptions = null;
+        EndCapture();
         EmitSignal(SignalName.RebindCaptureCanceled, id);
     }
+
+    private void EndCapture()
+    {
+        _captureId = null;
+        _captureOptions = null;
+        _capturePart = -1;
+        _captureModifiers.Clear();
+        _captureHeld.Clear();
+    }
+
+    /// <summary>Called at the start of every tick: ends a capture whose time ran out.</summary>
+    private void UpdateCapture(double delta)
+    {
+        if (_captureId == null || _captureOptions == null || _captureOptions.TimeoutSeconds <= 0) return;
+        _captureElapsed += delta;
+        if (_captureElapsed < _captureOptions.TimeoutSeconds) return;
+        CancelCapture();
+        LastCaptureTimedOut = true;
+    }
+
+    private static bool IsModifierKey(Key key) => key is Key.Shift or Key.Ctrl or Key.Alt or Key.Meta;
+
+    /// <summary>The raw channel an event belongs to (for "held when the capture started").</summary>
+    private static SourceKey? ChannelOf(InputEvent @event) => @event switch
+    {
+        InputEventKey key when key.PhysicalKeycode != Key.None => SourceKey.ForKey(key.PhysicalKeycode),
+        InputEventKey key => SourceKey.ForKey(key.Keycode, KeyMatch.Logical),
+        InputEventMouseButton mouse => SourceKey.ForMouseButton(mouse.ButtonIndex),
+        InputEventJoypadButton button => SourceKey.ForJoyButton(button.ButtonIndex, button.Device),
+        InputEventJoypadMotion motion => SourceKey.ForJoyAxis(motion.Axis, motion.Device),
+        _ => null,
+    };
 
     /// <summary>Offers an event to a running capture. Returns true when the capture took it.</summary>
     private bool TryCapture(InputEvent @event, IntakeStage stage)
@@ -315,6 +443,23 @@ public partial class InputPlayer
         };
         if (!allowedDevice) return false;
 
+        // Inputs held when the capture started (the key that opened the menu, a stick resting off-centre)
+        // are ignored until they are released; the release still reaches the game.
+        var channel = ChannelOf(@event);
+        if (channel is SourceKey held && _captureHeld.Contains(held))
+        {
+            bool released = @event switch
+            {
+                InputEventKey k => !k.Pressed,
+                InputEventMouseButton m => !m.Pressed,
+                InputEventJoypadButton b => !b.Pressed,
+                InputEventJoypadMotion j => Mathf.Abs(j.AxisValue) < options.AxisThreshold * 0.5f,
+                _ => true,
+            };
+            if (released) _captureHeld.Remove(held);
+            return false;
+        }
+
         if (@event is InputEventKey { Pressed: true, Echo: false } key
             && (Array.IndexOf(options.CancelKeys ?? Array.Empty<Key>(), key.PhysicalKeycode) >= 0
                 || Array.IndexOf(options.CancelKeys ?? Array.Empty<Key>(), key.Keycode) >= 0)
@@ -325,14 +470,54 @@ public partial class InputPlayer
             return true;
         }
 
+        // Chords: modifier keys wait for the key they go with; released alone, they bind themselves.
+        if (options.AllowChords && @event is InputEventKey { Echo: false } chordKey)
+        {
+            var code = chordKey.PhysicalKeycode != Key.None ? chordKey.PhysicalKeycode : chordKey.Keycode;
+            if (IsModifierKey(code))
+            {
+                if (chordKey.Pressed)
+                {
+                    if (!_captureModifiers.Contains(code)) _captureModifiers.Add(code);
+                    return true;
+                }
+                if (_captureModifiers.Contains(code))
+                    return Finish(InputSource.ForKey(code, options.KeyMatch));
+                return false;
+            }
+            if (chordKey.Pressed && _captureModifiers.Count > 0)
+            {
+                var chord = InputSource.FromEvent(@event, options.KeyMatch);
+                if (chord == null) return false;
+                var parts = new InputSource[_captureModifiers.Count + 1];
+                for (int i = 0; i < _captureModifiers.Count; i++) parts[i] = InputSource.ForKey(_captureModifiers[i], options.KeyMatch);
+                parts[^1] = chord;
+                return Finish(InputSource.Composite(CompositeMode.WithModifiers, parts));
+            }
+        }
+
         var source = InputSource.FromEvent(@event, options.KeyMatch, options.AxisThreshold, options.AnyJoypad);
         if (source == null) return false;
+        if (IsExcluded(source, options) || options.Filter != null && !options.Filter(source)) return true;
+        return Finish(source);
+    }
 
+    private static bool IsExcluded(InputSource source, CaptureOptions options)
+    {
+        if (source.Kind == SourceKind.Key && options.ExcludedKeys != null && Array.IndexOf(options.ExcludedKeys, source.Key) >= 0) return true;
+        if (source.Kind == SourceKind.JoyButton && options.ExcludedJoyButtons != null && Array.IndexOf(options.ExcludedJoyButtons, source.JoyButton) >= 0) return true;
+        return false;
+    }
+
+    private bool Finish(InputSource source)
+    {
         var id = _captureId;
-        _captureId = null;
-        _captureOptions = null;
+        var options = _captureOptions;
+        int part = _capturePart;
+        EndCapture();
         EmitSignal(SignalName.RebindCaptured, id, source);
-        Rebind(id, source, options.ConflictPolicy, options.ConflictScope);
+        if (part >= 0) RebindPart(id, part, source, options.ConflictPolicy, options.ConflictScope);
+        else Rebind(id, source, options.ConflictPolicy, options.ConflictScope);
         return true;
     }
 }

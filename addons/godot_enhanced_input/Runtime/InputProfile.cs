@@ -248,10 +248,22 @@ public sealed class InputProfile
             }
         }
 
-        using var file = FileAccess.Open(path, FileAccess.ModeFlags.Write);
-        if (file == null) return FileAccess.GetOpenError();
-        file.StoreString(ToJson());
-        return Error.Ok;
+        // Write a temporary file, then move it over the old one, so a crash never leaves half a profile.
+        string temporary = path + ".tmp";
+        using (var file = FileAccess.Open(temporary, FileAccess.ModeFlags.Write))
+        {
+            if (file == null) return FileAccess.GetOpenError();
+            file.StoreString(ToJson());
+        }
+        string target = ProjectSettings.GlobalizePath(path);
+        string source = ProjectSettings.GlobalizePath(temporary);
+        var moved = DirAccess.RenameAbsolute(source, target);
+        if (moved != Error.Ok && FileAccess.FileExists(target))
+        {
+            DirAccess.RemoveAbsolute(target);
+            moved = DirAccess.RenameAbsolute(source, target);
+        }
+        return moved;
     }
 
     /// <summary>Reads a profile file, or returns null if it is missing or unreadable (warnings are pushed to Godot's log).</summary>

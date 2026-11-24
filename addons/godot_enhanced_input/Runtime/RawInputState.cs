@@ -90,6 +90,16 @@ public sealed class RawInputState
         }
     }
 
+    /// <summary>Adds every channel whose current value has at least <paramref name="threshold"/> magnitude.</summary>
+    public void CollectActiveChannels(List<SourceKey> into, float threshold = 0.0001f)
+    {
+        float min = threshold * threshold;
+        foreach (var pair in _current)
+            if (pair.Value != Vector3.Zero && pair.Value.LengthSquared() >= min
+                && pair.Key.Kind is RawKind.PhysicalKey or RawKind.LogicalKey or RawKind.MouseButton or RawKind.JoyButton or RawKind.JoyAxis)
+                into.Add(pair.Key);
+    }
+
     /// <summary>Adds scrolling for this tick.</summary>
     public void AddWheel(Vector2 amount) => _wheel += amount;
 

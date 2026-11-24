@@ -26,6 +26,7 @@ public partial class InputPlayer : IChannelMask
 
         _tick++;
         _delta = Math.Max(0.0, delta);
+        UpdateCapture(_delta);
         _ticking = true;
         try
         {
