@@ -21,6 +21,10 @@ public enum InputLoop
 /// <see cref="EnhancedInput"/> autoload publishes <see cref="InputPlayer.PhysicsFrame"/> at the start of
 /// each physics step and <see cref="InputPlayer.ProcessFrame"/> each rendered frame (after ticking); with
 /// manual ticking, call <see cref="Publish"/> where your loop's frame starts.
+/// <para>Views are made on first use; one made after input already happened starts with the latest tick's
+/// events, and <see cref="InputPlayer.EnableFrameViews"/> makes them up front. Events are combined as flags:
+/// two presses between frames read as one <c>WasPressed</c> (count presses with
+/// <see cref="ActionState.TriggerCount"/> if you need to).</para>
 /// </summary>
 public sealed class InputFrameView
 {
@@ -41,6 +45,12 @@ public sealed class InputFrameView
 
     /// <summary>How many frames have been published.</summary>
     public ulong Frame { get; private set; }
+
+    // A view made after a tick starts by showing that tick's events (first use must not miss them).
+    internal void Seed(EnhancedInputAction action, ActionEvents events)
+    {
+        if (events != ActionEvents.None && action != null) _published[action] = events;
+    }
 
     internal void Collect(EnhancedInputAction action, ActionEvents events)
     {

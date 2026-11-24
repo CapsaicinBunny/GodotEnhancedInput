@@ -15,6 +15,9 @@ public sealed class ImportedInputMap
 
     /// <summary>Events that have no equivalent source (with the action they belonged to), for a report.</summary>
     public List<string> Skipped { get; } = new();
+
+    /// <summary>Events that were converted but may behave a little differently (with why), for a report.</summary>
+    public List<string> Approximated { get; } = new();
 }
 
 /// <summary>
@@ -63,8 +66,17 @@ public static class InputMapImporter
         return Build(actions, contextName);
     }
 
-    /// <summary>Godot's own UI actions (<c>ui_accept</c>, <c>ui_left</c>…).</summary>
-    public static bool IsBuiltIn(string name) => name.StartsWith("ui_") || name.StartsWith("spatial_editor/");
+    /// <summary>
+    /// Godot's own built-in actions (<c>ui_accept</c>, <c>ui_left</c>…): those Godot defines a default for.
+    /// A project's own action that merely starts with <c>ui_</c> is imported.
+    /// </summary>
+    public static bool IsBuiltIn(string name)
+    {
+        if (name.StartsWith("spatial_editor/")) return true;
+        if (!name.StartsWith("ui_")) return false;
+        var path = "input/" + name;
+        return !ProjectSettings.HasSetting(path) || ProjectSettings.Singleton.PropertyGetRevert(path).VariantType != Variant.Type.Nil;
+    }
 
     private static ImportedInputMap Build(List<(string Name, float Deadzone, IEnumerable<InputEvent> Events)> actions, string contextName)
     {
@@ -77,12 +89,13 @@ public static class InputMapImporter
             result.Actions.Add(action);
             foreach (var e in events)
             {
-                var source = ToSource(e);
+                var source = ToSource(e, out var note);
                 if (source == null)
                 {
                     result.Skipped.Add($"{name}: {e?.AsText() ?? "(empty)"}");
                     continue;
                 }
+                if (note != null) result.Approximated.Add($"{name}: {e.AsText()} — {note}");
                 var binding = ActionBinding.Create(action, source);
                 if (e is InputEventJoypadMotion && deadzone > 0f)
                     binding.Modifiers.Add(new DeadzoneModifier { Shape = DeadzoneShape.Axial, Lower = Mathf.Clamp(deadzone, 0f, 0.99f), Upper = 1f });
@@ -93,8 +106,16 @@ public static class InputMapImporter
     }
 
     /// <summary>The source for one Godot input event, or null when there is no equivalent.</summary>
-    public static InputSource ToSource(InputEvent e)
+    public static InputSource ToSource(InputEvent e) => ToSource(e, out _);
+
+    /// <summary>
+    /// The source for one Godot input event (null when there is none), with a note when the conversion is
+    /// approximate: modifier keys are matched as held keys (extra modifiers held at the same time do not stop
+    /// it), and Command-or-Control becomes the key of the platform importing it.
+    /// </summary>
+    public static InputSource ToSource(InputEvent e, out string note)
     {
+        note = null;
         int device = e == null || e.Device < 0 ? SourceKey.AnyDevice : e.Device;
         switch (e)
         {
@@ -106,21 +127,11 @@ public static class InputMapImporter
                 else if (key.Keycode != Key.None) { code = key.Keycode; match = KeyMatch.Logical; }
                 else if (key.KeyLabel != Key.None) { code = key.KeyLabel; match = KeyMatch.Label; }
                 else return null;
-
-                var modifiers = new List<Key>();
-                if (key.CtrlPressed || key.CommandOrControlAutoremap) modifiers.Add(Key.Ctrl);
-                if (key.ShiftPressed) modifiers.Add(Key.Shift);
-                if (key.AltPressed) modifiers.Add(Key.Alt);
-                if (key.MetaPressed) modifiers.Add(Key.Meta);
                 var main = key.Location != KeyLocation.Unspecified ? InputSource.ForKey(code, key.Location, match) : InputSource.ForKey(code, match);
-                if (modifiers.Count == 0) return main;
-                var parts = new InputSource[modifiers.Count + 1];
-                for (int i = 0; i < modifiers.Count; i++) parts[i] = InputSource.ForKey(modifiers[i], match);
-                parts[^1] = main;
-                return InputSource.Composite(CompositeMode.WithModifiers, parts);
+                return WithModifiers(key, main, match, ref note);
             }
             case InputEventMouseButton mouse:
-                return InputSource.ForMouseButton(mouse.ButtonIndex);
+                return WithModifiers(mouse, InputSource.ForMouseButton(mouse.ButtonIndex), KeyMatch.Physical, ref note);
             case InputEventJoypadButton button:
                 return InputSource.ForJoyButton(button.ButtonIndex, device);
             case InputEventJoypadMotion motion:
@@ -128,5 +139,25 @@ public static class InputMapImporter
             default:
                 return null;
         }
+    }
+
+    private static InputSource WithModifiers(InputEventWithModifiers e, InputSource main, KeyMatch match, ref string note)
+    {
+        var modifiers = new List<Key>();
+        if (e.CommandOrControlAutoremap)
+        {
+            modifiers.Add(OS.GetName() == "macOS" ? Key.Meta : Key.Ctrl);
+            note = $"Command-or-Control became {(OS.GetName() == "macOS" ? "Meta" : "Ctrl")} for this platform";
+        }
+        else if (e.CtrlPressed) modifiers.Add(Key.Ctrl);
+        if (e.ShiftPressed) modifiers.Add(Key.Shift);
+        if (e.AltPressed) modifiers.Add(Key.Alt);
+        if (e.MetaPressed && !modifiers.Contains(Key.Meta)) modifiers.Add(Key.Meta);
+        if (modifiers.Count == 0) return main;
+        note ??= "modifiers are matched as held keys; other modifiers held too do not stop it";
+        var parts = new InputSource[modifiers.Count + 1];
+        for (int i = 0; i < modifiers.Count; i++) parts[i] = InputSource.ForKey(modifiers[i], match);
+        parts[^1] = main;
+        return InputSource.Composite(CompositeMode.WithModifiers, parts);
     }
 }

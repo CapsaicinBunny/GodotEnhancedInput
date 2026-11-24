@@ -298,4 +298,159 @@ public class GodotIntegrationTests(EngineFixture fixture)
         }
         finally { system.Free(); }
     }
+
+    // ------------------------------------------------------------------
+    //  Review fixes
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void PointerCapture_KeepsAPressWithItsPlayer_UntilReleased()
+    {
+        var system = new EnhancedInput();
+        var left = new Control { Position = Vector2.Zero, Size = new Vector2(100, 100) };
+        var right = new Control { Position = new Vector2(100, 0), Size = new Vector2(100, 100) };
+        fixture.Tree.Root.AddChild(left);
+        fixture.Tree.Root.AddChild(right);
+        try
+        {
+            var one = system.GetPlayer(0);
+            var two = system.AddPlayer();
+            one.AcceptKeyboardMouse = two.AcceptKeyboardMouse = true;
+            one.PointerRegion = left;
+            two.PointerRegion = right;
+            var button = SourceKey.ForMouseButton(MouseButton.Left);
+
+            system.FeedEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true, Position = new Vector2(40, 40), ButtonMask = MouseButtonMask.Left });
+            system.FeedEvent(new InputEventMouseMotion { Position = new Vector2(150, 40), ButtonMask = MouseButtonMask.Left });
+            one.Raw.MousePosition.Should().Be(new Vector2(150, 40), "the drag stays with player one, in its coordinates");
+            two.Raw.MousePosition.Should().Be(Vector2.Zero);
+            system.FeedEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = false, Position = new Vector2(150, 40) });
+            one.Raw.GetCurrent(button).X.Should().Be(0f, "the release outside its half still reaches player one");
+            two.Raw.GetCurrent(button).X.Should().Be(0f);
+
+            system.FeedEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true, Position = new Vector2(150, 40), ButtonMask = MouseButtonMask.Left });
+            two.Raw.GetCurrent(button).X.Should().Be(1f, "after the release, a new press goes by region again");
+        }
+        finally { left.Free(); right.Free(); system.Free(); }
+    }
+
+    [Fact]
+    public void Bridge_ReleasesWhenMirroringStops_OrTheTargetChanges_AndTakesTheStrongestOfOnePlayer()
+    {
+        var fire = Make.Action("fire");
+        var alt = Make.Action("alt_fire");
+        fire.MirrorToInputMap = "gei_test_fire";
+        alt.MirrorToInputMap = "gei_test_fire";
+        try
+        {
+            using var rig = new Rig().Add(Make.Context("C", Make.Bind(fire, Key.F), Make.Bind(alt, Key.G)));
+            rig.Press(Key.F).Tick();
+            Input.IsActionPressed("gei_test_fire").Should().BeTrue();
+            rig.Tick();
+            Input.IsActionPressed("gei_test_fire").Should().BeTrue("the other action of the same player is idle, the strongest wins");
+
+            rig.Player.MirrorsToInputMap = false;
+            rig.Tick();
+            Input.IsActionPressed("gei_test_fire").Should().BeFalse("turning mirroring off releases it");
+
+            rig.Player.MirrorsToInputMap = true;
+            rig.Tick();
+            Input.IsActionPressed("gei_test_fire").Should().BeTrue();
+            fire.MirrorToInputMap = "gei_test_fire2";
+            rig.Tick();
+            Input.IsActionPressed("gei_test_fire").Should().BeFalse("the old target is released");
+            Input.IsActionPressed("gei_test_fire2").Should().BeTrue();
+        }
+        finally
+        {
+            InputMapBridge.ReleaseAll();
+            foreach (var n in new[] { "gei_test_fire", "gei_test_fire2" }) if (InputMap.HasAction(n)) InputMap.EraseAction(n);
+        }
+    }
+
+    [Fact]
+    public void Bridge_BlocksIndirectFeedbackCycles()
+    {
+        var a = Make.Action("a");
+        var b = Make.Action("b");
+        a.MirrorToInputMap = "gei_test_y";
+        b.MirrorToInputMap = "gei_test_x";
+        try
+        {
+            using var rig = new Rig().Add(Make.Context("C",
+                Make.Bind(a, InputSource.ForInputMapAction("gei_test_x")),
+                Make.Bind(a, Key.A),
+                Make.Bind(b, InputSource.ForInputMapAction("gei_test_y"))));
+            rig.Press(Key.A).Tick().Tick();
+            InputMapBridge.GetMirroredStrength("gei_test_y").Should().Be(0f, "x → a → y → b → x is a cycle");
+            InputMapBridge.GetMirroredStrength("gei_test_x").Should().Be(0f);
+        }
+        finally
+        {
+            InputMapBridge.ReleaseAll();
+            foreach (var n in new[] { "gei_test_x", "gei_test_y" }) if (InputMap.HasAction(n)) InputMap.EraseAction(n);
+        }
+    }
+
+    [Fact]
+    public void Frames_MadeAfterAPress_StillSeeIt()
+    {
+        var jump = Make.Action("jump");
+        using var rig = new Rig().Add(Make.Context("C", Make.Bind(jump, Key.Space)));
+        rig.Press(Key.Space).Tick();
+        rig.Player.PhysicsFrame.WasPressed(jump).Should().BeTrue("first use comes after the tick");
+    }
+
+    [Fact]
+    public void Importer_ReportsApproximations_AndOnlySkipsGodotsOwnUiActions()
+    {
+        var click = InputMapImporter.ToSource(new InputEventMouseButton { ButtonIndex = MouseButton.Left, ShiftPressed = true }, out var note);
+        InputSourcePath.Format(click).Should().Be("key:shift + mouse:left");
+        note.Should().NotBeNull();
+
+        InputMapImporter.IsBuiltIn("ui_accept").Should().BeTrue();
+        ProjectSettings.SetSetting("input/ui_my_own", new Godot.Collections.Dictionary { ["deadzone"] = 0.5f, ["events"] = new Godot.Collections.Array() });
+        try { InputMapImporter.IsBuiltIn("ui_my_own").Should().BeFalse("a project's own action is imported"); }
+        finally { ProjectSettings.Clear("input/ui_my_own"); }
+    }
+
+    [Fact]
+    public void DetachingAWindow_ReleasesItsPlayersInput()
+    {
+        var system = new EnhancedInput();
+        var window = new Window { Visible = false };
+        fixture.Tree.Root.AddChild(window);
+        try
+        {
+            var two = system.AddPlayer();
+            two.AcceptKeyboardMouse = true;
+            system.AttachWindow(window, two);
+            var relay = window.GetChildren(includeInternal: true).OfType<WindowInputRelay>().Single();
+            var press = Rig.KeyEvent(Key.K, true);
+            relay._Input(press);
+            relay._UnhandledInput(press);
+            two.Raw.GetCurrent(SourceKey.ForKey(Key.K)).X.Should().Be(1f);
+            system.DetachWindow(window);
+            two.Raw.GetCurrent(SourceKey.ForKey(Key.K)).X.Should().Be(0f, "what the window held is released");
+        }
+        finally { window.Free(); system.Free(); }
+    }
+
+    [Fact]
+    public void ContextNode_MovesItsContext_WhenItsPlayerChanges()
+    {
+        var menu = Make.Context("menu");
+        using var first = new Rig();
+        using var second = new Rig();
+        var node = new EnhancedInputContextNode { Context = menu, Player = first.Player };
+        fixture.Tree.Root.AddChild(node);
+        try
+        {
+            first.Player.HasContext(menu).Should().BeTrue();
+            node.Player = second.Player;
+            first.Player.HasContext(menu).Should().BeFalse();
+            second.Player.HasContext(menu).Should().BeTrue();
+        }
+        finally { node.GetParent()?.RemoveChild(node); node.Free(); }
+    }
 }

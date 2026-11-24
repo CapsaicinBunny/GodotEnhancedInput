@@ -134,7 +134,9 @@ A view collects the events of every tick and shows them for exactly one frame of
 rendered frame without a physics step is still seen by the next physics step, and a frame with two physics
 steps does not see it twice. The autoload starts a new physics frame at each physics step and a new process
 frame each rendered frame; a `ToolInputPlayer` does the same for itself. Values and `IsTriggered` are states
-and read the same in every loop.
+and read the same in every loop. A view made after input already happened starts with the latest tick's
+events; `player.EnableFrameViews()` makes both up front. Two presses between frames read as one
+`WasPressed` (`ActionState.TriggerCount` counts them).
 
 ## Scene-local mapping contexts
 
@@ -149,13 +151,19 @@ nodes may hold the same context; it stays until the last one lets go.
 Settings → Input Map) into action files and one `input_map.tres` mapping context in a folder you pick:
 keys (with Ctrl/Shift/Alt/Meta), mouse buttons, joypad buttons and axis directions, with each action's
 deadzone. Godot's built-in `ui_*` actions are left out; existing action files of the same name are used, not
-overwritten. From code: `InputMapImporter.FromProjectSettings()` or `FromInputMap()`.
+overwritten. Mouse buttons keep their modifier keys too. The report lists what was skipped and what was
+approximated: modifier keys are matched as held keys (other modifiers held as well do not stop the
+mapping), and Command-or-Control becomes the key of the platform importing it. Only Godot's own `ui_*`
+actions are left out; a project's action that happens to start with `ui_` is imported. From code:
+`InputMapImporter.FromProjectSettings()` or `FromInputMap()`.
 
 **Mirroring back.** Set an action's *Mirror To Input Map* to a Godot action name and that action is pressed
 (with the strength) while the enhanced action is triggered, so addons and code that call
 `Input.IsActionPressed("jump")` keep working. Missing Godot actions are created at run time. When several
-players mirror the same action, the strongest wins. Only the state is set, no events are sent, and an
-action never mirrors into a Godot action it reads. Turn it off project-wide with
+actions or players mirror into the same Godot action, the strongest wins. Turning mirroring off, or
+renaming or clearing a target, releases what was pressed. Only the state is set, no events are sent, and
+feedback is prevented: an action that reads a Godot action which leads back to its own target —
+directly, or through other mirrored actions of any player — does not mirror. Turn it off project-wide with
 `enhanced_input/input_map/mirror_actions`, or per player with `MirrorsToInputMap`.
 
 ## Project settings
@@ -187,7 +195,9 @@ string property that holds an id gets a dropdown of ids with a hint:
 
 Give each player its `PointerRegion` — usually the `SubViewportContainer` showing its view. Mouse and touch
 events then reach a player only inside its region, with positions converted to it (to the SubViewport's
-pixels when the container stretches), and pointer sources and `PointerSpaceModifier` work per player. Keys and
+pixels when the container stretches), and pointer sources and `PointerSpaceModifier` work per player. A
+mouse button or finger pressed in a player's region stays with that player — its movement, release and
+cancel — until it is released, wherever it goes. Keys and
 pads are routed as before (keyboard to the players that accept it, pads to their owners).
 
 ## More than one window
@@ -195,7 +205,7 @@ pads are routed as before (keyboard to the players that accept it, pads to their
 A native window's events never pass the main window. `EnhancedInput.Instance.AttachWindow(window)` lets them
 reach the players (in the same GUI-aware way); `AttachWindow(window, player2)` gives that window to some
 players only — a second screen, a tool window. Focus moving between the game's own windows is not treated as
-losing focus. `DetachWindow` undoes it.
+losing focus. `DetachWindow` undoes it and releases what was held through the window (as a cut-off).
 
 ## Editor tools and tool scripts
 

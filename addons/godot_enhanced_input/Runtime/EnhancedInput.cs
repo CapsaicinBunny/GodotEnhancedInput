@@ -96,6 +96,29 @@ public partial class EnhancedInput : Node
     [Export] public bool ConsumeJoinPress { get; set; } = true;
 
     private readonly List<InputPlayer> _players = new();
+
+    // Split screen: which player each pressed pointer (mouse = -1, touch = its index) belongs to.
+    private readonly Dictionary<int, InputPlayer> _pointerCapture = new();
+    private const int NoPointer = int.MinValue;
+
+    private static int PointerId(InputEvent @event) => @event switch
+    {
+        InputEventMouse => -1,
+        InputEventScreenTouch touch => touch.Index,
+        InputEventScreenDrag drag => drag.Index,
+        _ => NoPointer,
+    };
+
+    private static bool IsPointerPress(InputEvent @event)
+        => @event is InputEventMouseButton { Pressed: true } or InputEventScreenTouch { Pressed: true };
+
+    // The interaction ends when the last mouse button is let go, or the finger lifts (or is canceled).
+    private static bool IsPointerRelease(InputEvent @event) => @event switch
+    {
+        InputEventMouseButton { Pressed: false } button => button.ButtonMask == 0,
+        InputEventScreenTouch { Pressed: false } => true,
+        _ => false,
+    };
     private readonly List<InputPlayer> _targets = new();
     private readonly Dictionary<int, string> _joypadGuids = new();
     private int _profileCounter;
@@ -147,6 +170,9 @@ public partial class EnhancedInput : Node
     /// <summary>Removes a player other than player 0, releasing its joypads. The rest are re-indexed.</summary>
     public bool RemovePlayer(InputPlayer player)
     {
+        if (player != null)
+            foreach (var pair in new List<KeyValuePair<int, InputPlayer>>(_pointerCapture))
+                if (pair.Value == player) _pointerCapture.Remove(pair.Key);
         if (player != null) InputMapBridge.Forget(player);
         if (player == null || _players.IndexOf(player) <= 0) return false;
         player.ReleaseAllHapticOutputs();   // nothing the player started keeps running on its devices
@@ -321,13 +347,30 @@ public partial class EnhancedInput : Node
         }
 
         bool captured = false;
+        int pointer = PointerId(@event);
+        _pointerCapture.TryGetValue(pointer, out var holder);
+        if (holder != null && !_players.Contains(holder)) { _pointerCapture.Remove(pointer); holder = null; }
+        InputPlayer pressedFor = null;
         foreach (var player in _targets)
         {
             if (onlyPlayers != null && onlyPlayers.Count > 0 && !System.Linq.Enumerable.Contains(onlyPlayers, player)) continue;
-            // Split screen: pointer events go to the player whose region they are in, in its coordinates.
-            if (!player.TryLocalizePointer(@event, out var local)) continue;
+            InputEvent local = @event;
+            if (pointer != NoPointer && player.HasPointerRegion)
+            {
+                // Split screen: a pressed pointer stays with the player it was pressed for until it is
+                // released (wherever it moves); otherwise it goes to the player whose region it is in.
+                if (holder != null)
+                {
+                    if (holder != player) continue;
+                    local = player.ToRegion(@event);
+                }
+                else if (!player.TryLocalizePointer(@event, out local)) continue;
+                else if (IsPointerPress(@event)) pressedFor = player;
+            }
             if (player.FeedEvent(local, stage)) captured = true;
         }
+        if (pressedFor != null) _pointerCapture[pointer] = pressedFor;
+        if (IsPointerRelease(@event)) _pointerCapture.Remove(pointer);
         return captured;
     }
 

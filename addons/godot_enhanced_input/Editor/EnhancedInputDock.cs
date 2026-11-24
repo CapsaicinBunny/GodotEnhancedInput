@@ -1323,6 +1323,7 @@ public partial class EnhancedInputDock : VBoxContainer
         if (contextError != Error.Ok) return $"Could not save {contextPath}: {contextError}";
         var text = $"Imported {imported.Actions.Count} action(s) ({created} new, {reused} existing) and {imported.Context.Bindings.Count} mapping(s) into {contextPath}.";
         if (imported.Skipped.Count > 0) text += $" Skipped {imported.Skipped.Count} event(s) without an equivalent: {string.Join("; ", imported.Skipped)}.";
+        if (imported.Approximated.Count > 0) text += $" Approximated {imported.Approximated.Count}: {string.Join("; ", imported.Approximated)}.";
         return text;
     }
 

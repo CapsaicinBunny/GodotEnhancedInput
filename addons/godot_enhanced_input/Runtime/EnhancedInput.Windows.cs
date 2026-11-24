@@ -28,12 +28,23 @@ public partial class EnhancedInput
         window.TreeExiting += () => _windows.Remove(window);
     }
 
-    /// <summary>Stops a window's input from reaching the players.</summary>
+    /// <summary>
+    /// Stops a window's input from reaching the players. Input held through the window is released as cut
+    /// off (<see cref="InputEndReason.FocusLost"/>): for the window's players, or for every player when the
+    /// window belonged to all of them.
+    /// </summary>
     public void DetachWindow(Window window)
     {
         if (window == null || !_windows.Remove(window) || !IsInstanceValid(window)) return;
         foreach (var child in window.GetChildren(includeInternal: true))
-            if (child is WindowInputRelay relay) relay.QueueFree();
+        {
+            if (child is not WindowInputRelay relay) continue;
+            var players = relay.Players != null && relay.Players.Count > 0 ? relay.Players : (IReadOnlyCollection<InputPlayer>)_players;
+            foreach (var player in players)
+                if (IsInstanceValid(player)) player.ClearRawInput(InputEndReason.FocusLost);
+            relay.System = null;
+            relay.QueueFree();
+        }
     }
 
     internal void QueueFocusCheck()

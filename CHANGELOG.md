@@ -31,6 +31,13 @@ All notable changes to Godot Enhanced Input are documented here. Versions follow
   in the Inspector for any script (`EnhancedInputHints` for id strings); split-screen pointer routing
   (`PointerRegion`); window routing (`AttachWindow`, `DetachWindow`); `ToolInputPlayer` for editor plugins
   and tool scripts; a GDScript API of snake_case methods on the autoload.
+- Review fixes: buffered presses are forgotten on cut-offs (`KeepBufferedWhenCanceled` keeps them);
+  `ReleaseVelocityTrigger` uses timestamped samples; `AdaptiveDeadzoneModifier` learns only at rest
+  (`RestSeconds`, `MaxCenterOffset`, `FreezeLearning`); fused orientations follow device identity and
+  end as lost tracking; split-screen pointer capture; the InputMap bridge replaces a player's
+  contributions every tick (per action) and blocks indirect feedback cycles; frame views made late see
+  the latest tick (`EnableFrameViews`); the importer keeps mouse modifiers and reports approximations;
+  detaching a window releases its input; context nodes follow a changed player.
 
 ## [0.1.0] — 2026-11-24
 

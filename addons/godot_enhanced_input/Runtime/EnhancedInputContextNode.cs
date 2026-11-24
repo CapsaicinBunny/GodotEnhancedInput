@@ -38,8 +38,22 @@ public partial class EnhancedInputContextNode : Node
     /// <summary>The priority when <see cref="UseContextPriority"/> is off.</summary>
     [Export] public int Priority { get; set; }
 
-    /// <summary>The player (index) whose input it is; see also <see cref="Player"/>.</summary>
-    [Export(PropertyHint.Range, "0,15,1")] public int PlayerIndex { get; set; }
+    private int _playerIndex;
+    private InputPlayer _player;
+
+    /// <summary>The player (index) whose input it is; see also <see cref="Player"/>. Changing it moves the context.</summary>
+    [Export(PropertyHint.Range, "0,15,1")]
+    public int PlayerIndex
+    {
+        get => _playerIndex;
+        set
+        {
+            if (_playerIndex == value) return;
+            Release();
+            _playerIndex = value;
+            Refresh();
+        }
+    }
 
     /// <summary>Keys and buttons held when the context comes in read as zero until released (the key that opened a menu does not act in it).</summary>
     [Export] public bool IgnoreHeldSourcesUntilReleased { get; set; }
@@ -59,8 +73,18 @@ public partial class EnhancedInputContextNode : Node
         }
     }
 
-    /// <summary>A player to use instead of <see cref="PlayerIndex"/> (for players not owned by the autoload).</summary>
-    public InputPlayer Player { get; set; }
+    /// <summary>A player to use instead of <see cref="PlayerIndex"/> (for players not owned by the autoload). Changing it moves the context.</summary>
+    public InputPlayer Player
+    {
+        get => _player;
+        set
+        {
+            if (_player == value) return;
+            Release();
+            _player = value;
+            Refresh();
+        }
+    }
 
     /// <summary>Whether the context is active through this node now.</summary>
     public bool IsHolding => _handle != null && _handle.IsActive;
