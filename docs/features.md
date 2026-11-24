@@ -88,6 +88,12 @@ requirement IDs link the [design](design.md) to those tests).
 | Left / right Shift, Ctrl, Alt and Meta (`key:left_shift`) | ✅ | Tests; listening checked by hand |
 | Three creatable assets (action, mapping context, config); Inspector *Add …* menus and typed input paths for everything inside them | ✅ | The grouped *Create New Resource* entry checked by hand in Godot 4.8; the Inspector menus checked in a headless editor |
 | Installing the addon into another project | ✅ | Checked by hand in the Godot 4.8 editor |
+| Input buffering: `ConsumeTriggered`, `WasTriggeredWithin`, `BufferTrigger`, input time | ✅ | Tests |
+| Cooldown, direction-sector and release-velocity triggers; double-click distance; combo tolerance | ✅ | Tests |
+| Opposing inputs (SOCD rules) on key axes and composites | ✅ | Tests |
+| Adaptive deadzone and spring-damper modifiers | ✅ | Tests |
+| Fused orientation (`pad:orientation`, `device:orientation`) | ✅ / 🔌 | The filter and the source are tested with fed sensor values; real pads and phones not yet tried (axis signs) |
+| Typed C# generated from a config | ✅ / 🔌 | Generator tested; the demo's class compiles and resolves; the editor buttons not yet tried by hand |
 
 ## Platforms
 

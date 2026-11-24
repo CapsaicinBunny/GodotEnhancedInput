@@ -213,8 +213,12 @@ public partial class InputPlayer
                 break;
             }
             case RecordedInputKind.Sensor:
-                Raw.Set(SourceKey.ForMotion(input.Sensor, input.Device), input.Value);
+            {
+                var key = SourceKey.ForMotion(input.Sensor, input.Device);
+                if (input.Sensor == MotionSensor.Orientation) Raw.MarkTracked(key);   // a replayed orientation is tracked input too
+                Raw.Set(key, input.Value);
                 break;
+            }
             case RecordedInputKind.Cancel:
                 Raw.Cancel(new SourceKey(input.ChannelKind, input.Code, input.Device, input.Name), input.Reason);
                 break;

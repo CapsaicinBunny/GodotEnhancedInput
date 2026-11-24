@@ -34,6 +34,7 @@ public partial class EnhancedInputDock : VBoxContainer
     private LineEdit _search;
     private Button _listen, _addBinding, _removeBinding;
     private OptionButton _configFilter;
+    private Button _generate;
     private Label _status, _errorsBadge, _warningsBadge;
     private TabContainer _tabs;
 
@@ -227,10 +228,17 @@ public partial class EnhancedInputDock : VBoxContainer
         _configFilter.ItemSelected += i =>
         {
             _shownConfig = i <= 0 ? null : _configFilter.GetItemMetadata((int)i).AsGodotObject() as EnhancedInputConfig;
+            _generate.Visible = _shownConfig != null;
             RebuildBindings();
             RebuildActions();
         };
         toolbar.AddChild(_configFilter);
+        _generate = ToolButton("CSharpScript", "Write a typed C# class for this config (input.Gameplay.Jump instead of strings).", () =>
+        {
+            if (_shownConfig != null) SetStatus(EnhancedInputInspector.WriteGeneratedClass(_shownConfig));
+        }, "C#");
+        _generate.Visible = false;
+        toolbar.AddChild(_generate);
 
         toolbar.AddChild(ToolButton("Reload", "Rescan the project for actions, mapping contexts and configs.", Refresh));
         toolbar.AddChild(ToolButton("Add", "New input action…", NewAction, "Action"));
@@ -539,6 +547,7 @@ public partial class EnhancedInputDock : VBoxContainer
         }
         if (_shownConfig == null) _configFilter.Selected = 0;
         _configFilter.Visible = _configs.Count > 0;
+        if (_generate != null) _generate.Visible = _shownConfig != null;
     }
 
     /// <summary>The mapping contexts shown: all, or those of the chosen config.</summary>
@@ -975,7 +984,7 @@ public partial class EnhancedInputDock : VBoxContainer
     {
         var binding = SelectedBinding();
         if (binding == null) return;
-        var source = BindingEditing.TryParsePath(text, out var error);
+        var source = BindingEditing.KeepSettings(BindingEditing.TryParsePath(text, out var error), binding.Source);
         if (error != null) { _pathError.Text = error; return; }
         if (source != null && binding.Source != null && InputSourceJson.SameInput(source, binding.Source)) return;
         Change("Set binding input", binding, ActionBinding.PropertyName.Source, source);

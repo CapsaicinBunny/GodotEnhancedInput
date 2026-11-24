@@ -376,6 +376,7 @@ public partial class InputPlayer : Node, ISourceReader
         if (entry == null) return false;
         entry.Removed = true;
         _entries.Remove(entry);
+        foreach (var binding in context.Bindings) ForgetBuffered(binding?.Action);
         _planDirty = true;
         _planChangeReason = InputEndReason.ContextRemoved;
         RebuildNameIndex();
@@ -552,6 +553,7 @@ public partial class InputPlayer : Node, ISourceReader
         bool replayOwnsIt = _replay != null && !_replayFeeding && reason != InputEndReason.Replay;
         if (replayOwnsIt) return;   // live cut-offs (focus loss…) do not reach a replay
         Raw.Clear(reason, force: true);
+        foreach (var action in _states.Keys) ForgetBuffered(action);
         foreach (var pair in _injections)
         {
             // Injected input is cut off like any other: its action ends canceled, with the reason.

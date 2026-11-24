@@ -100,6 +100,9 @@ tracked values, ownership by device identity). What is tested and what still nee
 | a callback instead of polling | `jump.OnTriggered(Jump)` |
 | which device or binding did it | `e.Device`, `e.Binding`, `e.Source` in the callback |
 | a context for as long as something lasts | `using var _ = player.PushContext(vehicle)` |
+| a press kept for a moment (jump buffering) | `if (IsOnFloor() && jump.ConsumeTriggered(0.15)) Jump();` |
+| a cooldown, a direction, a throw | `CooldownTrigger`, `DirectionTrigger`, `ReleaseVelocityTrigger` |
+| members instead of strings | a generated class: `GameInput.Shared.Gameplay.Jump` ([code generation](docs/code-generation.md)) |
 | a prompt such as "Press Space" | `player.GetPromptText(jump)` |
 
 These read the default player (player 0). For local multiplayer, pass the player:
@@ -179,6 +182,7 @@ touch controls (F2 on desktop). Open `demo.tscn` and press F6.
 | [Recording, tools and performance](docs/recording-and-tools.md) | recording and replay, the editor dock, validation, performance and safety notes |
 | [Platforms and hardware](docs/platforms-and-hardware.md) | platform support table and a hardware test checklist |
 | [Godot integration](docs/godot-integration.md) | ticking, event times, stuck input, InputMap and `InputEventAction`, focus loss, physical keys, GUI focus, signals, headless tests |
+| [Typed C# for a config](docs/code-generation.md) | generated classes: `input.Gameplay.Jump` instead of strings |
 | [Design and requirements](docs/design.md) | requirements with their tests, architecture, the staged plan |
 
 ## Repository layout
@@ -196,7 +200,7 @@ touch controls (F2 on desktop). Open `demo.tscn` and press F6.
 dotnet run --project GodotEnhancedInput.Tests/GodotEnhancedInput.Tests.csproj -c Debug
 ```
 
-483 tests run against a real headless Godot through [2dog](https://github.com/outfox/2dog), one or
+526 tests run against a real headless Godot through [2dog](https://github.com/outfox/2dog), one or
 more per requirement in the [design](docs/design.md); see [the test README](GodotEnhancedInput.Tests/README.md).
 The same suite runs in CI on Windows, Linux and macOS. Real hardware is covered by the
 [checklist](docs/platforms-and-hardware.md#hardware-checklist).

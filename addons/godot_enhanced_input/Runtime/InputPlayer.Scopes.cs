@@ -29,6 +29,51 @@ public partial class InputPlayer
     public Quaternion ReadRotation(EnhancedInputAction action) => GetValue(action).AsQuaternion();
 
     // ------------------------------------------------------------------
+    //  Input buffering
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Input buffering: true once for each time the action became triggered, if that was within the last
+    /// <paramref name="withinSeconds"/> of input time (or it is triggered now) and it has not been consumed
+    /// yet. A press of Jump just before landing is kept until the character can jump:
+    /// <code>
+    /// if (IsOnFloor() &amp;&amp; player.ConsumeTriggered(jump, 0.15)) Jump();
+    /// </code>
+    /// Phases and events are not changed (a release still completes the action), so other code reading the
+    /// action is unaffected. With a <see cref="BufferTrigger"/> on the binding, the action itself stays
+    /// triggered for the buffer window and the window can be left at 0.
+    /// <para>The buffer holds the <b>latest</b> activation only (several presses before it is consumed count
+    /// once), which suits jump and attack buffering; it is not a queue. A cut-off (the context removed, the
+    /// action disabled, focus lost…) forgets it unless <see cref="EnhancedInputAction.KeepBufferedWhenCanceled"/>.</para>
+    /// </summary>
+    public bool ConsumeTriggered(EnhancedInputAction action, double withinSeconds = 0.0)
+    {
+        if (!WasTriggeredWithin(action, withinSeconds)) return false;
+        var state = GetState(action);
+        state.ConsumedActivation = state.TriggerCount;
+        return true;
+    }
+
+    /// <summary>A cut-off: a buffered activation of the action is not used later (unless the action keeps it).</summary>
+    private void ForgetBuffered(EnhancedInputAction action)
+    {
+        if (action == null || action.KeepBufferedWhenCanceled || !_states.TryGetValue(action, out var state)) return;
+        state.ConsumedActivation = state.TriggerCount;
+    }
+
+    /// <summary>
+    /// Whether the action became triggered within the last <paramref name="withinSeconds"/> of input time,
+    /// or is triggered now, and that activation was not consumed by <see cref="ConsumeTriggered"/>.
+    /// </summary>
+    public bool WasTriggeredWithin(EnhancedInputAction action, double withinSeconds)
+    {
+        if (action == null) return false;
+        var state = GetState(action);
+        if (state == null || state.TriggerCount == 0 || state.ConsumedActivation == state.TriggerCount) return false;
+        return state.IsTriggered || InputTime - state.LastTriggeredTime <= Math.Max(0.0, withinSeconds) + 1e-9;
+    }
+
+    // ------------------------------------------------------------------
     //  Contexts held for a scope
     // ------------------------------------------------------------------
 
@@ -100,7 +145,11 @@ public partial class InputPlayer
     {
         if (action == null) return;
         if (enabled) _disabled.Remove(action);
-        else _disabled.Add(action);
+        else
+        {
+            _disabled.Add(action);
+            ForgetBuffered(action);
+        }
     }
 
     /// <summary>Whether an action is enabled (see <see cref="SetActionEnabled"/>).</summary>

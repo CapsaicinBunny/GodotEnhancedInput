@@ -24,8 +24,12 @@ as actuated. Zero is never actuated.
 | `PulseTrigger` | explicit | While held: triggered on the first tick (`TriggerOnStart`), then every `IntervalSeconds`, ongoing in between; after `MaxPulses` (0 = unlimited) idle until released. | `IntervalSeconds`, `TriggerOnStart`, `MaxPulses` |
 | `ChordTrigger` | implicit | Triggered only while `ChordAction` is triggered this tick. | `ChordAction` |
 | `ChordBlockerTrigger` | blocker | Blocks its set while `BlockingAction` is triggered this tick. | `BlockingAction` |
-| `ComboTrigger` | explicit | Steps of other actions, in order, each within its time limit. Ongoing while partway; triggered when the last step completes. Starts over on timeout, on a step action completing out of order, or when a cancel action triggers. | `Steps` (`ComboStep`: action, completing events, time limit), `CancelActions` |
-| `MultiTapTrigger` | explicit | Triggered on the release that completes `Taps` quick taps (double tap by default). Each press must be released within `TapSeconds` and the next must start within `GapSeconds`; otherwise it starts over. | `Taps`, `TapSeconds`, `GapSeconds` |
+| `ComboTrigger` | explicit | Steps of other actions, in order, each within its time limit. Ongoing while partway; triggered when the last step completes. Starts over on timeout, on a step action completing out of order, or when a cancel action triggers. `ToleranceSeconds` lets near-simultaneous steps arrive in either order; `IgnoreOutOfOrder` keeps stray steps from breaking it. | `Steps` (`ComboStep`: action, completing events, time limit), `CancelActions`, `ToleranceSeconds`, `IgnoreOutOfOrder` |
+| `MultiTapTrigger` | explicit | Triggered on the release that completes `Taps` quick taps (double tap by default). Each press must be released within `TapSeconds` and the next must start within `GapSeconds`; otherwise it starts over. With `MaxDistance`, every tap must land within that many pixels of the first (a double-click on one spot). | `Taps`, `TapSeconds`, `GapSeconds`, `MaxDistance` |
+| `BufferTrigger` | explicit | Input buffering in data: a press stays triggered for `BufferSeconds`, held or not; a new press restarts it. Read it with `ConsumeTriggered` so one press is used once (see [buffering](#input-buffering)). | `BufferSeconds` |
+| `CooldownTrigger` | blocker | After the action fired, it cannot fire again for `CooldownSeconds`. Shared by all the action's bindings; never cuts an activation short. `Remaining(player, action)` for a cooldown display. | `CooldownSeconds` |
+| `DirectionTrigger` | explicit | Triggered while a 2D value points into a sector (`Direction` ± `SectorDegrees`/2) and is actuated — directional attacks, 4/8-way gestures, radial menus. `Once` fires on entering the sector. Up is (0, −1). | `Direction`, `SectorDegrees`, `Once` |
+| `ReleaseVelocityTrigger` | explicit | Ongoing while actuated; on release, triggered for one tick if the value moved at least `MinSpeed` per second during the last `WindowSeconds` — throws, flings, quick swipes. `Measure`: a position (stick, pointer) or per-tick motion (mouse motion, drags). | `MinSpeed`, `WindowSeconds`, `Measure` |
 | `ToggleTrigger` | explicit | Each press flips it on or off; triggered while on (toggle crouch, toggle aim). Starts off again when the binding is suppressed. | — |
 | `RepeatTrigger` | explicit | Like a held key in a text field: triggered on the press, again after `InitialDelaySeconds`, then every `IntervalSeconds`; ongoing in between; optional `MaxRepeats`. | `TriggerOnPress`, `InitialDelaySeconds`, `IntervalSeconds`, `MaxRepeats` |
 | `ThresholdTrigger` | explicit | Triggered for one tick when the magnitude crosses `Threshold` rising, falling or either way; `Band` stops a noisy value from flickering across. | `Threshold`, `Band`, `Direction` |
@@ -83,6 +87,27 @@ gameplay.Add(spinAction, InputSource.Nothing(), spin);
 
 Give step actions a `PressedTrigger` (or complete steps on `Started`): an action without triggers
 is triggered on *every* tick it is held, which would complete several steps at once.
+
+For fighting-game motions, `ToleranceSeconds` (e.g. 0.05) accepts steps that arrive within that time of
+each other in either order — the punch a frame before the last direction — and `IgnoreOutOfOrder`
+keeps an extra step action (a rolled diagonal) from restarting the combo.
+
+## Input buffering
+
+A press that comes a little early should not be lost: Jump pressed just before landing, an attack
+pressed during the previous one's recovery. Every time an action becomes triggered counts as one
+activation; `ConsumeTriggered` uses each activation once, if it happened within a window of
+**input time** (`player.InputTime`, the sum of tick deltas — it pauses with the game and replays exactly):
+
+```csharp
+if (IsOnFloor() && jump.ConsumeTriggered(0.15)) Jump();          // pressed within the last 0.15 s
+if (player.WasTriggeredWithin(attack, 0.2)) QueueNextAttack();   // look without consuming
+```
+
+Phases and events are not changed — the release still completes the action, so a variable jump height
+read from the release keeps working. To buffer in data instead, put a `BufferTrigger` on the binding:
+the action then stays triggered for the window and `jump.ConsumeTriggered()` needs no window.
+`ActionState.TriggerCount` and `LastTriggeredTime` hold the activation count and time.
 
 ## Tap and hold on one key
 

@@ -59,7 +59,12 @@ public readonly struct TriggerContext
 
     /// <summary>Creates a context (the player does this; tests and tools can too).</summary>
     public TriggerContext(Vector4 value, ActionValueKind kind, double delta, InputPlayer player, TriggerMemory memory)
+        : this(value, kind, delta, player, memory, null) { }
+
+    /// <summary>Creates a context for a trigger of a known action.</summary>
+    public TriggerContext(Vector4 value, ActionValueKind kind, double delta, InputPlayer player, TriggerMemory memory, EnhancedInputAction action)
     {
+        Action = action;
         Value4 = value;
         Value = new Vector3(value.X, value.Y, value.Z);
         Magnitude = ActionValue.MagnitudeOf(kind, value);
@@ -89,6 +94,9 @@ public readonly struct TriggerContext
 
     /// <summary>This trigger's memory for this binding and player.</summary>
     public TriggerMemory Memory { get; }
+
+    /// <summary>The action being evaluated (null in isolated tests and tools).</summary>
+    public EnhancedInputAction Action { get; }
 }
 
 /// <summary>

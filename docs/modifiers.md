@@ -33,6 +33,8 @@ one modifier resource can be shared.
 | `DifferentiateModifier` | Outputs the change since the previous tick (a tracked position into movement), optionally per second. | `PerSecond` |
 | `DpiScaleModifier` | Multiplies by `ReferenceDpi / screen DPI`, so the same hand movement turns the camera equally on any screen. `InputPlayer.ScreenDpiOverride` wins when set. | `ReferenceDpi` |
 | `GyroCalibrationModifier` | Learns a gyroscope's resting bias while the device is still and subtracts it, removing drift. Put it first on a gyroscope binding. | `StillThreshold`, `LearnRate` |
+| `AdaptiveDeadzoneModifier` | A radial deadzone that learns where a drifting stick rests and how much it jitters there, and centres itself on that point with a radius just above the jitter (between `MinDeadzone` and `MaxDeadzone`). Fixes worn pads without a big fixed deadzone. | `MinDeadzone`, `MaxDeadzone`, `LearnRadius`, `LearnRate`, `Margin` |
+| `SpringDamperModifier` | Follows the input like a mass on a spring: `Frequency` sets how fast, `DampingRatio` how it settles (1 = no overshoot, less = overshoot and wobble). Keeps momentum, unlike smoothing — steering, a leaning camera, a cursor with weight. Frame-rate independent. | `Frequency`, `DampingRatio` |
 
 Modifiers know the **nature** of what they receive (`context.Nature`: state, delta or absolute; see
 [sources](sources-and-devices.md#value-natures)), so the same modifier can treat a held stick and a
@@ -70,6 +72,17 @@ halves the turn, negate inverts it, normalize keeps it a unit quaternion.
 `DeltaTimeScaleModifier` → `SensitivityModifier` (`stick_sensitivity`, degrees per second as `Scale`).
 
 **Gyro aiming:** `pad:gyroscope` → `GyroCalibrationModifier` → `HysteresisModifier` → `SensitivityModifier`.
+
+**Motion steering with weight:** `pad:orientation` (a fused orientation, see
+[sources](sources-and-devices.md#fused-orientation)) on a Quaternion action → `RotationConvertModifier`
+to Euler → `SpringDamperModifier`.
+
+**Worn pad:** `pad:left_stick` → `AdaptiveDeadzoneModifier` instead of a fixed deadzone.
+
+**Velocity-based sensitivity** (faster mouse movement turns further) is `AccelerationModifier`.
+
+**Opposing directions** (left and right held together) are a setting of the source, not a modifier:
+see [opposing inputs](sources-and-devices.md#opposing-inputs).
 
 **Pedal:** `pad:axis2` → `CalibrationModifier` (or a `DeviceProfile` calibration) → `RemapModifier` −1…1 → 0…1.
 

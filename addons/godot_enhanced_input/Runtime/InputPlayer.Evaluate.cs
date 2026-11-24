@@ -112,7 +112,7 @@ public partial class InputPlayer : IChannelMask
                     bool fires;
                     if (compiled.HasTriggers)
                     {
-                        var phase = TriggerSet.Evaluate(compiled.Triggers, memory.Triggers, value, kind, _delta, this);
+                        var phase = TriggerSet.Evaluate(compiled.Triggers, memory.Triggers, value, kind, _delta, this, action);
                         if (phase > bindingPhase) bindingPhase = phase;
                         fires = phase == TriggerPhase.Triggered;
                         if (fires) firing = Accumulate(kind, firing, value, mode);
@@ -171,6 +171,9 @@ public partial class InputPlayer : IChannelMask
                     : null);   // only injected input drove it: its end is a genuine release
                 state.HadBindings = false;
                 state.Advance(TriggerPhase.Idle, ActionValue.Zero(kind), _delta, ActionValue.Zero(kind), _tick, why);
+                // Taken away (context removed, disabled, paused…): a buffered press is not used later.
+                if (why.HasValue && why.Value != InputEndReason.Released && !action.KeepBufferedWhenCanceled)
+                    state.ConsumedActivation = state.TriggerCount;
             }
             else
             {
@@ -181,7 +184,7 @@ public partial class InputPlayer : IChannelMask
                 TriggerPhase finalPhase;
                 if (HasTriggers(action.Triggers))
                 {
-                    finalPhase = TriggerSet.Evaluate(action.Triggers, state.TriggerMemories, value, kind, _delta, this);
+                    finalPhase = TriggerSet.Evaluate(action.Triggers, state.TriggerMemories, value, kind, _delta, this, action);
                     if (finalPhase == TriggerPhase.Idle && bindingPhase == TriggerPhase.Ongoing) finalPhase = TriggerPhase.Ongoing;
                 }
                 else
@@ -217,6 +220,13 @@ public partial class InputPlayer : IChannelMask
                 if (state.Value.Raw != value) state.LastChangeTime = StepClock;
                 state.Advance(finalPhase, new ActionValue(kind, value), _delta, new ActionValue(kind, Trim(kind, raw)), _tick, cut);
                 if (latched) state.HoldOver();   // carried to the frame's end: nothing new happened
+                else if (cut.HasValue && state.Phase == TriggerPhase.Idle && !action.KeepBufferedWhenCanceled)
+                    state.ConsumedActivation = state.TriggerCount;   // cut off: a buffered press is forgotten
+                else if (state.Phase == TriggerPhase.Triggered && state.PreviousPhase != TriggerPhase.Triggered)
+                {
+                    state.TriggerCount++;
+                    state.LastTriggeredTime = StepInputTime;
+                }
             }
 
             state.LastTick = _tick;
@@ -338,6 +348,8 @@ public partial class InputPlayer : IChannelMask
         => _readEntry != null && ChannelHidden(_readEntry, Raw.PhysicalOf(exactKey));
 
     Vector4 ISourceReader.Read(in SourceKey key) => ReadRaw(key, _readEntry != null ? this : null);
+
+    ulong ISourceReader.PressOrder(in SourceKey key) => Raw.PressOrder(key);
 
     Vector2 ISourceReader.ReadStick(JoyAxis x, JoyAxis y, int device) => Raw.ReadStick(x, y, device, _readEntry != null ? this : null);
 

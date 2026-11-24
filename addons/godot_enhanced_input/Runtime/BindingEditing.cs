@@ -74,6 +74,18 @@ public static class BindingEditing
     /// <summary>The binding's input as a text path ("none" when empty).</summary>
     public static string PathOf(InputSource source) => source == null ? "none" : InputSourcePath.Format(source);
 
+    /// <summary>
+    /// Settings a source path does not spell out (the opposing-input rules), carried from the source a
+    /// typed path replaces, so retyping a path keeps them.
+    /// </summary>
+    public static InputSource KeepSettings(InputSource parsed, InputSource previous)
+    {
+        if (parsed == null || previous == null) return parsed;
+        parsed.Opposing = previous.Opposing;
+        parsed.OpposingVertical = previous.OpposingVertical;
+        return parsed;
+    }
+
     /// <summary>Parses a text path; null with an error message when it is not one.</summary>
     public static InputSource TryParsePath(string text, out string error)
     {

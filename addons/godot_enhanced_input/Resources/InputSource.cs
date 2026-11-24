@@ -30,6 +30,16 @@ public partial class InputSource : Resource
 
     private Key _key = Key.None;
 
+    /// <summary>
+    /// For two opposing inputs on one axis (the left/right keys of <see cref="SourceKind.KeyAxis1D"/> and
+    /// <see cref="SourceKind.KeyAxis2D"/>, the two parts of an Axis1D composite, left/right of an Axis2D one):
+    /// what the axis reads while both are held. Neutral (0) by default.
+    /// </summary>
+    [Export] public OpposingInputs Opposing { get; set; } = OpposingInputs.Neutral;
+
+    /// <summary>The same for the vertical axis of a 2D source (up/down; up is the negative side).</summary>
+    [Export] public OpposingInputs OpposingVertical { get; set; } = OpposingInputs.Neutral;
+
     /// <summary>The key for <see cref="SourceKind.Key"/>.</summary>
     [Export]
     public Key Key
@@ -260,15 +270,10 @@ public partial class InputSource : Resource
                 return Scalar(reader, SourceKey.ForKey(Key, KeyMatch, KeySide));
 
             case SourceKind.KeyAxis1D:
-                return V4(
-                    Scalar(reader, SourceKey.ForKey(PositiveKey, KeyMatch)).X - Scalar(reader, SourceKey.ForKey(NegativeKey, KeyMatch)).X,
-                    0f, 0f);
+                return V4(KeyAxis(reader, NegativeKey, PositiveKey, Opposing), 0f, 0f);
 
             case SourceKind.KeyAxis2D:
-                return V4(
-                    Scalar(reader, SourceKey.ForKey(PositiveKey, KeyMatch)).X - Scalar(reader, SourceKey.ForKey(NegativeKey, KeyMatch)).X,
-                    Scalar(reader, SourceKey.ForKey(DownKey, KeyMatch)).X - Scalar(reader, SourceKey.ForKey(UpKey, KeyMatch)).X,
-                    0f);
+                return V4(KeyAxis(reader, NegativeKey, PositiveKey, Opposing), KeyAxis(reader, UpKey, DownKey, OpposingVertical), 0f);
 
             case SourceKind.MouseButton:
                 return Scalar(reader, SourceKey.ForMouseButton(MouseButton));
@@ -527,7 +532,7 @@ public partial class InputSource : Resource
             SourceKind.KeyAxis2D => CompositeMode.Axis2D,
             _ => CompositeMode,
         };
-        var result = new InputSource { Kind = SourceKind.Composite, CompositeMode = mode };
+        var result = new InputSource { Kind = SourceKind.Composite, CompositeMode = mode, Opposing = Opposing, OpposingVertical = OpposingVertical };
         for (int i = 0; i < parts.Count; i++)
             result.Parts.Add(i == index ? (part == null ? Nothing() : (InputSource)part.Duplicate(true)) : (InputSource)parts[i].Duplicate(true));
         return result;
@@ -565,6 +570,53 @@ public partial class InputSource : Resource
 
     private static Vector4 Scalar(ISourceReader reader, in SourceKey key) => reader.Read(key);
 
+    private float KeyAxis(ISourceReader reader, Key negative, Key positive, OpposingInputs rule)
+    {
+        var negKey = SourceKey.ForKey(negative, KeyMatch);
+        var posKey = SourceKey.ForKey(positive, KeyMatch);
+        float neg = Scalar(reader, negKey).X, pos = Scalar(reader, posKey).X;
+        return Resolve(neg, pos, rule, reader, negKey, posKey);
+    }
+
+    /// <summary>One axis from its two opposing strengths, under an <see cref="OpposingInputs"/> rule.</summary>
+    internal static float Resolve(float neg, float pos, OpposingInputs rule, ISourceReader reader, in SourceKey negKey, in SourceKey posKey)
+    {
+        if (rule == OpposingInputs.Neutral || neg <= 0f || pos <= 0f) return pos - neg;
+        switch (rule)
+        {
+            case OpposingInputs.NegativeWins: return -neg;
+            case OpposingInputs.PositiveWins: return pos;
+            default:
+            {
+                ulong negOrder = reader.PressOrder(negKey), posOrder = reader.PressOrder(posKey);
+                bool positiveLater = posOrder >= negOrder;
+                return (rule == OpposingInputs.LastWins) == positiveLater ? pos : -neg;
+            }
+        }
+    }
+
+    [System.ThreadStatic] private static List<SourceKey> _orderScratch;
+
+    /// <summary>The latest press among a part's channels.</summary>
+    private static ulong PartOrder(ISourceReader reader, InputSource part)
+    {
+        if (part == null) return 0;
+        var keys = _orderScratch ??= new List<SourceKey>();
+        keys.Clear();
+        part.CollectKeys(keys);
+        ulong latest = 0;
+        foreach (var key in keys) latest = System.Math.Max(latest, reader.PressOrder(key));
+        return latest;
+    }
+
+    private float CompositeAxis(ISourceReader reader, float neg, float pos, OpposingInputs rule, int negPart, int posPart)
+    {
+        if (rule == OpposingInputs.Neutral || neg <= 0f || pos <= 0f) return pos - neg;
+        if (rule is OpposingInputs.NegativeWins or OpposingInputs.PositiveWins) return rule == OpposingInputs.PositiveWins ? pos : -neg;
+        bool positiveLater = PartOrder(reader, posPart < Parts.Count ? Parts[posPart] : null) >= PartOrder(reader, negPart < Parts.Count ? Parts[negPart] : null);
+        return (rule == OpposingInputs.LastWins) == positiveLater ? pos : -neg;
+    }
+
     private Vector4 ReadComposite(ISourceReader reader, int depth)
     {
         if (depth > 8 || Parts.Count == 0) return Vector4.Zero;
@@ -576,9 +628,9 @@ public partial class InputSource : Resource
         switch (CompositeMode)
         {
             case CompositeMode.Axis1D:
-                return V4(Strength(1) - Strength(0), 0f, 0f);
+                return V4(CompositeAxis(reader, Strength(0), Strength(1), Opposing, 0, 1), 0f, 0f);
             case CompositeMode.Axis2D:
-                return V4(Strength(3) - Strength(2), Strength(1) - Strength(0), 0f);
+                return V4(CompositeAxis(reader, Strength(2), Strength(3), Opposing, 2, 3), CompositeAxis(reader, Strength(0), Strength(1), OpposingVertical, 0, 1), 0f);
             case CompositeMode.AnyOf:
             {
                 var best = Vector4.Zero;
@@ -627,6 +679,8 @@ public partial class InputSource : Resource
         {
             nameof(KeyMatch) => keys,
             nameof(Key) => _kind == SourceKind.Key,
+            nameof(Opposing) => _kind is SourceKind.KeyAxis1D or SourceKind.KeyAxis2D || _kind == SourceKind.Composite && CompositeMode is CompositeMode.Axis1D or CompositeMode.Axis2D,
+            nameof(OpposingVertical) => _kind == SourceKind.KeyAxis2D || _kind == SourceKind.Composite && CompositeMode == CompositeMode.Axis2D,
             nameof(KeySide) => _kind == SourceKind.Key && IsSidedKey(Key),
             nameof(PositiveKey) or nameof(NegativeKey) => _kind is SourceKind.KeyAxis1D or SourceKind.KeyAxis2D,
             nameof(UpKey) or nameof(DownKey) => _kind == SourceKind.KeyAxis2D,

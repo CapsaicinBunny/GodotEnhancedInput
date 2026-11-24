@@ -28,6 +28,7 @@ public static class InputSourceJson
                 json["positiveKey"] = source.PositiveKey.ToString();
                 json["negativeKey"] = source.NegativeKey.ToString();
                 json["keyMatch"] = source.KeyMatch.ToString();
+                WriteOpposing(json, source);
                 break;
             case SourceKind.KeyAxis2D:
                 json["upKey"] = source.UpKey.ToString();
@@ -35,6 +36,7 @@ public static class InputSourceJson
                 json["negativeKey"] = source.NegativeKey.ToString();
                 json["positiveKey"] = source.PositiveKey.ToString();
                 json["keyMatch"] = source.KeyMatch.ToString();
+                WriteOpposing(json, source);
                 break;
             case SourceKind.MouseButton:
                 json["mouseButton"] = source.MouseButton.ToString();
@@ -86,6 +88,7 @@ public static class InputSourceJson
                 var parts = new JsonArray();
                 foreach (var part in source.Parts) parts.Add(ToJson(part));
                 json["parts"] = parts;
+                WriteOpposing(json, source);
                 break;
             }
         }
@@ -111,6 +114,7 @@ public static class InputSourceJson
                     source.PositiveKey = ReadEnum<Key>(json, "positiveKey");
                     source.NegativeKey = ReadEnum<Key>(json, "negativeKey");
                     source.KeyMatch = ReadEnum<KeyMatch>(json, "keyMatch", KeyMatch.Physical);
+                    ReadOpposing(json, source);
                     break;
                 case SourceKind.KeyAxis2D:
                     source.UpKey = ReadEnum<Key>(json, "upKey");
@@ -118,6 +122,7 @@ public static class InputSourceJson
                     source.NegativeKey = ReadEnum<Key>(json, "negativeKey");
                     source.PositiveKey = ReadEnum<Key>(json, "positiveKey");
                     source.KeyMatch = ReadEnum<KeyMatch>(json, "keyMatch", KeyMatch.Physical);
+                    ReadOpposing(json, source);
                     break;
                 case SourceKind.MouseButton:
                     source.MouseButton = ReadEnum<MouseButton>(json, "mouseButton");
@@ -173,6 +178,7 @@ public static class InputSourceJson
                         if (part == null) throw new FormatException($"bad part: {partError}");
                         source.Parts.Add(part);
                     }
+                    ReadOpposing(json, source);
                     break;
                 }
             }
@@ -188,6 +194,18 @@ public static class InputSourceJson
     /// <summary>Whether two sources describe the same input.</summary>
     public static bool SameInput(InputSource a, InputSource b)
         => ToJson(a).ToJsonString() == ToJson(b).ToJsonString();
+
+    private static void WriteOpposing(JsonObject json, InputSource source)
+    {
+        if (source.Opposing != OpposingInputs.Neutral) json["opposing"] = source.Opposing.ToString();
+        if (source.OpposingVertical != OpposingInputs.Neutral) json["opposingVertical"] = source.OpposingVertical.ToString();
+    }
+
+    private static void ReadOpposing(JsonObject json, InputSource source)
+    {
+        source.Opposing = ReadEnum<OpposingInputs>(json, "opposing", OpposingInputs.Neutral);
+        source.OpposingVertical = ReadEnum<OpposingInputs>(json, "opposingVertical", OpposingInputs.Neutral);
+    }
 
     private static T ReadEnum<T>(JsonObject json, string name, T? fallback = null) where T : struct, System.Enum
     {
