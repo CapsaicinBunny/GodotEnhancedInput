@@ -203,4 +203,4 @@ The same suite runs in CI on Windows, Linux and macOS. Real hardware is covered 
 
 ## License
 
-MIT; see [LICENSE](LICENSE). AI use is described in [AI_DISCLOSURE.md](AI_DISCLOSURE.md).
+MIT; see [LICENSE](LICENSE).
