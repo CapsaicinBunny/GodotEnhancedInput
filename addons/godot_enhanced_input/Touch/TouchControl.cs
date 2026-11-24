@@ -37,12 +37,50 @@ public abstract partial class TouchControl : Control
     /// <summary>The player written to, or null.</summary>
     protected InputPlayer Player => TargetPlayer != null && IsInstanceValid(TargetPlayer) ? TargetPlayer : EnhancedInput.Instance?.GetPlayer(PlayerIndex);
 
+    /// <summary>Keep the control inside the screen's safe area (notches, rounded corners, system bars). On by default.</summary>
+    [Export] public bool KeepInSafeArea { get; set; } = true;
+
+    /// <summary>While true, the control does not act; a <see cref="TouchLayoutRoot"/> in edit mode moves it instead.</summary>
+    public bool Editing { get; set; }
+
+    /// <summary>Overrides the safe area, in viewport pixels (tests, custom layouts).</summary>
+    public Rect2? SafeAreaOverride { get; set; }
+
     public override void _Ready()
     {
         // Input is read in _Input, not through the GUI, so several fingers work at once.
         MouseFilter = MouseFilterEnum.Ignore;
         if (!Engine.IsEditorHint() && Visibility == TouchControlVisibility.TouchscreenOnly && !DisplayServer.IsTouchscreenAvailable())
             Hide();
+        if (!Engine.IsEditorHint() && KeepInSafeArea) CallDeferred(MethodName.FitToSafeArea);
+    }
+
+    /// <summary>The safe area in viewport pixels (the whole viewport when the platform reports none).</summary>
+    public Rect2 GetSafeArea()
+    {
+        if (SafeAreaOverride.HasValue) return SafeAreaOverride.Value;
+        var viewport = GetViewportRect();
+        if (Engine.IsEditorHint() || !IsInsideTree()) return viewport;
+        var safe = DisplayServer.GetDisplaySafeArea();
+        var screen = DisplayServer.ScreenGetSize();
+        if (safe.Size.X <= 0 || safe.Size.Y <= 0 || screen.X <= 0 || screen.Y <= 0) return viewport;
+        // Screen pixels → viewport pixels (stretch modes scale the viewport).
+        var scale = viewport.Size / new Vector2(screen.X, screen.Y);
+        return new Rect2(new Vector2(safe.Position.X, safe.Position.Y) * scale, new Vector2(safe.Size.X, safe.Size.Y) * scale).Intersection(viewport);
+    }
+
+    /// <summary>Moves (and if needed shrinks) the control so it lies inside the safe area.</summary>
+    public void FitToSafeArea()
+    {
+        var safe = GetSafeArea();
+        if (safe.Size.X <= 0 || safe.Size.Y <= 0) return;
+        var rect = GetGlobalRect();
+        var size = new Vector2(Mathf.Min(rect.Size.X, safe.Size.X), Mathf.Min(rect.Size.Y, safe.Size.Y));
+        var position = new Vector2(
+            Mathf.Clamp(rect.Position.X, safe.Position.X, safe.End.X - size.X),
+            Mathf.Clamp(rect.Position.Y, safe.Position.Y, safe.End.Y - size.Y));
+        if (size != rect.Size) Size = size;
+        if (position != rect.Position) GlobalPosition = position;
     }
 
     public override void _Input(InputEvent @event)
@@ -65,7 +103,7 @@ public abstract partial class TouchControl : Control
     /// </summary>
     public bool HandlePointerEvent(InputEvent @event)
     {
-        if (!IsVisibleInTree()) return false;
+        if (!IsVisibleInTree() || Editing) return false;
 
         switch (@event)
         {

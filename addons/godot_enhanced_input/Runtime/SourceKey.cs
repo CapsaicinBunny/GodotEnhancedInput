@@ -20,6 +20,7 @@ public enum RawKind
     TouchPosition,
     TouchDrag,
     MouseWheel,
+    Gesture,
     PenPressure,
     PenTilt,
     PenEraser,
@@ -56,6 +57,8 @@ public readonly record struct SourceKey(RawKind Kind, long Code, int Device, str
     public static SourceKey ForVirtual(string name) => new(RawKind.Virtual, 0, AnyDevice, name ?? string.Empty);
 
     public static SourceKey MouseWheel => new(RawKind.MouseWheel, 0, AnyDevice, null);
+
+    public static SourceKey ForGesture(GestureChannel channel) => new(RawKind.Gesture, (long)channel, AnyDevice, null);
 
     public static SourceKey ForPen(PenChannel channel) => channel switch
     {

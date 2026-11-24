@@ -103,6 +103,21 @@ public enum SourceKind
     Composite,
     /// <summary>A named control of a device registered by a custom backend (wheels, flight sticks, XR controllers, anything).</summary>
     DeviceControl,
+    /// <summary>A touch gesture: pinch, rotate, two-finger drag or swipe (per tick).</summary>
+    Gesture,
+}
+
+/// <summary>What a <see cref="SourceKind.Gesture"/> source reads, per tick.</summary>
+public enum GestureChannel
+{
+    /// <summary>How much two fingers (or a trackpad pinch) spread this tick: 0.1 = 10 % further apart; negative when pinching in.</summary>
+    Pinch,
+    /// <summary>How far two fingers turned this tick, in radians (clockwise positive on screen).</summary>
+    Rotate,
+    /// <summary>How far two fingers moved together this tick, in pixels (their midpoint).</summary>
+    TwoFingerDrag,
+    /// <summary>On the tick a quick one-finger swipe ends: its direction as a unit vector (up is −Y).</summary>
+    Swipe,
 }
 
 /// <summary>What a <see cref="SourceKind.Pen"/> source reads.</summary>

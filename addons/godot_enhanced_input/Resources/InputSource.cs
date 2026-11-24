@@ -103,6 +103,9 @@ public partial class InputSource : Resource
     /// <summary>The device type of a <see cref="SourceKind.DeviceControl"/> source, as its backend registers it (e.g. "wheel", "xr").</summary>
     [Export] public string DeviceType { get; set; } = string.Empty;
 
+    /// <summary>What a <see cref="SourceKind.Gesture"/> source reads.</summary>
+    [Export] public GestureChannel GestureChannel { get; set; } = GestureChannel.Pinch;
+
     /// <summary>The control name of a <see cref="SourceKind.DeviceControl"/> source (e.g. "steering", "left_hand/trigger").</summary>
     [Export] public string ControlName { get; set; } = string.Empty;
 
@@ -149,7 +152,7 @@ public partial class InputSource : Resource
     /// <summary>What kind of quantity this source produces.</summary>
     public ValueNature Nature => _kind switch
     {
-        SourceKind.MouseMotion or SourceKind.MouseWheel => ValueNature.Delta,
+        SourceKind.MouseMotion or SourceKind.MouseWheel or SourceKind.Gesture => ValueNature.Delta,
         SourceKind.Composite => Parts.Count > 0 && Parts[^1] != null ? Parts[^1].Nature : ValueNature.State,
         SourceKind.MousePosition => ValueNature.Absolute,
         SourceKind.Touch => TouchChannel switch
@@ -165,6 +168,7 @@ public partial class InputSource : Resource
         => new() { Kind = SourceKind.Touch, TouchChannel = channel, TouchIndex = finger };
 
     public static InputSource ForMouseWheel() => new() { Kind = SourceKind.MouseWheel };
+    public static InputSource ForGesture(GestureChannel channel) => new() { Kind = SourceKind.Gesture, GestureChannel = channel };
     public static InputSource ForPen(PenChannel channel) => new() { Kind = SourceKind.Pen, PenChannel = channel };
 
     /// <summary>A motion sensor of the handheld device (<paramref name="joypad"/> null) or of a joypad (an index, or −1 for any).</summary>
@@ -266,6 +270,9 @@ public partial class InputSource : Resource
             case SourceKind.MouseWheel:
                 return reader.Read(SourceKey.MouseWheel);
 
+            case SourceKind.Gesture:
+                return reader.Read(SourceKey.ForGesture(GestureChannel));
+
             case SourceKind.Pen:
                 return reader.Read(SourceKey.ForPen(PenChannel));
 
@@ -318,6 +325,9 @@ public partial class InputSource : Resource
                 break;
             case SourceKind.MouseWheel:
                 keys.Add(SourceKey.MouseWheel);
+                break;
+            case SourceKind.Gesture:
+                keys.Add(SourceKey.ForGesture(GestureChannel));
                 break;
             case SourceKind.Pen:
                 keys.Add(SourceKey.ForPen(PenChannel));
@@ -502,6 +512,7 @@ public partial class InputSource : Resource
         SourceKind.Virtual => $"Virtual {VirtualName}",
         SourceKind.Touch => TouchIndex < 0 ? $"Touch {TouchChannel}" : $"Touch {TouchIndex} {TouchChannel}",
         SourceKind.MouseWheel => "Mouse wheel",
+        SourceKind.Gesture => $"Gesture {GestureChannel}",
         SourceKind.Pen => $"Pen {PenChannel}",
         SourceKind.Motion => MotionOfHandheld ? $"Device {MotionSensor}" : $"Joy {MotionSensor}",
         SourceKind.DeviceControl => $"{DeviceType} {ControlName}",
@@ -584,6 +595,7 @@ public partial class InputSource : Resource
             nameof(TouchChannel) or nameof(TouchIndex) => _kind == SourceKind.Touch,
             nameof(RawIndex) => _kind is SourceKind.JoyButton or SourceKind.JoyAxis,
             nameof(PenChannel) => _kind == SourceKind.Pen,
+            nameof(GestureChannel) => _kind == SourceKind.Gesture,
             nameof(MotionSensor) or nameof(MotionOfHandheld) => _kind == SourceKind.Motion,
             nameof(CompositeMode) or nameof(Parts) => _kind == SourceKind.Composite,
             nameof(DeviceType) or nameof(ControlName) => _kind == SourceKind.DeviceControl,

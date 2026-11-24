@@ -28,6 +28,20 @@ public sealed class RawInputState
     private readonly SortedSet<int> _joyDevices = new();
     private readonly SortedSet<int> _fingers = new();
     private Vector2 _wheel;
+
+    // Gestures (fingers tracked from touch events; values summed per tick).
+    private readonly Dictionary<int, Vector2> _gestureFingers = new();
+    private readonly Dictionary<int, (Vector2 Start, Vector2 Velocity)> _gestureTracks = new();
+    private float _pinch;
+    private float _rotate;
+    private Vector2 _twoFingerDrag;
+    private Vector2 _swipe;
+
+    /// <summary>The shortest finger travel, in pixels, that counts as a swipe.</summary>
+    public float SwipeMinDistance { get; set; } = 60f;
+
+    /// <summary>The slowest finger speed at release, in pixels per second, that counts as a swipe.</summary>
+    public float SwipeMinSpeed { get; set; } = 400f;
     private readonly Dictionary<int, Vector2> _touchDrag = new();
     private readonly Dictionary<string, Vector3> _virtualDelta = new(System.StringComparer.Ordinal);
     private readonly Dictionary<SourceKey, SourceKey> _physicalOf = new();
@@ -160,6 +174,15 @@ public sealed class RawInputState
                 return Masked(mask, key) ? Vector3.Zero : new Vector3(_motion.X, _motion.Y, 0f);
             case RawKind.MouseWheel:
                 return Masked(mask, key) ? Vector3.Zero : new Vector3(_wheel.X, _wheel.Y, 0f);
+            case RawKind.Gesture:
+                if (Masked(mask, key)) return Vector3.Zero;
+                return (GestureChannel)key.Code switch
+                {
+                    GestureChannel.Pinch => new Vector3(_pinch, 0f, 0f),
+                    GestureChannel.Rotate => new Vector3(_rotate, 0f, 0f),
+                    GestureChannel.TwoFingerDrag => new Vector3(_twoFingerDrag.X, _twoFingerDrag.Y, 0f),
+                    _ => new Vector3(_swipe.X, _swipe.Y, 0f),
+                };
             case RawKind.MousePosition:
                 return Masked(mask, key) ? Vector3.Zero : new Vector3(_position.X, _position.Y, 0f);
             case RawKind.Virtual:
@@ -246,6 +269,10 @@ public sealed class RawInputState
         _wheel = Vector2.Zero;
         _touchDrag.Clear();
         _virtualDelta.Clear();
+        _pinch = 0f;
+        _rotate = 0f;
+        _twoFingerDrag = Vector2.Zero;
+        _swipe = Vector2.Zero;
     }
 
     /// <summary>Forgets everything (e.g. when the window loses focus).</summary>
@@ -258,6 +285,10 @@ public sealed class RawInputState
         _devices.Clear();
         _fingers.Clear();
         _wheel = Vector2.Zero;
+        _gestureFingers.Clear();
+        _gestureTracks.Clear();
+        _pinch = _rotate = 0f;
+        _twoFingerDrag = _swipe = Vector2.Zero;
         _touchDrag.Clear();
         _virtualDelta.Clear();
         _motion = Vector2.Zero;
@@ -387,6 +418,7 @@ public sealed class RawInputState
             {
                 bool down = touch.Pressed && !touch.Canceled;
                 if (!StageAllows(stage, raising: down)) return false;
+                GestureTouch(touch.Index, touch.Position, down, touch.Canceled);
                 Set(SourceKey.ForTouch(TouchChannel.Position, touch.Index), new Vector3(touch.Position.X, touch.Position.Y, 0f));
                 Set(SourceKey.ForTouch(TouchChannel.Pressed, touch.Index), down ? 1f : 0f);
                 return true;
@@ -396,7 +428,17 @@ public sealed class RawInputState
                 // Like the mouse: position is never contested; movement is "raising" input.
                 if (stage != IntakeStage.Unhandled)
                     Set(SourceKey.ForTouch(TouchChannel.Position, drag.Index), new Vector3(drag.Position.X, drag.Position.Y, 0f));
-                if (StageAllows(stage, raising: true)) AddTouchDrag(drag.Index, drag.Relative);
+                if (StageAllows(stage, raising: true))
+                {
+                    AddTouchDrag(drag.Index, drag.Relative);
+                    GestureDrag(drag.Index, drag.Position, drag.Velocity);
+                }
+                return true;
+            }
+            case InputEventMagnifyGesture magnify:
+            {
+                if (!StageAllows(stage, raising: true)) return false;
+                _pinch += magnify.Factor - 1f;
                 return true;
             }
             case InputEventAction action:
@@ -415,6 +457,54 @@ public sealed class RawInputState
         IntakeStage.Unhandled => raising,
         _ => true,
     };
+
+    private void GestureTouch(int finger, Vector2 position, bool down, bool canceled)
+    {
+        if (down)
+        {
+            _gestureFingers[finger] = position;
+            _gestureTracks[finger] = (position, Vector2.Zero);
+            return;
+        }
+        if (_gestureTracks.TryGetValue(finger, out var track) && !canceled && _gestureFingers.Count == 1)
+        {
+            var travel = position - track.Start;
+            if (travel.Length() >= SwipeMinDistance && track.Velocity.Length() >= SwipeMinSpeed)
+                _swipe = travel.Normalized();
+        }
+        _gestureFingers.Remove(finger);
+        _gestureTracks.Remove(finger);
+    }
+
+    private void GestureDrag(int finger, Vector2 position, Vector2 velocity)
+    {
+        if (!_gestureFingers.ContainsKey(finger))
+        {
+            _gestureFingers[finger] = position;
+            _gestureTracks[finger] = (position, velocity);
+            return;
+        }
+        if (_gestureTracks.TryGetValue(finger, out var track)) _gestureTracks[finger] = (track.Start, velocity);
+
+        if (_gestureFingers.Count == 2)
+        {
+            int other = -1;
+            foreach (var f in _gestureFingers.Keys)
+                if (f != finger) other = f;
+            var otherPosition = _gestureFingers[other];
+            var before = _gestureFingers[finger] - otherPosition;
+            var after = position - otherPosition;
+            if (before.Length() > 1f)
+            {
+                _pinch += after.Length() / before.Length() - 1f;
+                _rotate += before.AngleTo(after);
+            }
+            var midpointBefore = (_gestureFingers[finger] + otherPosition) * 0.5f;
+            var midpointAfter = (position + otherPosition) * 0.5f;
+            _twoFingerDrag += midpointAfter - midpointBefore;
+        }
+        _gestureFingers[finger] = position;
+    }
 
     private static Vector2 WheelDirection(MouseButton button) => button switch
     {

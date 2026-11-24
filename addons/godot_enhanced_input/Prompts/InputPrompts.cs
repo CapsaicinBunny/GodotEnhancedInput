@@ -25,6 +25,7 @@ public static class InputPrompts
         SourceKind.JoyButton or SourceKind.JoyAxis or SourceKind.JoyStick => InputDeviceKind.Joypad,
         SourceKind.Touch or SourceKind.Virtual => InputDeviceKind.Touch,
         SourceKind.MouseWheel => InputDeviceKind.KeyboardMouse,
+        SourceKind.Gesture => InputDeviceKind.Touch,
         SourceKind.Pen => InputDeviceKind.Pen,
         SourceKind.Motion => source.MotionOfHandheld ? InputDeviceKind.Touch : InputDeviceKind.Joypad,
         SourceKind.DeviceControl => InputDeviceKind.Custom,
@@ -77,6 +78,14 @@ public static class InputPrompts
                 return source.RawIndex > (int)JoyAxis.TriggerRight ? $"Axis {source.RawIndex}" : JoyAxisName(source.EffectiveJoyAxis, source.AxisRange, style);
             case SourceKind.MouseWheel:
                 return "Mouse Wheel";
+            case SourceKind.Gesture:
+                return source.GestureChannel switch
+                {
+                    GestureChannel.Pinch => "Pinch",
+                    GestureChannel.Rotate => "Twist",
+                    GestureChannel.TwoFingerDrag => "Two-Finger Drag",
+                    _ => "Swipe",
+                };
             case SourceKind.Pen:
                 return source.PenChannel switch { PenChannel.Tilt => "Pen Tilt", PenChannel.Eraser => "Eraser", _ => "Pen" };
             case SourceKind.Motion:
@@ -257,6 +266,7 @@ public static class InputPrompts
             SourceKind.Virtual => "virtual_" + Snake(source.VirtualName),
             SourceKind.InputMapAction => "action_" + Snake(source.InputMapAction),
             SourceKind.MouseWheel => "mouse_wheel",
+            SourceKind.Gesture => "gesture_" + Snake(source.GestureChannel.ToString()),
             SourceKind.Pen => "pen_" + Snake(source.PenChannel.ToString()),
             SourceKind.Motion => (source.MotionOfHandheld ? "device_" : "joy_") + Snake(source.MotionSensor.ToString()),
             SourceKind.DeviceControl => Snake(source.DeviceType) + "_" + Snake(source.ControlName),

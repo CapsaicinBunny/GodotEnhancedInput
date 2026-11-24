@@ -65,6 +65,9 @@ public static class InputSourceJson
             case SourceKind.Pen:
                 json["penChannel"] = source.PenChannel.ToString();
                 break;
+            case SourceKind.Gesture:
+                json["gesture"] = source.GestureChannel.ToString();
+                break;
             case SourceKind.Motion:
                 json["motionSensor"] = source.MotionSensor.ToString();
                 json["handheld"] = source.MotionOfHandheld;
@@ -143,6 +146,9 @@ public static class InputSourceJson
                     break;
                 case SourceKind.Pen:
                     source.PenChannel = ReadEnum<PenChannel>(json, "penChannel");
+                    break;
+                case SourceKind.Gesture:
+                    source.GestureChannel = ReadEnum<GestureChannel>(json, "gesture");
                     break;
                 case SourceKind.Motion:
                     source.MotionSensor = ReadEnum<MotionSensor>(json, "motionSensor");

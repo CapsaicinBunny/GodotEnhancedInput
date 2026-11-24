@@ -126,6 +126,7 @@ public static class InputSourcePath
             case "device": return InputSource.ForMotion(ParseEnum<MotionSensor>(control));
             case "touch": return InputSource.ForTouch(ParseEnum<TouchChannel>(control), number);
             case "pen": return InputSource.ForPen(ParseEnum<PenChannel>(control));
+            case "gesture": return InputSource.ForGesture(ParseEnum<GestureChannel>(control));
             case "inputmap": return InputSource.ForInputMapAction(control);
             case "virtual": return InputSource.ForVirtual(control);
             default: throw new FormatException($"unknown device '{device}' in '{text}'");
@@ -231,6 +232,7 @@ public static class InputSourcePath
             case SourceKind.Motion: return source.MotionOfHandheld ? $"device:{Name(source.MotionSensor)}" : $"{Pad()}:{Name(source.MotionSensor)}";
             case SourceKind.Touch: return $"touch{(source.TouchIndex >= 0 ? source.TouchIndex.ToString() : string.Empty)}:{Name(source.TouchChannel)}";
             case SourceKind.Pen: return "pen:" + Name(source.PenChannel);
+            case SourceKind.Gesture: return "gesture:" + Name(source.GestureChannel);
             case SourceKind.InputMapAction: return "inputmap:" + source.InputMapAction;
             case SourceKind.Virtual: return "virtual:" + source.VirtualName;
             case SourceKind.DeviceControl: return $"@{source.DeviceType}{(source.Device >= 0 ? source.Device.ToString() : string.Empty)}:{source.ControlName}";
