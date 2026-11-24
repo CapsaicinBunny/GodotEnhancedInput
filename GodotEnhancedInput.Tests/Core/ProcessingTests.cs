@@ -27,6 +27,25 @@ public class ProcessingTests
     }
 
     [Fact]
+    public void AdaptiveDeadzone_DoesNotLearnAStickThatIsMoving_OrFrozen_AndCapsTheCentre()
+    {
+        var dz = new AdaptiveDeadzoneModifier { LearnRate = 4f, RestSeconds = 0.3f };
+        var memory = new ModifierMemory();
+        for (int i = 0; i < 300; i++) Run(dz, new Vector3(0.15f + (i % 2 == 0 ? 0.05f : -0.05f), 0, 0), memory);   // creeping on purpose
+        AdaptiveDeadzoneModifier.LearnedCenter(memory).Length().Should().BeLessThan(0.01f, "a moving stick is not resting");
+
+        var frozen = new AdaptiveDeadzoneModifier { LearnRate = 4f, FreezeLearning = true };
+        var fm = new ModifierMemory();
+        for (int i = 0; i < 300; i++) Run(frozen, new Vector3(0.12f, 0, 0), fm);
+        AdaptiveDeadzoneModifier.LearnedCenter(fm).Should().Be(Vector2.Zero);
+
+        var capped = new AdaptiveDeadzoneModifier { LearnRate = 4f, LearnRadius = 0.5f, MaxCenterOffset = 0.1f };
+        var cm = new ModifierMemory();
+        for (int i = 0; i < 600; i++) Run(capped, new Vector3(0.3f, 0, 0), cm);
+        AdaptiveDeadzoneModifier.LearnedCenter(cm).Length().Should().BeApproximately(0.1f, 1e-3f);
+    }
+
+    [Fact]
     public void SpringDamper_Critical_SettlesWithoutOvershoot()
     {
         var spring = new SpringDamperModifier { Frequency = 4f, DampingRatio = 1f };
@@ -138,6 +157,13 @@ public class ProcessingTests
         var q = rig.Player.ReadRotation(aim);
         (q * Vector3.Forward).DistanceTo(Vector3.Left).Should().BeLessThan(0.05f);
         rig.Player.IsTriggered(aim).Should().BeTrue("an orientation is tracked input");
+
+        // The sensor reading disappears (pad unplugged, sensors off): the orientation ends as lost tracking.
+        rig.Player.Raw.Set(SourceKey.ForMotion(MotionSensor.Accelerometer, 0), Vector4.Zero);
+        rig.Tick();
+        rig.Player.IsTriggered(aim).Should().BeFalse("no reading, no orientation");
+        rig.Player.GetState(aim).EndReason.Should().Be(InputEndReason.TrackingLost);
+        rig.Player.Raw.Set(SourceKey.ForMotion(MotionSensor.Accelerometer, 0), new Vector4(0, -9.81f, 0, 0));
 
         rig.Player.ResetOrientation();
         rig.Player.Raw.Set(SourceKey.ForMotion(MotionSensor.Gyroscope, 0), Vector4.Zero);

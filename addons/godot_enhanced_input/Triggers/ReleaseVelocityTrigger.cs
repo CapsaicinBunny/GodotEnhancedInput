@@ -14,8 +14,10 @@ public enum VelocityMeasure
 /// <summary>
 /// Triggered for one tick on release if the value was moving fast just before — throwing, flinging,
 /// flick-to-scroll, a swipe that must be quick. The speed is the fastest seen during the last
-/// <see cref="WindowSeconds"/> before the release (so slowing down at the very end does not spoil a throw);
-/// a slow release cancels. Ongoing while actuated.
+/// <see cref="WindowSeconds"/> before the release (so slowing down at the very end does not spoil a throw,
+/// but a fast move followed by a pause does not count); a slow release cancels. Ongoing while actuated.
+/// Movement is kept as timestamped samples, so evaluation steps in which no time passes still add their
+/// movement to the next sample.
 /// </summary>
 [Tool]
 public partial class ReleaseVelocityTrigger : InputTrigger
@@ -29,37 +31,82 @@ public partial class ReleaseVelocityTrigger : InputTrigger
     /// <summary>Whether the value is a position or per-tick movement.</summary>
     [Export] public VelocityMeasure Measure { get; set; } = VelocityMeasure.Position;
 
+    private const int Capacity = 32;
+
+    // Timestamped speed samples: each covers [Time - Span, Time].
+    private sealed class Samples
+    {
+        public readonly double[] Time = new double[Capacity];
+        public readonly double[] Speed = new double[Capacity];
+        public int Count, Head;
+        public double Clock;           // seconds since the press
+        public double PendingSpan;     // time since the last sample
+        public Vector3 PendingMotion;  // motion values seen since the last sample
+        public Vector3 LastPosition;
+
+        public void Clear()
+        {
+            Count = Head = 0;
+            Clock = PendingSpan = 0;
+            PendingMotion = Vector3.Zero;
+        }
+
+        public void Add(double time, double speed)
+        {
+            Time[Head] = time;
+            Speed[Head] = speed;
+            Head = (Head + 1) % Capacity;
+            if (Count < Capacity) Count++;
+        }
+
+        public double FastestSince(double since)
+        {
+            double best = 0;
+            for (int i = 0; i < Count; i++)
+            {
+                int k = (Head - 1 - i + Capacity) % Capacity;
+                if (Time[k] < since) break;
+                if (Speed[k] > best) best = Speed[k];
+            }
+            return best;
+        }
+    }
+
     /// <inheritdoc/>
     protected override TriggerPhase Update(in TriggerContext context, bool actuated, bool wasActuated)
     {
-        var m = context.Memory;   // PreviousValue: last value · Timer2: best speed · Timer: age of best
+        if (context.Memory.Custom is not Samples s) context.Memory.Custom = s = new Samples();
+
+        if (actuated && !wasActuated)
+        {
+            s.Clear();
+            s.LastPosition = context.Value;
+            return TriggerPhase.Ongoing;
+        }
+        if (!actuated && !wasActuated) return TriggerPhase.Idle;
+
+        // Time passes for every evaluation, the release included, so old movement expires.
+        s.Clock += context.Delta;
+        s.PendingSpan += context.Delta;
         if (actuated)
         {
-            if (!wasActuated)
+            if (Measure == VelocityMeasure.Motion) s.PendingMotion += context.Value;
+            if (s.PendingSpan > 0)
             {
-                m.Timer2 = 0;
-                m.Timer = 0;
+                double distance = Measure == VelocityMeasure.Motion
+                    ? s.PendingMotion.Length()
+                    : (context.Value - s.LastPosition).Length();
+                s.Add(s.Clock, distance / s.PendingSpan);
+                s.PendingSpan = 0;
+                s.PendingMotion = Vector3.Zero;
+                s.LastPosition = context.Value;
             }
-            else if (context.Delta > 0)
-            {
-                double speed = Measure == VelocityMeasure.Motion
-                    ? context.Value.Length() / context.Delta
-                    : (context.Value - m.PreviousValue).Length() / context.Delta;
-                m.Timer += context.Delta;
-                if (speed >= m.Timer2 || m.Timer > WindowSeconds + TimeEpsilon)
-                {
-                    m.Timer2 = speed;
-                    m.Timer = 0;
-                }
-            }
-            m.PreviousValue = context.Value;
+            // No time passed: the movement waits for the next sample instead of being lost.
             return TriggerPhase.Ongoing;
         }
 
-        if (!wasActuated) return TriggerPhase.Idle;
-        bool fast = m.Timer2 >= MinSpeed;
-        m.Timer2 = 0;
-        m.Timer = 0;
+        bool fast = s.FastestSince(s.Clock - WindowSeconds - TimeEpsilon) >= MinSpeed;
+        s.Clear();
         return fast ? TriggerPhase.Triggered : TriggerPhase.Idle;
     }
 }

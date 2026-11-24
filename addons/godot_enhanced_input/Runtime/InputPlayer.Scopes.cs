@@ -42,6 +42,9 @@ public partial class InputPlayer
     /// Phases and events are not changed (a release still completes the action), so other code reading the
     /// action is unaffected. With a <see cref="BufferTrigger"/> on the binding, the action itself stays
     /// triggered for the buffer window and the window can be left at 0.
+    /// <para>The buffer holds the <b>latest</b> activation only (several presses before it is consumed count
+    /// once), which suits jump and attack buffering; it is not a queue. A cut-off (the context removed, the
+    /// action disabled, focus lost…) forgets it unless <see cref="EnhancedInputAction.KeepBufferedWhenCanceled"/>.</para>
     /// </summary>
     public bool ConsumeTriggered(EnhancedInputAction action, double withinSeconds = 0.0)
     {
@@ -49,6 +52,13 @@ public partial class InputPlayer
         var state = GetState(action);
         state.ConsumedActivation = state.TriggerCount;
         return true;
+    }
+
+    /// <summary>A cut-off: a buffered activation of the action is not used later (unless the action keeps it).</summary>
+    private void ForgetBuffered(EnhancedInputAction action)
+    {
+        if (action == null || action.KeepBufferedWhenCanceled || !_states.TryGetValue(action, out var state)) return;
+        state.ConsumedActivation = state.TriggerCount;
     }
 
     /// <summary>
@@ -135,7 +145,11 @@ public partial class InputPlayer
     {
         if (action == null) return;
         if (enabled) _disabled.Remove(action);
-        else _disabled.Add(action);
+        else
+        {
+            _disabled.Add(action);
+            ForgetBuffered(action);
+        }
     }
 
     /// <summary>Whether an action is enabled (see <see cref="SetActionEnabled"/>).</summary>

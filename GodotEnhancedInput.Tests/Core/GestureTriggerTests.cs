@@ -45,6 +45,29 @@ public class GestureTriggerTests
     }
 
     [Fact]
+    public void ReleaseVelocity_AFastMoveThenAPause_DoesNotCount()
+    {
+        var throwing = new ReleaseVelocityTrigger { MinSpeed = 4f, WindowSeconds = 0.1f };
+        var values = new System.Collections.Generic.List<Vector2> { new(0.6f, 0), new(1f, 0) };
+        for (int i = 0; i < 12; i++) values.Add(new Vector2(1f, 0));   // 0.2 s still
+        values.Add(Vector2.Zero);
+        Run(throwing, values.ToArray()).Last().Should().Be(Idle, "the fast part is older than the window");
+    }
+
+    [Fact]
+    public void ReleaseVelocity_StepsWithoutTime_StillCount()
+    {
+        var throwing = new ReleaseVelocityTrigger { MinSpeed = 4f, WindowSeconds = 0.1f };
+        var memory = new TriggerMemory();
+        TriggerPhase At(float x, double delta)
+            => throwing.Evaluate(new TriggerContext(new Vector3(x, 0, 0), ActionValueKind.Axis2D, delta, null, memory));
+        At(0.6f, Step);
+        At(1f, 0);              // the jump happens in a step without time...
+        At(1f, Step);           // ...and is measured over the next one
+        At(0f, Step).Should().Be(Triggered);
+    }
+
+    [Fact]
     public void ReleaseVelocity_MotionValues_AreSpeedsAlready()
     {
         var flingDrag = new ReleaseVelocityTrigger { MinSpeed = 4f, Measure = VelocityMeasure.Motion, ActuationThreshold = 0.01f };

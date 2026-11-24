@@ -79,6 +79,7 @@ public partial class InputPlayer
     private readonly HashSet<int> _fusionWanted = new();
     private readonly List<int> _fusionDevices = new();
     private readonly Dictionary<int, Quaternion> _orientations = new();
+    private readonly Dictionary<int, string> _orientationOf = new();   // which physical device each state belongs to
     private const float StandardGravity = 9.80665f;
 
     /// <summary>
@@ -94,8 +95,16 @@ public partial class InputPlayer
     /// </summary>
     public void ResetOrientation(int device = SourceKey.AnyDevice)
     {
-        if (device == SourceKey.AnyDevice) _orientations.Clear();
-        else _orientations.Remove(device);
+        if (device == SourceKey.AnyDevice)
+        {
+            _orientations.Clear();
+            _orientationOf.Clear();
+        }
+        else
+        {
+            _orientations.Remove(device);
+            _orientationOf.Remove(device);
+        }
     }
 
     /// <summary>The fused orientation of a device (identity until it has one).</summary>
@@ -111,11 +120,31 @@ public partial class InputPlayer
             foreach (int device in Raw.DevicesWithChannel(RawKind.Motion))
                 if (device >= 0 && (wanted < 0 || wanted == device) && !_fusionDevices.Contains(device)) _fusionDevices.Add(device);
         }
+        var system = GetParent() as EnhancedInput;
         foreach (int device in _fusionDevices)
-            Fuse(device, device == SourceKey.Handheld ? MotionSensor.Gravity : MotionSensor.Accelerometer, delta);
+        {
+            // A pad this player may no longer read (given to another player, unowned now) loses its orientation.
+            if (device >= 0 && system != null && !MayUseJoypad(device, system)) { LoseOrientation(device); continue; }
+            Fuse(device, device == SourceKey.Handheld ? MotionSensor.Gravity : MotionSensor.Accelerometer, delta, system);
+        }
     }
 
-    private void Fuse(int device, MotionSensor gravitySensor, double delta)
+    /// <summary>Which physical device is at an index now (a pad's registry id, else its GUID and name).</summary>
+    private static string OrientationIdentity(int device, EnhancedInput system)
+    {
+        if (device < 0) return "handheld";
+        return system?.GetJoypadDevice(device)?.Id ?? $"{Input.GetJoyGuid(device)}|{Input.GetJoyName(device)}";
+    }
+
+    /// <summary>Forgets a device's fused orientation and ends its input as tracking lost.</summary>
+    private void LoseOrientation(int device)
+    {
+        bool had = _orientations.Remove(device);
+        _orientationOf.Remove(device);
+        if (had) Raw.Cancel(SourceKey.ForMotion(MotionSensor.Orientation, device), InputEndReason.TrackingLost);
+    }
+
+    private void Fuse(int device, MotionSensor gravitySensor, double delta, EnhancedInput system)
     {
         var g4 = Raw.GetCurrent(SourceKey.ForMotion(MotionSensor.Gyroscope, device));
         var a4 = Raw.GetCurrent(SourceKey.ForMotion(gravitySensor, device));
@@ -123,7 +152,14 @@ public partial class InputPlayer
             a4 = Raw.GetCurrent(SourceKey.ForMotion(MotionSensor.Accelerometer, device));
         var gyro = new Vector3(g4.X, g4.Y, g4.Z);
         var down = new Vector3(a4.X, a4.Y, a4.Z);
-        if (gyro == Vector3.Zero && down == Vector3.Zero && !_orientations.ContainsKey(device)) return;   // no readings yet
+        // Gravity is never zero on a working sensor: no reading means the sensors are gone (pad
+        // unplugged, sensors off) — the orientation is no longer valid.
+        if (down == Vector3.Zero) { LoseOrientation(device); return; }
+
+        // Another device at this index (a reconnect, a different pad) starts afresh, never inheriting.
+        var identity = OrientationIdentity(device, system);
+        if (_orientationOf.TryGetValue(device, out var was) && was != identity) _orientations.Remove(device);
+        _orientationOf[device] = identity;
 
         _orientations.TryGetValue(device, out var q);
         bool fresh = !_orientations.ContainsKey(device);
