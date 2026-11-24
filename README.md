@@ -200,7 +200,7 @@ touch controls (F2 on desktop). Open `demo.tscn` and press F6.
 dotnet run --project GodotEnhancedInput.Tests/GodotEnhancedInput.Tests.csproj -c Debug
 ```
 
-522 tests run against a real headless Godot through [2dog](https://github.com/outfox/2dog), one or
+526 tests run against a real headless Godot through [2dog](https://github.com/outfox/2dog), one or
 more per requirement in the [design](docs/design.md); see [the test README](GodotEnhancedInput.Tests/README.md).
 The same suite runs in CI on Windows, Linux and macOS. Real hardware is covered by the
 [checklist](docs/platforms-and-hardware.md#hardware-checklist).
