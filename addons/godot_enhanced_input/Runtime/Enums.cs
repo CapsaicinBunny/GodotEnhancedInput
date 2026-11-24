@@ -394,6 +394,24 @@ public enum ReconnectPolicy
     Ask,
 }
 
+/// <summary>How an action reports while it is held (<see cref="GameAction.Evaluation"/>).</summary>
+public enum ActionEvaluation
+{
+    /// <summary>Movement, looking, steering: triggered every frame while held (default).</summary>
+    Continuous,
+    /// <summary>Raises <see cref="ActionEvents.Triggered"/> only on frames where its value changed.</summary>
+    OnChange,
+    /// <summary>Buttons: only presses, releases and phase changes are raised, never a steady triggered per frame.</summary>
+    EventDriven,
+    /// <summary>
+    /// Every input event on any of its bindings is reported on its own, with that binding's value and
+    /// source (not the strongest of all) — for drawing, multi-touch and rhythm input.
+    /// </summary>
+    PassThrough,
+    /// <summary>Poses: triggered exactly while tracked, whatever the value (an XR controller at the identity is still there).</summary>
+    Tracked,
+}
+
 /// <summary>How analog channels are sampled between ticks (<see cref="RawInputState.AnalogSampling"/>).</summary>
 public enum AnalogSampling
 {

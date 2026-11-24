@@ -14,6 +14,19 @@ public partial class ActionBinding : Resource
     /// <summary>The action this binding drives.</summary>
     [Export] public GameAction Action { get; set; }
 
+    /// <summary>
+    /// Stable identifier of this binding for tools, provenance and analytics (falls back to
+    /// <see cref="RebindId"/>; empty when neither is set). Rebinding uses <see cref="RebindId"/>.
+    /// </summary>
+    [Export]
+    public string Id
+    {
+        get => string.IsNullOrEmpty(_id) ? RebindId : _id;
+        set => _id = value ?? string.Empty;
+    }
+
+    private string _id = string.Empty;
+
     /// <summary>What it reads. A null source reads zero.</summary>
     [Export] public InputSource Source { get; set; }
 

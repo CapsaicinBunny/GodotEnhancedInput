@@ -307,6 +307,39 @@ public sealed partial class RawInputState
         if (!_clearing) CutOff?.Invoke(key, reason);
     }
 
+    /// <summary>
+    /// The exact channel (with its device or finger) among <paramref name="keys"/> that is strongest in the
+    /// step being evaluated; for a channel of "any device" with nothing held, the only device that has used
+    /// it, if there is one. False when there are no keys.
+    /// </summary>
+    public bool TryStrongestChannel(SourceKey[] keys, out SourceKey exact)
+    {
+        exact = default;
+        if (keys == null || keys.Length == 0) return false;
+        float best = -1f;
+        for (int i = 0; i < keys.Length; i++)
+        {
+            var key = keys[i];
+            if (key.Device == SourceKey.AnyDevice && key.IsPerDevice)
+            {
+                var devices = DevicesOf(key.Kind);
+                foreach (var d in devices)
+                {
+                    var candidate = key with { Device = d };
+                    float m = Observed(candidate).LengthSquared();
+                    if (m > best) { best = m; exact = candidate; }
+                }
+                if (devices.Count == 0 && best < 0f) { best = 0f; exact = key; }
+            }
+            else
+            {
+                float m = Observed(key).LengthSquared();
+                if (m > best) { best = m; exact = key; }
+            }
+        }
+        return true;
+    }
+
     /// <summary>Whether a channel has a value now (written and not cut off since) — a tracked pose at the origin is present.</summary>
     public bool IsPresent(in SourceKey key)
     {

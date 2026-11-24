@@ -49,7 +49,8 @@ public partial class InputPlayer : IChannelMask
         try
         {
             var kind = action.ValueKind;
-            bool silenced = IsTreePaused && !action.TriggerWhenPaused;
+            bool disabled = IsDisabled(action);
+            bool silenced = disabled || (IsTreePaused && !action.TriggerWhenPaused);
             var mode = action.Accumulation;
             var firing = Vector4.Zero;
             var raw = Vector4.Zero;
@@ -59,6 +60,10 @@ public partial class InputPlayer : IChannelMask
             bool anyEvaluated = false;
             InputEndReason? cut = null;
             ValueNature? nature = null;
+            CompiledBinding strongest = null, strongestAny = null;
+            float strongestMagnitude = -1f, strongestAnyMagnitude = -1f;
+            bool passThrough = action.Evaluation == ActionEvaluation.PassThrough && _eventPhase;
+            state.PassBinding = null;
 
             if (_bindingsByAction.TryGetValue(action, out var list))
             {
@@ -104,17 +109,31 @@ public partial class InputPlayer : IChannelMask
                     if (kind == ActionValueKind.Euler) value = ActionValue.Shape(kind, value);
                     raw = Accumulate(kind, raw, value, mode);
 
+                    bool fires;
                     if (compiled.HasTriggers)
                     {
                         var phase = TriggerSet.Evaluate(compiled.Triggers, memory.Triggers, value, kind, _delta, this);
                         if (phase > bindingPhase) bindingPhase = phase;
-                        if (phase == TriggerPhase.Triggered) firing = Accumulate(kind, firing, value, mode);
+                        fires = phase == TriggerPhase.Triggered;
+                        if (fires) firing = Accumulate(kind, firing, value, mode);
                     }
                     else
                     {
                         firing = Accumulate(kind, firing, value, mode);
                         // A tracked pose is input even at the origin or the identity rotation.
-                        if (bindingTracked || !ActionValue.IsZeroOf(kind, value)) triggerlessNonZero = true;
+                        fires = bindingTracked || !ActionValue.IsZeroOf(kind, value);
+                        if (fires) triggerlessNonZero = true;
+                    }
+
+                    // Where the input came from: the strongest firing binding (else the strongest at all).
+                    float magnitude = ActionValue.MagnitudeOf(kind, value);
+                    if (fires && magnitude > strongestMagnitude) { strongest = compiled; strongestMagnitude = magnitude; }
+                    if (magnitude > strongestAnyMagnitude) { strongestAny = compiled; strongestAnyMagnitude = magnitude; }
+                    if (passThrough && state.PassBinding == null && TouchesStep(compiled.Keys))
+                    {
+                        state.PassBinding = compiled.Binding;
+                        state.PassKeys = compiled.Keys;
+                        state.PassValue = new ActionValue(kind, Trim(kind, value));
                     }
                 }
             }
@@ -132,6 +151,9 @@ public partial class InputPlayer : IChannelMask
             EnsureArray(ref state.ModifierMemories, action.Modifiers?.Count ?? 0);
             EnsureArray(ref state.TriggerMemories, action.Triggers?.Count ?? 0);
 
+            var origin = strongest ?? strongestAny;
+            state.SourceBinding = origin?.Binding;
+            state.SourceKeys = origin?.Keys;
             state.IsTracked = tracked;
             if (wasTracked && !tracked && state.Phase != TriggerPhase.Idle) cut ??= InputEndReason.TrackingLost;
             if (_injectionCuts.Count > 0 && _injectionCuts.Remove(action, out var injectionCut)) cut ??= injectionCut;
@@ -143,7 +165,7 @@ public partial class InputPlayer : IChannelMask
                 state.TogglePressed = false;
                 state.InputValue = ActionValue.Zero(kind);
                 // Nothing left to evaluate is never a release: the input was taken away.
-                InputEndReason? why = cut ?? (silenced ? InputEndReason.Paused
+                InputEndReason? why = cut ?? (disabled ? InputEndReason.Blocked : silenced ? InputEndReason.Paused
                     : list != null && list.Count > 0 ? InputEndReason.Blocked
                     : state.HadBindings ? _planChangeReason
                     : null);   // only injected input drove it: its end is a genuine release
@@ -167,6 +189,8 @@ public partial class InputPlayer : IChannelMask
                     finalPhase = bindingPhase;
                     if (triggerlessNonZero) finalPhase = TriggerPhase.Triggered;
                 }
+                // A tracked action is triggered exactly while tracked, whatever the value.
+                if (action.Evaluation == ActionEvaluation.Tracked) finalPhase = tracked ? TriggerPhase.Triggered : TriggerPhase.Idle;
                 if (IsHoldToToggle(action))
                 {
                     // Accessibility: each press flips the action instead of having to hold it.
@@ -205,6 +229,21 @@ public partial class InputPlayer : IChannelMask
             state.EvalTime = _frameTime;
             _delta = savedDelta;
         }
+    }
+
+    /// <summary>Whether one of these channels changed in the event being evaluated.</summary>
+    private bool TouchesStep(SourceKey[] keys)
+    {
+        for (int i = 0; i < keys.Length; i++)
+        {
+            var key = keys[i];
+            for (int s = 0; s < _stepKeys.Count; s++)
+            {
+                var changed = _stepKeys[s];
+                if (changed == key || (key.Device == SourceKey.AnyDevice && changed with { Device = SourceKey.AnyDevice } == key)) return true;
+            }
+        }
+        return false;
     }
 
     private static bool HasTriggers(IList<InputTrigger> triggers)

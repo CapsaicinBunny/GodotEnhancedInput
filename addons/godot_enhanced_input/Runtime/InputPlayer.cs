@@ -411,20 +411,24 @@ public partial class InputPlayer : Node, ISourceReader
     {
         _actionsByName.Clear();
         foreach (var entry in _entries)
-        {
             foreach (var binding in entry.Context.Bindings)
-            {
-                var action = binding?.Action;
-                if (action == null) continue;
-                var name = action.Name;
-                if (!string.IsNullOrEmpty(name)) _actionsByName.TryAdd(name, action);
-            }
-        }
+                IndexAction(binding?.Action);
+        if (Configuration != null)
+            foreach (var action in Configuration.Actions) IndexAction(action);
     }
 
-    /// <summary>Finds an action by <see cref="GameAction.Name"/> among the active contexts.</summary>
-    public GameAction FindAction(string name)
-        => name != null && _actionsByName.TryGetValue(name, out var action) ? action : null;
+    private void IndexAction(GameAction action)
+    {
+        if (action == null) return;
+        if (!string.IsNullOrEmpty(action.Id)) _actionsByName.TryAdd(action.Id, action);
+        if (!string.IsNullOrEmpty(action.Name)) _actionsByName.TryAdd(action.Name, action);
+        foreach (var former in action.FormerIds)
+            if (!string.IsNullOrEmpty(former)) _actionsByName.TryAdd(former, action);
+    }
+
+    /// <summary>Finds an action by id, name or former id among the active contexts and the loaded configuration.</summary>
+    public GameAction FindAction(string idOrName)
+        => idOrName != null && _actionsByName.TryGetValue(idOrName, out var action) ? action : null;
 
     // ------------------------------------------------------------------
     //  Raw input

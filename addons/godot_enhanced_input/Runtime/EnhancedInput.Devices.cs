@@ -148,6 +148,48 @@ public partial class EnhancedInput
         }
     }
 
+    /// <summary>
+    /// The device a raw channel belongs to: a joypad (by index), the keyboard and mouse, touch, the pen, or a
+    /// backend device. Null when the channel names no device (an "any pad" channel, a virtual control).
+    /// </summary>
+    public InputDeviceInfo GetDeviceForChannel(SourceKey channel)
+    {
+        EnsureBuiltinDevices();
+        switch (channel.Kind)
+        {
+            case RawKind.JoyButton:
+            case RawKind.JoyAxis:
+                return channel.Device >= 0 ? GetJoypadDevice(channel.Device) : null;
+            case RawKind.Motion:
+                return channel.Device == SourceKey.Handheld ? GetDevice("touch") : channel.Device >= 0 ? GetJoypadDevice(channel.Device) : null;
+            case RawKind.DeviceControl:
+            {
+                var name = channel.Name ?? string.Empty;
+                int slash = name.IndexOf('/');
+                return slash > 0 && channel.Device >= 0 ? GetCustomDevice(name.Substring(0, slash), channel.Device) : null;
+            }
+            case RawKind.PhysicalKey:
+            case RawKind.LogicalKey:
+            case RawKind.KeyLabel:
+            case RawKind.MouseButton:
+            case RawKind.MouseMotion:
+            case RawKind.MousePosition:
+            case RawKind.MouseWheel:
+                return GetDevice("keyboard_mouse");
+            case RawKind.TouchPressed:
+            case RawKind.TouchPosition:
+            case RawKind.TouchDrag:
+            case RawKind.Gesture:
+                return GetDevice("touch");
+            case RawKind.PenPressure:
+            case RawKind.PenTilt:
+            case RawKind.PenEraser:
+                return GetDevice("pen");
+            default:
+                return null;
+        }
+    }
+
     /// <summary>The player a device belongs to, or null (for keyboard/mouse and touch: the single player listening, if exactly one).</summary>
     public InputPlayer GetDeviceOwner(InputDeviceInfo device)
     {

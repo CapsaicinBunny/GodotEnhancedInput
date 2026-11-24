@@ -26,8 +26,41 @@ public partial class GameAction : Resource
         set => _name = value ?? string.Empty;
     }
 
+    /// <summary>
+    /// Stable identifier, independent of the name shown, the file name and the object — saved settings,
+    /// recordings, configurations and tools refer to it, so renaming or moving the resource breaks nothing.
+    /// Empty: <see cref="Name"/> (it is written into the file the first time the resource is saved).
+    /// </summary>
+    [Export]
+    public string Id
+    {
+        get => string.IsNullOrEmpty(_id) ? Name : _id;
+        set => _id = value ?? string.Empty;
+    }
+
+    private string _id = string.Empty;
+
+    /// <summary>Ids this action had before; recordings and saves that use them still find it.</summary>
+    [Export] public string[] FormerIds { get; set; } = System.Array.Empty<string>();
+
+    /// <summary>Whether a text is this action's id, name or a former id.</summary>
+    public bool Matches(string idOrName)
+    {
+        if (string.IsNullOrEmpty(idOrName)) return false;
+        if (idOrName == Id || idOrName == Name) return true;
+        foreach (var former in FormerIds) if (former == idOrName) return true;
+        return false;
+    }
+
     /// <summary>Text for menus and prompts. Falls back to <see cref="Name"/>.</summary>
     [Export] public string DisplayName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// How the action reports while it is held (see <see cref="ActionEvaluation"/>): every frame
+    /// (default), only when its value changes, only on presses and releases, per control, or as a
+    /// tracked pose.
+    /// </summary>
+    [Export] public ActionEvaluation Evaluation { get; set; } = ActionEvaluation.Continuous;
 
     /// <summary>The shape of the value.</summary>
     [Export] public ActionValueKind ValueKind { get; set; } = ActionValueKind.Digital;

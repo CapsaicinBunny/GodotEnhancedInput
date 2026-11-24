@@ -50,6 +50,23 @@ public partial class EnhancedInput : Node
 
     private TickMode _tickMode = TickMode.Auto;
 
+    private InputConfiguration _configuration;
+
+    /// <summary>
+    /// The game's input configuration, loaded into every player (also players added later): control
+    /// schemes, contexts by id, startup contexts, default settings. Optional.
+    /// </summary>
+    [Export]
+    public InputConfiguration Configuration
+    {
+        get => _configuration;
+        set
+        {
+            _configuration = value;
+            foreach (var player in _players) player.LoadConfiguration(value);
+        }
+    }
+
     /// <summary>
     /// Release keys and buttons that Godot's <c>Input</c> no longer reports as held — when game code
     /// marked their release as handled before it reached this node, they would otherwise stay held.
@@ -166,6 +183,7 @@ public partial class EnhancedInput : Node
         }
         _players.Add(player);
         AddChild(player);
+        if (_configuration != null) player.LoadConfiguration(_configuration);
         EmitSignal(SignalName.PlayerAdded, player);
         return player;
     }

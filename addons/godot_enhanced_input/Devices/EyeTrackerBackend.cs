@@ -102,6 +102,18 @@ public sealed class EyeTrackerBackend : InputBackend
     }
 
     /// <inheritdoc/>
+    public override InputDeviceLayout DescribeDevice(InputDeviceInfo device) => new(device?.Name ?? "Eye tracker", new[]
+    {
+        new InputControlDescriptor("@eye:gaze", "gaze", "Gaze", ActionValueKind.Axis2D, ValueNature.Absolute, 0f, 1f, false, isNoisy: true, isTracked: true),
+        new InputControlDescriptor("@eye:gaze_centered", "gaze_centered", "Gaze (centred)", ActionValueKind.Axis2D, ValueNature.Absolute, -1f, 1f, false, isNoisy: true, isTracked: true),
+        new InputControlDescriptor("@eye:gaze_pixels", "gaze_pixels", "Gaze (pixels)", ActionValueKind.Axis2D, ValueNature.Absolute, 0f, float.MaxValue, false, isNoisy: true, isTracked: true, unit: "px"),
+        new InputControlDescriptor("@eye:gaze_valid", "gaze_valid", "Gaze Valid", ActionValueKind.Digital, ValueNature.State, 0f, 1f, false),
+        new InputControlDescriptor("@eye:present", "present", "User Present", ActionValueKind.Digital, ValueNature.State, 0f, 1f, false),
+        new InputControlDescriptor("@eye:head/position", "head/position", "Head Position", ActionValueKind.Axis3D, ValueNature.Absolute, float.MinValue, float.MaxValue, false, isTracked: true, unit: "m"),
+        new InputControlDescriptor("@eye:head/orientation", "head/orientation", "Head Orientation", ActionValueKind.Quaternion, ValueNature.Absolute, -1f, 1f, false, isTracked: true),
+    });
+
+    /// <inheritdoc/>
     public override void Detached()
     {
         if (_added) RemoveDevice(DeviceType, _index);

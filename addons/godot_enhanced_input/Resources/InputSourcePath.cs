@@ -9,6 +9,7 @@ namespace GodotEnhancedInput;
 /// where possible ("pad:a" is the bottom face button of whichever pad the player uses).
 /// <code>
 /// key:space          physical key        keycode:a / keylabel:a   by key code / printed label
+/// wasd  arrows       the usual four-key movement (keys:w/s/a/d, keys:up/down/left/right)
 /// keys:a/d           two keys, one axis  keys:w/s/a/d             four keys, up/down/left/right
 /// mouse:left         mouse button        mouse:wheel_up           a wheel notch as a button
 /// mouse:motion  mouse:position  mouse:wheel
@@ -77,6 +78,8 @@ public static class InputSourcePath
     private static InputSource ParseSingle(string text)
     {
         if (text.Equals("none", StringComparison.OrdinalIgnoreCase)) return InputSource.Nothing();
+        if (text.Equals("wasd", StringComparison.OrdinalIgnoreCase)) return InputSource.ForKeyAxis2D(Key.W, Key.S, Key.A, Key.D);
+        if (text.Equals("arrows", StringComparison.OrdinalIgnoreCase)) return InputSource.ForKeyAxis2D(Key.Up, Key.Down, Key.Left, Key.Right);
 
         if (text.StartsWith("axis1d(", StringComparison.OrdinalIgnoreCase) || text.StartsWith("axis2d(", StringComparison.OrdinalIgnoreCase))
         {

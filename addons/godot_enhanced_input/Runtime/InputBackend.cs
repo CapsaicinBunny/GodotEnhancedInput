@@ -37,6 +37,12 @@ public abstract class InputBackend
     public virtual void SetForceFeedback(InputDeviceInfo device, ForceFeedback force) { }
 
     /// <summary>
+    /// Describes the controls of one of this backend's devices (see <see cref="InputDeviceInfo.Layout"/>), so
+    /// tools and rebinding menus can list them. Null (default): not described.
+    /// </summary>
+    public virtual InputDeviceLayout DescribeDevice(InputDeviceInfo device) => null;
+
+    /// <summary>
     /// Tells this backend's devices apart from another backend's that use the same device type and index
     /// (their ids become "type:namespace:index"). The class name by default.
     /// </summary>

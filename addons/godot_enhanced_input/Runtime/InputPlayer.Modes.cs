@@ -162,6 +162,7 @@ public partial class InputPlayer
         if (string.IsNullOrEmpty(name)) return fallback;
         if (Profile.HasSetting(name)) return Profile.GetSetting(name);
         if (_activeMode != null && _activeMode.SettingDefaults.TryGetValue(name, out var value)) return value;
+        if (Configuration != null && Configuration.DefaultSettings.TryGetValue(name, out value)) return value;
         return fallback;
     }
 

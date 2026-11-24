@@ -85,7 +85,9 @@ public partial class InputPlayer
 
                 // The event happens.
                 _step++;
+                _eventPhase = true;
                 for (int i = 0; i < _affected.Count; i++) Resolve(_affected[i]);
+                _eventPhase = false;
                 Dispatch(final: false);
                 Raw.EndStep();
                 ReplanIfChanged();
@@ -141,6 +143,7 @@ public partial class InputPlayer
     private double _frameStartSeconds, _frameSeconds, _frameDelta;
     private double _frameTime;   // seconds into the tick of the step being evaluated
     private bool _finalStep;
+    private bool _eventPhase;   // evaluating an input event with its changes applied
     private readonly List<SourceKey> _stepKeys = new();
     private readonly List<GameAction> _affected = new();
     private readonly HashSet<GameAction> _affectedSet = new();
@@ -377,6 +380,17 @@ public partial class InputPlayer
         ActionEvents.Started, ActionEvents.Ongoing, ActionEvents.Triggered, ActionEvents.Completed, ActionEvents.Canceled,
     };
 
+    /// <summary>Where an event of this action came from: binding, exact channel and device.</summary>
+    private InputProvenance Provenance(ActionState state)
+    {
+        bool pass = state.PassBinding != null && !_finalStep && state.Action?.Evaluation == ActionEvaluation.PassThrough;
+        var binding = pass ? state.PassBinding : state.SourceBinding;
+        var keys = pass ? state.PassKeys : state.SourceKeys;
+        SourceKey? source = keys != null && Raw.TryStrongestChannel(keys, out var exact) ? exact : null;
+        var device = source.HasValue && GetParent() is EnhancedInput system ? system.GetDeviceForChannel(source.Value) : null;
+        return new InputProvenance(binding, source, device, pass ? state.PassValue : null);
+    }
+
     /// <summary>The player's clock, in seconds, at the step being evaluated.</summary>
     private double StepClock => _frameStartSeconds + (_frameDelta > 0 ? _frameTime / _frameDelta * _frameSeconds : 0.0);
 
@@ -402,12 +416,31 @@ public partial class InputPlayer
                 }
                 bool change = state.PreviousPhase != state.Phase
                     || (state.StepEvents & (ActionEvents.Started | ActionEvents.Completed | ActionEvents.Canceled)) != 0;
+                var policy = action.Evaluation;
+
+                // Pass-through: every input event on one of its bindings is reported on its own.
+                if (policy == ActionEvaluation.PassThrough && !final && state.PassBinding != null && !change
+                    && (state.Phase == TriggerPhase.Triggered || state.PassValue.IsNonZero))
+                {
+                    state.FrameDispatched |= ActionEvents.Triggered;
+                    Raise(action, state, ActionEvents.Triggered);
+                    continue;
+                }
 
                 foreach (var flag in EventOrder)
                 {
                     if ((state.StepEvents & flag) == 0) continue;
-                    if (!change && (!final || (state.FrameDispatched & flag) != 0)) continue;
+                    if (!change)
+                    {
+                        // A steady event of a held action: at most once per frame, at the frame's end, and
+                        // only as the action's policy allows.
+                        if (!final || (state.FrameDispatched & flag) != 0) continue;
+                        if (policy == ActionEvaluation.EventDriven) continue;
+                        if (policy == ActionEvaluation.PassThrough && (state.FrameDispatched & ActionEvents.Triggered) != 0) continue;
+                        if (policy == ActionEvaluation.OnChange && state.Value == state.LastDispatchedValue) continue;
+                    }
                     state.FrameDispatched |= flag;
+                    if (flag == ActionEvents.Triggered) state.LastDispatchedValue = state.Value;
                     Raise(action, state, flag);
                 }
             }
@@ -422,7 +455,7 @@ public partial class InputPlayer
 
     private void Raise(GameAction action, ActionState state, ActionEvents flag)
     {
-        var args = new ActionEventArgs(this, action, flag, state);
+        var args = new ActionEventArgs(this, action, flag, state, Provenance(state), StepClock);
 
         if (_subscriptions.TryGetValue(action, out var list))
         {

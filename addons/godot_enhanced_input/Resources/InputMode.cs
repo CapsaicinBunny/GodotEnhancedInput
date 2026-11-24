@@ -17,6 +17,16 @@ public partial class InputMode : Resource
     /// <summary>Name for menus and logs.</summary>
     [Export] public string Name { get; set; } = string.Empty;
 
+    /// <summary>Stable identifier (falls back to <see cref="Name"/>).</summary>
+    [Export]
+    public string Id
+    {
+        get => string.IsNullOrEmpty(_id) ? Name : _id;
+        set => _id = value ?? string.Empty;
+    }
+
+    private string _id = string.Empty;
+
     /// <summary>Device kinds the mode cannot work without (it is only chosen automatically when they are available).</summary>
     [Export] public DeviceKinds RequiredDevices { get; set; }
 

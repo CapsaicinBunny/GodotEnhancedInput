@@ -28,6 +28,35 @@ public partial class BindingContext : Resource
         set => _name = value ?? string.Empty;
     }
 
+    /// <summary>
+    /// Stable identifier, independent of the name shown, the file name and the object — saved settings,
+    /// recordings, configurations and tools refer to it, so renaming or moving the resource breaks nothing.
+    /// Empty: <see cref="Name"/> (it is written into the file the first time the resource is saved).
+    /// </summary>
+    [Export]
+    public string Id
+    {
+        get => string.IsNullOrEmpty(_id) ? Name : _id;
+        set => _id = value ?? string.Empty;
+    }
+
+    private string _id = string.Empty;
+
+    /// <summary>Ids this context had before.</summary>
+    [Export] public string[] FormerIds { get; set; } = System.Array.Empty<string>();
+
+    /// <summary>The priority it gets when activated without one (<see cref="InputPlayer.ActivateContext"/>, startup contexts).</summary>
+    [Export] public int DefaultPriority { get; set; }
+
+    /// <summary>Whether a text is this context's id, name or a former id.</summary>
+    public bool Matches(string idOrName)
+    {
+        if (string.IsNullOrEmpty(idOrName)) return false;
+        if (idOrName == Id || idOrName == Name) return true;
+        foreach (var former in FormerIds) if (former == idOrName) return true;
+        return false;
+    }
+
     private Array<ActionBinding> _bindings = new();
 
     /// <summary>

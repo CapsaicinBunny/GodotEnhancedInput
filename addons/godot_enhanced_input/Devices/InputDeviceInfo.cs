@@ -84,6 +84,20 @@ public sealed class InputDeviceInfo
     /// <summary>The index the device had before its last disconnect (−1 if it never moved).</summary>
     public int PreviousIndex { get; internal set; } = -1;
 
+    /// <summary>
+    /// The controls the device offers (paths, value kinds, ranges): a gamepad with what its family adds, the
+    /// keyboard and mouse, touch, the pen, or what its backend describes. Null when unknown.
+    /// </summary>
+    public InputDeviceLayout Layout => Kind switch
+    {
+        InputDeviceKind.Joypad => InputDeviceLayout.Gamepad(HardwareFeatures | Features, Style),
+        InputDeviceKind.KeyboardMouse => InputDeviceLayout.KeyboardMouse,
+        InputDeviceKind.Touch => InputDeviceLayout.Touch,
+        InputDeviceKind.Pen => InputDeviceLayout.Pen,
+        InputDeviceKind.Custom => Backend?.DescribeDevice(this),
+        _ => null,
+    };
+
     /// <summary>How many times the device has (re)connected.</summary>
     public int ConnectionCount { get; internal set; }
 

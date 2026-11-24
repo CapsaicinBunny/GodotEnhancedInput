@@ -14,7 +14,7 @@ public partial class InputPlayer
     public void InjectInput(GameAction action, Vector4 value)
     {
         if (action == null || LiveInputBlocked) return;
-        Record(new RecordedInput { Kind = RecordedInputKind.Inject, Name = action.Name, Value = value });
+        Record(new RecordedInput { Kind = RecordedInputKind.Inject, Name = action.Id, Value = value });
         GetInjection(action).AddPeak(value);
     }
 
@@ -43,7 +43,7 @@ public partial class InputPlayer
     public void StartInjecting(GameAction action, Vector4 value)
     {
         if (action == null || LiveInputBlocked) return;
-        Record(new RecordedInput { Kind = RecordedInputKind.InjectStart, Name = action.Name, Value = value });
+        Record(new RecordedInput { Kind = RecordedInputKind.InjectStart, Name = action.Id, Value = value });
         StartInjectingCore(action, value);
     }
 
@@ -59,7 +59,7 @@ public partial class InputPlayer
     public void StopInjecting(GameAction action)
     {
         if (action == null || LiveInputBlocked) return;
-        Record(new RecordedInput { Kind = RecordedInputKind.InjectStop, Name = action.Name });
+        Record(new RecordedInput { Kind = RecordedInputKind.InjectStop, Name = action.Id });
         StopInjectingCore(action);
     }
 

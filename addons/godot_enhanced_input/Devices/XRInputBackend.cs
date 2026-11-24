@@ -223,6 +223,44 @@ public sealed class XRInputBackend : InputBackend
     }
 
     /// <inheritdoc/>
+    public override InputDeviceLayout DescribeDevice(InputDeviceInfo device)
+    {
+        if (device == null || !_trackers.TryGetValue(device.Guid, out var tracker)) return null;
+        var controls = new System.Collections.Generic.List<InputControlDescriptor>();
+        string P(string control) => $"@{DeviceType}:{control}";
+        switch (tracker)
+        {
+            case XRHandTracker:
+                controls.Add(new(P("hand/pinch"), "hand/pinch", "Pinch", ActionValueKind.Axis1D, ValueNature.State, 0f, 1f));
+                controls.Add(new(P("hand/grab"), "hand/grab", "Grab", ActionValueKind.Axis1D, ValueNature.State, 0f, 1f));
+                controls.Add(new(P("hand/tracked"), "hand/tracked", "Hand Tracked", ActionValueKind.Digital, ValueNature.State, 0f, 1f, isRebindable: false));
+                foreach (var (_, name) in Joints)
+                {
+                    controls.Add(new(P($"hand/{name}/position"), $"hand/{name}/position", $"{name} position", ActionValueKind.Axis3D, ValueNature.Absolute, float.MinValue, float.MaxValue, false, isTracked: true, unit: "m"));
+                    controls.Add(new(P($"hand/{name}/orientation"), $"hand/{name}/orientation", $"{name} orientation", ActionValueKind.Quaternion, ValueNature.Absolute, -1f, 1f, false, isTracked: true));
+                }
+                break;
+            case XRFaceTracker:
+                controls.Add(new(P("eyes/gaze"), "eyes/gaze", "Eye Gaze", ActionValueKind.Axis2D, ValueNature.Absolute, -1f, 1f, false, isNoisy: true, isTracked: true));
+                foreach (var name in new[] { "eyes/closed_left", "eyes/closed_right", "eyes/wide", "jaw_open" })
+                    controls.Add(new(P(name), name, name, ActionValueKind.Axis1D, ValueNature.State, 0f, 1f, isNoisy: true));
+                break;
+            default:
+                foreach (var name in new[] { "trigger", "grip", "primary_click", "secondary_click", "ax_button", "by_button", "menu_button" })
+                    controls.Add(new(P(name), name, name, name is "trigger" or "grip" ? ActionValueKind.Axis1D : ActionValueKind.Digital, ValueNature.State, 0f, 1f));
+                controls.Add(new(P("primary"), "primary", "Thumbstick", ActionValueKind.Axis2D, ValueNature.State, -1f, 1f, isNoisy: true));
+                foreach (var pose in Poses)
+                {
+                    controls.Add(new(P($"{pose}/position"), $"{pose}/position", $"{pose} position", ActionValueKind.Axis3D, ValueNature.Absolute, float.MinValue, float.MaxValue, false, isTracked: true, unit: "m"));
+                    controls.Add(new(P($"{pose}/orientation"), $"{pose}/orientation", $"{pose} orientation", ActionValueKind.Quaternion, ValueNature.Absolute, -1f, 1f, false, isTracked: true));
+                    controls.Add(new(P($"{pose}/rotation"), $"{pose}/rotation", $"{pose} rotation", ActionValueKind.Euler, ValueNature.Absolute, -Mathf.Pi, Mathf.Pi, false, isTracked: true, unit: "rad"));
+                }
+                break;
+        }
+        return new InputDeviceLayout(device.Name, controls);
+    }
+
+    /// <inheritdoc/>
     public override void Rumble(InputDeviceInfo device, float weak, float strong, float seconds)
         => Rumble(device, weak, strong, seconds, 0f);
 

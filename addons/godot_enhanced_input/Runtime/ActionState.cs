@@ -89,6 +89,17 @@ public sealed class ActionState
     internal ulong EvalTick;
     internal ActionEvents FrameDispatched;
     internal ulong FrameDispatchTick;
+    internal ActionValue LastDispatchedValue;
+    internal ActionBinding PassBinding;
+    internal SourceKey[] PassKeys;
+    internal ActionValue PassValue;
+    internal SourceKey[] SourceKeys;
+
+    /// <summary>
+    /// The binding the action's input came from at its last evaluation: the strongest one that fired (else
+    /// the strongest evaluated). Null for input injected from code or when nothing was bound.
+    /// </summary>
+    public ActionBinding SourceBinding { get; internal set; }
 
     /// <summary>
     /// True while one of the action's bindings reads a tracked quantity that has a value — an XR pose, a
@@ -226,20 +237,63 @@ public readonly struct InputSample
     public override string ToString() => IsValid ? $"{Value}{(IsTracked ? " (tracked)" : "")} @ {Timestamp:0.###}s" : "no reading";
 }
 
+/// <summary>Where an action event came from (see <see cref="ActionEventArgs"/>).</summary>
+internal readonly struct InputProvenance
+{
+    public InputProvenance(ActionBinding binding, SourceKey? source, InputDeviceInfo device, ActionValue? value)
+    {
+        Binding = binding;
+        Source = source;
+        Device = device;
+        Value = value;
+    }
+
+    public ActionBinding Binding { get; }
+    public SourceKey? Source { get; }
+    public InputDeviceInfo Device { get; }
+    public ActionValue? Value { get; }
+}
+
 /// <summary>Passed to action callbacks: one event of one action.</summary>
 public readonly struct ActionEventArgs
 {
     /// <summary>Creates event arguments from an action's state.</summary>
     public ActionEventArgs(InputPlayer player, GameAction action, ActionEvents @event, ActionState state)
+        : this(player, action, @event, state, default, state?.LastChangeTime ?? 0) { }
+
+    internal ActionEventArgs(InputPlayer player, GameAction action, ActionEvents @event, ActionState state, InputProvenance origin, double timestamp)
     {
         Player = player;
         Action = action;
         Event = @event;
-        Value = state.Value;
+        Value = origin.Value ?? state.Value;
         Phase = state.Phase;
         ElapsedSeconds = state.ElapsedSeconds;
         TriggeredSeconds = state.TriggeredSeconds;
+        Binding = origin.Binding;
+        Source = origin.Source;
+        Device = origin.Device;
+        Timestamp = timestamp;
+        EndReason = @event is ActionEvents.Completed or ActionEvents.Canceled ? state.EndReason : null;
     }
+
+    /// <summary>
+    /// The binding the input came from: the strongest one that fired (for a pass-through action, the one
+    /// whose input changed). Null for input injected from code.
+    /// </summary>
+    public ActionBinding Binding { get; }
+
+    /// <summary>The exact channel the input came from (key, button, axis with its device or finger), when known.</summary>
+    public SourceKey? Source { get; }
+
+    /// <summary>The device the input came from (a pad, the keyboard and mouse, touch, a backend device), when known.</summary>
+    public InputDeviceInfo Device { get; }
+
+    /// <summary>When it happened, in seconds on the player's clock (within the frame, by arrival time).</summary>
+    public double Timestamp { get; }
+
+    /// <summary>For <see cref="ActionEvents.Completed"/> and <see cref="ActionEvents.Canceled"/>: why the action ended.</summary>
+    public InputEndReason? EndReason { get; }
 
     /// <summary>The player the event belongs to.</summary>
     public InputPlayer Player { get; }
