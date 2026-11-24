@@ -13,6 +13,10 @@ public sealed partial class RawInputState
     {
         public SourceKey Key;
         public Vector4 Base;          // the value observed before the first queued change
+        public bool BasePresent;      // whether the channel had a value before the first queued change
+        public bool BaseFresh;        // Base was taken at the start of this run of samples
+        public Vector4 Peak;          // the most extreme value of the current run (analog extremes)
+        public int Trend;             // +1 moving away from zero, −1 towards it, 0 not yet known
         private Entry[] _entries = new Entry[4];
         private int _head;
         public int Count;
@@ -26,6 +30,7 @@ public sealed partial class RawInputState
             public ulong Stamp;
             public double Fraction;   // NaN unless given (replays)
             public int Cancel;        // −1, or the InputEndReason of a cut-off
+            public bool Present;      // whether the channel has a value after this change
         }
 
         private ref Entry At(int i) => ref _entries[(_head + i) % _entries.Length];
@@ -36,12 +41,13 @@ public sealed partial class RawInputState
         public ulong FirstStamp => _entries[_head].Stamp;
         public double FirstFraction => _entries[_head].Fraction;
         public int FirstCancel => _entries[_head].Cancel;
+        public bool FirstPresent => _entries[_head].Present;
         public long SeqAt(int i) => At(i).Seq;
         public Vector4 Last => At(Count - 1).Value;
 
         public void ReplaceLast(Vector4 value) => At(Count - 1).Value = value;
 
-        public void Push(Vector4 value, long seq, long group, ulong stamp, double fraction, int cancel)
+        public void Push(Vector4 value, long seq, long group, ulong stamp, double fraction, int cancel, bool present)
         {
             if (Count == _entries.Length)
             {
@@ -52,7 +58,7 @@ public sealed partial class RawInputState
             }
             _entries[(_head + Count) % _entries.Length] = new Entry
             {
-                Value = value, Seq = seq, Group = group, Stamp = stamp, Fraction = fraction, Cancel = cancel,
+                Value = value, Seq = seq, Group = group, Stamp = stamp, Fraction = fraction, Cancel = cancel, Present = present,
             };
             Count++;
         }
@@ -60,6 +66,7 @@ public sealed partial class RawInputState
         public void PopFirst()
         {
             Base = _entries[_head].Value;
+            BasePresent = _entries[_head].Present;
             _head = (_head + 1) % _entries.Length;
             Count--;
         }
@@ -85,11 +92,68 @@ public sealed partial class RawInputState
 
     private long NextGroup() => _groupDepth > 0 ? _currentGroup : ++_groupCounter;
 
-    private void Enqueue(ChannelQueue queue, Vector4 value, Vector4 before, int cancel)
+    private ChannelQueue QueueOf(in SourceKey key)
     {
-        if (queue.Count == 0) queue.Base = before;
-        queue.Push(value, ++_sequence, NextGroup(), Clock(), FractionOverride, cancel);
+        if (!_pending.TryGetValue(key, out var queue)) _pending[key] = queue = new ChannelQueue { Key = key };
+        return queue;
+    }
+
+    private void Enqueue(ChannelQueue queue, Vector4 value, Vector4 before, int cancel, bool present, bool presentBefore)
+    {
+        if (queue.Count == 0)
+        {
+            if (!queue.BaseFresh) queue.Base = before;
+            queue.BasePresent = presentBefore;
+        }
+        queue.BaseFresh = false;
+        queue.Push(value, ++_sequence, NextGroup(), Clock(), FractionOverride, cancel, present);
         if (!queue.Active) { queue.Active = true; _active.Add(queue); }
+    }
+
+    /// <summary>
+    /// Follows an analog channel within one side of zero and queues its turning points (a peak or a dip
+    /// that the value has moved back from by more than <see cref="AnalogBand"/>), so a trigger squeezed past
+    /// a threshold and back within one frame is still seen past it.
+    /// </summary>
+    private void TrackExtreme(ChannelQueue q, Vector4 before, Vector4 value, bool presentBefore)
+    {
+        if (q.Count == 0 && !q.BaseFresh)
+        {
+            // A new run starts from the value already seen: earlier peaks are history, not turning points.
+            q.Base = before;
+            q.BaseFresh = true;
+            q.Peak = before;
+            q.Trend = 0;
+        }
+        float mv = value.Length(), mp = q.Peak.Length();
+        if (q.Trend >= 0)
+        {
+            if (mv >= mp) { q.Peak = value; if (mv > mp) q.Trend = 1; return; }
+            if (mp - mv <= AnalogBand) return;
+            CommitPeak(q, presentBefore);
+            q.Trend = -1;
+        }
+        else
+        {
+            if (mv <= mp) { q.Peak = value; return; }
+            if (mv - mp <= AnalogBand) return;
+            CommitPeak(q, presentBefore);
+            q.Trend = 1;
+        }
+        q.Peak = value;
+    }
+
+    private void CommitPeak(ChannelQueue q, bool presentBefore)
+    {
+        if (q.Count > 0 ? q.Last == q.Peak : q.Base == q.Peak) return;   // nothing new
+        Enqueue(q, q.Peak, q.Base, -1, present: true, presentBefore);
+    }
+
+    /// <summary>Whether a channel has a value in the step being evaluated (tracking gained or lost is queued like any change).</summary>
+    private bool PresentObserved(in SourceKey key)
+    {
+        if (_pending.TryGetValue(key, out var queue) && queue.Count > 0) return queue.FirstSeq < _boundary ? queue.FirstPresent : queue.BasePresent;
+        return _present.Contains(key);
     }
 
     /// <summary>The value the current step observes: its first queued change if it belongs to this step, else the last observed value.</summary>
@@ -201,6 +265,7 @@ public sealed partial class RawInputState
             if (q.Count == 0)
             {
                 q.Active = false;
+                q.BaseFresh = false;
                 _active[i] = _active[^1];
                 _active.RemoveAt(_active.Count - 1);
             }
@@ -230,13 +295,15 @@ public sealed partial class RawInputState
     public void Cancel(in SourceKey key, InputEndReason reason)
     {
         if (Frozen) return;
-        _present.Remove(key);
-        _pending.TryGetValue(key, out var queue);
-        var last = queue != null && queue.Count > 0 ? queue.Last : GetCurrent(key);
+        bool wasPresent = _present.Remove(key);
+        var last = GetCurrent(key);
         _current[key] = Vector4.Zero;
-        if (last == Vector4.Zero) return;
-        if (queue == null) _pending[key] = queue = new ChannelQueue { Key = key };
-        Enqueue(queue, Vector4.Zero, queue.Count > 0 ? queue.Base : last, (int)reason);
+        // A tracked value at the origin that loses tracking is a change too.
+        if (last == Vector4.Zero && !(wasPresent && _absolute.Contains(key))) return;
+        var queue = QueueOf(key);
+        Enqueue(queue, Vector4.Zero, last, (int)reason, present: false, wasPresent);
+        queue.Trend = 0;
+        queue.Peak = Vector4.Zero;
         if (!_clearing) CutOff?.Invoke(key, reason);
     }
 
@@ -246,10 +313,10 @@ public sealed partial class RawInputState
         if (key.Device == SourceKey.AnyDevice && key.IsPerDevice)
         {
             foreach (var d in DevicesOf(key.Kind))
-                if (_present.Contains(key with { Device = d })) return true;
+                if (PresentObserved(key with { Device = d })) return true;
             return false;
         }
-        return _present.Contains(key);
+        return PresentObserved(key);
     }
 
     /// <summary>Marks a channel as a tracked quantity (a pose, position or gaze): while present it counts as input even at zero or identity.</summary>
@@ -264,10 +331,10 @@ public sealed partial class RawInputState
             foreach (var d in DevicesOf(key.Kind))
             {
                 var exact = key with { Device = d };
-                if (_absolute.Contains(exact) && _present.Contains(exact)) return true;
+                if (_absolute.Contains(exact) && PresentObserved(exact)) return true;
             }
             return false;
         }
-        return _absolute.Contains(key) && _present.Contains(key);
+        return _absolute.Contains(key) && PresentObserved(key);
     }
 }

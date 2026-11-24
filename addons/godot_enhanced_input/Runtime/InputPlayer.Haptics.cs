@@ -299,6 +299,7 @@ public partial class InputPlayer
     /// </summary>
     public void UpdateHaptics(double delta)
     {
+        if (_triggerResistance.Count > 0 || _padForces.Count > 0 || _deviceForces.Count > 0) ReapplyPersistentOutputs();
         if (_haptics.Count == 0 && _hapticSent.Count == 0 && _customSent.Count == 0) return;
         float scale = VibrationScale;
         var system = GetParent() as EnhancedInput;
@@ -432,7 +433,13 @@ public partial class InputPlayer
         }
         for (int i = _haptics.Count - 1; i >= 0; i--)
             if (_haptics[i].Device == joypad) { _haptics[i].IsPlaying = false; _haptics.RemoveAt(i); }
-        _triggerResistance.Remove(joypad);
+        // Outputs that stay until changed are released too, so the next owner starts from nothing.
+        if (_triggerResistance.Remove(joypad) && HapticsOutput is IAdaptiveTriggerOutput triggers)
+        {
+            triggers.SetTriggerResistance(joypad, TriggerSide.Left, TriggerResistance.Off);
+            triggers.SetTriggerResistance(joypad, TriggerSide.Right, TriggerResistance.Off);
+        }
+        if (_padForces.Remove(joypad) && HapticsOutput is IForceFeedbackOutput forces) forces.SetForceFeedback(joypad, ForceFeedback.None);
     }
 
     /// <inheritdoc cref="ReleaseHapticDevice(int)"/>
@@ -443,6 +450,71 @@ public partial class InputPlayer
         if (_customSent.Remove(device.Id) && device.Backend != null && device.IsConnected) device.Backend.Rumble(device, 0f, 0f, 0f, 0f);
         for (int i = _haptics.Count - 1; i >= 0; i--)
             if (_haptics[i].DeviceId == device.Id) { _haptics[i].IsPlaying = false; _haptics.RemoveAt(i); }
+        if (_deviceForces.Remove(device.Id) && device.Backend != null && device.IsConnected) device.Backend.SetForceFeedback(device, ForceFeedback.None);
+    }
+
+    /// <summary>
+    /// Stops everything this player drives: effects, motors, trigger resistance and force feedback — when
+    /// the player is removed, or the application is suspended or loses focus (see
+    /// <see cref="EnhancedInput.StopHapticsWhenInactive"/>). Resistance and forces are not restored on
+    /// return; set them again.
+    /// </summary>
+    public void ReleaseAllHapticOutputs()
+    {
+        foreach (var h in _haptics) h.IsPlaying = false;
+        _haptics.Clear();
+        _pads.Clear();
+        _pads.AddRange(_hapticSent.Keys);
+        foreach (var pad in _triggerResistance.Keys) if (!_pads.Contains(pad)) _pads.Add(pad);
+        foreach (var pad in _padForces.Keys) if (!_pads.Contains(pad)) _pads.Add(pad);
+        foreach (var pad in _pads) ReleaseHapticDevice(pad);
+        if (GetParent() is EnhancedInput system)
+        {
+            _ids.Clear();
+            _ids.AddRange(_customSent.Keys);
+            foreach (var id in _deviceForces.Keys) if (!_ids.Contains(id)) _ids.Add(id);
+            foreach (var id in _ids) ReleaseHapticDevice(system.GetDevice(id));
+        }
+        _customSent.Clear();
+        _deviceForces.Clear();
+    }
+
+    private readonly List<int> _pads = new();
+    private readonly List<string> _ids = new();
+
+    // What the game asked for, before the player's strength settings: re-applied when they change.
+    private readonly Dictionary<int, (TriggerResistance Left, TriggerResistance Right)> _requestedResistance = new();
+    internal readonly Dictionary<int, ForceFeedback> _padForces = new();
+    internal readonly Dictionary<string, ForceFeedback> _deviceForces = new();
+    private float _appliedVibrationScale = -1f, _appliedForceScale = -1f;
+
+    /// <summary>When the player's vibration or force-feedback strength changes, persistent outputs follow at once.</summary>
+    private void ReapplyPersistentOutputs()
+    {
+        float vibration = VibrationScale, force = ForceScale;
+        if (vibration != _appliedVibrationScale && _appliedVibrationScale >= 0f && HapticsOutput is IAdaptiveTriggerOutput triggers)
+            foreach (var pair in _requestedResistance)
+            {
+                if (!_triggerResistance.ContainsKey(pair.Key)) continue;
+                var left = pair.Value.Left.Scaled(vibration);
+                var right = pair.Value.Right.Scaled(vibration);
+                _triggerResistance[pair.Key] = (left, right);
+                triggers.SetTriggerResistance(pair.Key, TriggerSide.Left, left);
+                triggers.SetTriggerResistance(pair.Key, TriggerSide.Right, right);
+            }
+        if (force != _appliedForceScale && _appliedForceScale >= 0f)
+        {
+            if (HapticsOutput is IForceFeedbackOutput forces)
+                foreach (var pair in _padForces) forces.SetForceFeedback(pair.Key, pair.Value.Scaled(force));
+            if (GetParent() is EnhancedInput system)
+                foreach (var pair in _deviceForces)
+                {
+                    var info = system.GetDevice(pair.Key);
+                    if (info?.Backend != null && info.IsConnected) info.Backend.SetForceFeedback(info, pair.Value.Scaled(force));
+                }
+        }
+        _appliedVibrationScale = vibration;
+        _appliedForceScale = force;
     }
 
     private void MixCustom(string id, HapticEffect e, Vector4 v)
@@ -549,6 +621,7 @@ public partial class InputPlayer
         if (HapticsOutput is not IAdaptiveTriggerOutput output) return;
         var system = GetParent() as EnhancedInput;
         var scaled = resistance.Scaled(VibrationScale);
+        _appliedVibrationScale = VibrationScale;
         _hapticPads.Clear();
         if (JoypadDevices.Count > 0) _hapticPads.AddRange(JoypadDevices);
         else foreach (var d in JoypadsToRead(SourceKey.AnyDevice)) _hapticPads.Add(d);
@@ -559,6 +632,8 @@ public partial class InputPlayer
             if (info != null && (!info.IsConnected || (info.HardwareFeatures & ControllerFeatures.AdaptiveTriggers) == 0)) continue;
             _triggerResistance.TryGetValue(d, out var current);
             _triggerResistance[d] = side == TriggerSide.Left ? (scaled, current.Right) : (current.Left, scaled);
+            _requestedResistance.TryGetValue(d, out var requested);
+            _requestedResistance[d] = side == TriggerSide.Left ? (resistance, requested.Right) : (requested.Left, resistance);
             output.SetTriggerResistance(d, side, scaled);
         }
     }

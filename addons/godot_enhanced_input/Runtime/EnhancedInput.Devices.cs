@@ -134,12 +134,14 @@ public partial class EnhancedInput
                 }
                 break;
             case InputDeviceKind.Custom:
+                // Everyone else lets go: its owner, and players that received it while nobody owned it.
                 foreach (var p in _players)
-                    if (p != player && p.OwnedCustomDevices.Remove(device.Id))
-                    {
-                        p.ReleaseHapticDevice(device);
-                        p.Raw.ClearCustomDevice(device.DeviceType, device.Index, InputEndReason.DeviceReassigned);
-                    }
+                {
+                    if (p == player) continue;
+                    p.OwnedCustomDevices.Remove(device.Id);
+                    p.ReleaseHapticDevice(device);
+                    p.Raw.ClearCustomDevice(device.DeviceType, device.Index, InputEndReason.DeviceReassigned);
+                }
                 player.OwnedCustomDevices.Add(device.Id);
                 device.Owner = player;
                 break;

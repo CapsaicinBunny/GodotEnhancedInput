@@ -61,21 +61,30 @@ public partial class InputPlayer
     /// </summary>
     public void SetForceFeedback(ForceFeedback force, int device = SourceKey.AnyDevice)
     {
-        float k = Mathf.Clamp((float)Profile.GetSetting(ForceFeedbackStrengthSetting, 1.0), 0f, 2f);
-        var scaled = force.Scaled(k);
+        var scaled = force.Scaled(ForceScale);
+        _appliedForceScale = ForceScale;
         if (HapticsOutput is IForceFeedbackOutput ff)
         {
             _hapticPads.Clear();
             if (JoypadDevices.Count > 0) _hapticPads.AddRange(JoypadDevices);
             else foreach (var d in JoypadsToRead(SourceKey.AnyDevice)) _hapticPads.Add(d);
             foreach (var d in _hapticPads)
-                if (device < 0 || d == device) ff.SetForceFeedback(d, scaled);
+            {
+                if (device >= 0 && d != device) continue;
+                ff.SetForceFeedback(d, scaled);
+                _padForces[d] = force;
+            }
         }
         if (device >= 0 || GetParent() is not EnhancedInput system) return;
         foreach (var id in OwnedCustomDevices)
         {
             var info = system.GetDevice(id);
-            if (info?.Backend != null && info.IsConnected) info.Backend.SetForceFeedback(info, scaled);
+            if (info?.Backend == null || !info.IsConnected) continue;
+            info.Backend.SetForceFeedback(info, scaled);
+            _deviceForces[id] = force;
         }
     }
+
+    /// <summary>The player's force-feedback strength setting, 0…2.</summary>
+    private float ForceScale => Mathf.Clamp((float)Profile.GetSetting(ForceFeedbackStrengthSetting, 1.0), 0f, 2f);
 }

@@ -54,11 +54,17 @@ public partial class EnhancedInput
         // A persistent id: the hardware identity when given, else the backend's own index.
         string id = guid.Length > 0 ? $"{deviceType}:{guid}" : $"{deviceType}:{index}";
         var device = GetDevice(id);
-        if (device != null && device.IsConnected && device.Backend != null && device.Backend != backend && _backends.Contains(device.Backend))
+        if (TakenByAnotherBackend(device, backend))
         {
-            // Another live backend already has this id: keep them apart.
-            id = guid.Length > 0 ? $"{deviceType}:{backend?.Namespace}:{guid}" : $"{deviceType}:{backend?.Namespace}:{index}";
+            // Another live backend already has this id: keep them apart, however many share a namespace.
+            string baseId = guid.Length > 0 ? $"{deviceType}:{backend?.Namespace}:{guid}" : $"{deviceType}:{backend?.Namespace}:{index}";
+            id = baseId;
             device = GetDevice(id);
+            for (int n = 2; TakenByAnotherBackend(device, backend); n++)
+            {
+                id = $"{baseId}#{n}";
+                device = GetDevice(id);
+            }
         }
 
         // The runtime index: the one the device had, else the backend's own, else the next free one.
@@ -123,10 +129,30 @@ public partial class EnhancedInput
         => RouteDeviceControl(deviceType, index, control, value, tracked: false, clear: false);
 
     internal void SetDeviceControl(InputBackend backend, string deviceType, int index, string control, Vector4 value, bool tracked)
-        => RouteDeviceControl(deviceType, RuntimeIndexOf(backend, deviceType, index), control, value, tracked, clear: false);
+    {
+        int runtime = RuntimeIndexOf(backend, deviceType, index);
+        if (IsCurrentDeviceOf(backend, deviceType, runtime)) RouteDeviceControl(deviceType, runtime, control, value, tracked, clear: false);
+    }
 
     internal void ClearDeviceControl(InputBackend backend, string deviceType, int index, string control)
-        => RouteDeviceControl(deviceType, RuntimeIndexOf(backend, deviceType, index), control, Vector4.Zero, tracked: false, clear: true);
+    {
+        int runtime = RuntimeIndexOf(backend, deviceType, index);
+        if (IsCurrentDeviceOf(backend, deviceType, runtime)) RouteDeviceControl(deviceType, runtime, control, Vector4.Zero, tracked: false, clear: true);
+    }
+
+    /// <summary>Another live backend holds this record (so a new device must take another id).</summary>
+    private bool TakenByAnotherBackend(InputDeviceInfo device, InputBackend backend)
+        => device != null && device.IsConnected && device.Backend != null && device.Backend != backend && _backends.Contains(device.Backend);
+
+    /// <summary>
+    /// Whether a backend still drives the device at a runtime index: input from a device that was removed,
+    /// or that another backend has taken over, is ignored.
+    /// </summary>
+    private bool IsCurrentDeviceOf(InputBackend backend, string deviceType, int runtime)
+    {
+        var device = GetCustomDevice(deviceType, runtime);
+        return device != null && device.IsConnected && (backend == null || device.Backend == backend) && (backend == null || _backends.Contains(backend));
+    }
 
     private void RouteDeviceControl(string deviceType, int runtime, string control, Vector4 value, bool tracked, bool clear)
     {

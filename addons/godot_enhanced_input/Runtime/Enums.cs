@@ -394,6 +394,17 @@ public enum ReconnectPolicy
     Ask,
 }
 
+/// <summary>How analog channels are sampled between ticks (<see cref="RawInputState.AnalogSampling"/>).</summary>
+public enum AnalogSampling
+{
+    /// <summary>Only crossings of zero are kept; other movement is coalesced into the latest value (cheapest).</summary>
+    Latest,
+    /// <summary>Crossings of zero and every turning point (peaks and dips): thresholds crossed and recrossed within one frame are seen (default).</summary>
+    Extremes,
+    /// <summary>Every sample is evaluated on its own (precise, more steps per tick).</summary>
+    All,
+}
+
 /// <summary>Why held input ended without being released by the player.</summary>
 public enum InputEndReason
 {

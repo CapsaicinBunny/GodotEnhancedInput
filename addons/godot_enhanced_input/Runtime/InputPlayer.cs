@@ -95,6 +95,13 @@ public partial class InputPlayer : Node, ISourceReader
     /// <summary>The raw input this player has received.</summary>
     public RawInputState Raw { get; } = new();
 
+    /// <summary>How analog input between ticks is sampled (see <see cref="RawInputState.AnalogSampling"/>).</summary>
+    public AnalogSampling AnalogSampling
+    {
+        get => Raw.AnalogSampling;
+        set => Raw.AnalogSampling = value;
+    }
+
     /// <summary>Creates a player (the autoload creates them; standalone players work too).</summary>
     public InputPlayer()
     {

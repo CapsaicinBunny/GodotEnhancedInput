@@ -131,6 +131,7 @@ public partial class EnhancedInput : Node
     public bool RemovePlayer(InputPlayer player)
     {
         if (player == null || _players.IndexOf(player) <= 0) return false;
+        player.ReleaseAllHapticOutputs();   // nothing the player started keeps running on its devices
         _players.Remove(player);
         foreach (var d in _devices)
             if (d.Owner == player) d.Owner = null;
@@ -197,10 +198,21 @@ public partial class EnhancedInput : Node
     /// <inheritdoc/>
     public override void _Notification(int what)
     {
+        bool focusOut = what == NotificationApplicationFocusOut || what == NotificationWMWindowFocusOut;
+        bool suspended = what == NotificationApplicationPaused;
+        if ((focusOut || suspended) && StopHapticsWhenInactive)
+            foreach (var player in _players) player.ReleaseAllHapticOutputs();
         if (!ResetInputOnFocusLoss) return;
-        if (what == NotificationApplicationFocusOut || what == NotificationWMWindowFocusOut) ResetAllInput(InputEndReason.FocusLost);
-        else if (what == NotificationApplicationPaused) ResetAllInput(InputEndReason.ApplicationSuspended);
+        if (focusOut) ResetAllInput(InputEndReason.FocusLost);
+        else if (suspended) ResetAllInput(InputEndReason.ApplicationSuspended);
     }
+
+    /// <summary>
+    /// When on (default), losing focus or being suspended stops every player's vibration, trigger
+    /// resistance and force feedback, so nothing keeps buzzing or pushing while the game is in the
+    /// background.
+    /// </summary>
+    [Export] public bool StopHapticsWhenInactive { get; set; } = true;
 
     // ------------------------------------------------------------------
     //  Events and ticking

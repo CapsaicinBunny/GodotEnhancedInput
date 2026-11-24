@@ -109,22 +109,55 @@ public sealed partial class RawInputState
     /// <summary>Sets a channel's value from a rotation (x, y, z, w).</summary>
     public void Set(in SourceKey key, Quaternion value) => Set(key, new Vector4(value.X, value.Y, value.Z, value.W));
 
-    /// <summary>Sets a channel's value. On/off changes are queued so each tick sees at most one.</summary>
+    /// <summary>
+    /// How analog channels (axes, pressure, backend controls, virtual controls) are sampled between ticks.
+    /// <see cref="GodotEnhancedInput.AnalogSampling.Extremes"/> (default) keeps every turning point, so a
+    /// trigger squeezed past a threshold and back within one frame is seen past it.
+    /// </summary>
+    public AnalogSampling AnalogSampling { get; set; } = AnalogSampling.Extremes;
+
+    /// <summary>How far an analog value must move back from a peak or dip before the turning point is kept (filters resting noise).</summary>
+    public float AnalogBand { get; set; } = 0.02f;
+
+    private AnalogSampling SamplingOf(in SourceKey key)
+    {
+        if (_absolute.Contains(key)) return AnalogSampling.Latest;   // poses and gaze: the latest reading is what matters
+        return key.Kind is RawKind.JoyAxis or RawKind.PenPressure or RawKind.InputMapAction or RawKind.DeviceControl or RawKind.Virtual
+            ? AnalogSampling
+            : AnalogSampling.Latest;
+    }
+
+    /// <summary>
+    /// Sets a channel's value. Changes that cross zero, tracking gained, and (per <see cref="AnalogSampling"/>)
+    /// analog turning points are queued, so the tick evaluates them in order; other movement updates the
+    /// latest value.
+    /// </summary>
     public void Set(in SourceKey key, Vector4 value)
     {
-        bool on = value != Vector4.Zero;
-        if (_pending.TryGetValue(key, out var queue) && queue.Count > 0)
+        var before = GetCurrent(key);
+        bool presentBefore = _present.Contains(key);
+        bool crossing = (before != Vector4.Zero) != (value != Vector4.Zero);
+        _pending.TryGetValue(key, out var queue);
+        if (crossing || (!presentBefore && _absolute.Contains(key)))
         {
-            if ((queue.Last != Vector4.Zero) == on) queue.ReplaceLast(value);   // same side of zero: just the latest value
-            else Enqueue(queue, value, queue.Base, -1);
+            queue ??= QueueOf(key);
+            Enqueue(queue, value, before, -1, present: true, presentBefore);
+            queue.Peak = value;
+            queue.Trend = 0;
         }
-        else
+        else if (value != before && value != Vector4.Zero)
         {
-            var previous = GetCurrent(key);
-            if ((previous != Vector4.Zero) != on)
+            switch (SamplingOf(key))
             {
-                if (queue == null) _pending[key] = queue = new ChannelQueue { Key = key };
-                Enqueue(queue, value, previous, -1);
+                case AnalogSampling.Latest:
+                    if (queue != null && queue.Count > 0) queue.ReplaceLast(value);   // the queued change shows the latest value
+                    break;
+                case AnalogSampling.All:
+                    Enqueue(queue ?? QueueOf(key), value, before, -1, present: true, presentBefore);
+                    break;
+                default:
+                    TrackExtreme(queue ?? QueueOf(key), before, value, presentBefore);
+                    break;
             }
         }
 
@@ -327,6 +360,7 @@ public sealed partial class RawInputState
     /// <summary>Called by the player after each tick: clears per-frame data (mouse motion, scrolling, drags, gestures).</summary>
     public void EndTick()
     {
+        foreach (var queue in _pending.Values) queue.BaseFresh = false;   // the next frame's samples start a new run
         _frameStep = true;
         _motion = Vector2.Zero;
         _wheel = Vector2.Zero;
