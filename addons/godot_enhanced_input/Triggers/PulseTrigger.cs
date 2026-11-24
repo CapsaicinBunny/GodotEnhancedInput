@@ -45,9 +45,10 @@ public partial class PulseTrigger : InputTrigger
         if (MaxPulses > 0 && memory.Count >= MaxPulses) return TriggerPhase.Idle;
 
         memory.Timer += context.Delta;
-        if (memory.Timer + TimeEpsilon >= IntervalSeconds)
+        double interval = Scaled(context, IntervalSeconds, RepeatTimeScaleSetting);
+        if (memory.Timer + TimeEpsilon >= interval)
         {
-            memory.Timer -= IntervalSeconds;
+            memory.Timer -= interval;
             if (memory.Timer < 0) memory.Timer = 0;
             memory.Count++;
             return TriggerPhase.Triggered;

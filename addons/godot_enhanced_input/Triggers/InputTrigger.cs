@@ -91,6 +91,19 @@ public abstract partial class InputTrigger : Resource
     /// </summary>
     [Export(PropertyHint.Range, "0,1,0.01,or_greater")] public float ActuationThreshold { get; set; } = 0.5f;
 
+    /// <summary>Player setting that scales hold times (hold, hold-release, long presses). 1 when not set.</summary>
+    public const string HoldTimeScaleSetting = "hold_time_scale";
+
+    /// <summary>Player setting that scales tap windows (tap, multi-tap). 1 when not set.</summary>
+    public const string TapTimeScaleSetting = "tap_time_scale";
+
+    /// <summary>Player setting that scales repeat and pulse intervals. 1 when not set.</summary>
+    public const string RepeatTimeScaleSetting = "repeat_time_scale";
+
+    /// <summary>A duration scaled by one of the player's timing settings (accessibility, comfort).</summary>
+    protected static double Scaled(in TriggerContext context, double seconds, string setting)
+        => seconds * (context.Player?.GetSetting(setting, 1.0) ?? 1.0);
+
     /// <summary>How this trigger combines with others in the same set.</summary>
     public virtual TriggerRole Role => TriggerRole.Explicit;
 

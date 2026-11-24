@@ -25,22 +25,26 @@ public partial class DeadzoneModifier : InputModifier
     [Export(PropertyHint.Range, "0,1,0.01")] public float Lower { get; set; } = 0.2f;
     [Export(PropertyHint.Range, "0,1,0.01")] public float Upper { get; set; } = 1f;
 
+    /// <summary>Optional player setting that replaces <see cref="Lower"/> (e.g. "stick_deadzone"), so players can tune it.</summary>
+    [Export] public string LowerSetting { get; set; } = string.Empty;
+
     public override Vector3 Apply(Vector3 value, in ModifierContext context)
     {
+        float lower = !string.IsNullOrEmpty(LowerSetting) && context.Player != null ? (float)context.Player.GetSetting(LowerSetting, Lower) : Lower;
         if (Shape == DeadzoneShape.Axial)
-            return new Vector3(Remap(value.X), Remap(value.Y), Remap(value.Z));
+            return new Vector3(Remap(value.X, lower), Remap(value.Y, lower), Remap(value.Z, lower));
 
         float length = value.Length();
         if (length <= 0f) return Vector3.Zero;
-        return value / length * Remap(length);
+        return value / length * Remap(length, lower);
     }
 
-    private float Remap(float v)
+    private float Remap(float v, float lower)
     {
         float magnitude = Mathf.Abs(v);
-        if (magnitude == 0f || magnitude < Lower) return 0f;
-        float range = Upper - Lower;
-        float scaled = range <= 0f ? 1f : Mathf.Clamp((magnitude - Lower) / range, 0f, 1f);
+        if (magnitude == 0f || magnitude < lower) return 0f;
+        float range = Upper - lower;
+        float scaled = range <= 0f ? 1f : Mathf.Clamp((magnitude - lower) / range, 0f, 1f);
         return Mathf.Sign(v) * scaled;
     }
 }

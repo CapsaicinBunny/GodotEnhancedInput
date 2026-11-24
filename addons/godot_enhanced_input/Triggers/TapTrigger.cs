@@ -16,13 +16,14 @@ public partial class TapTrigger : InputTrigger
     protected override TriggerPhase Update(in TriggerContext context, bool actuated, bool wasActuated)
     {
         var memory = context.Memory;
+        double tap = Scaled(context, TapSeconds, TapTimeScaleSetting);
         if (actuated)
         {
             memory.Timer += context.Delta;
-            return memory.Timer <= TapSeconds + TimeEpsilon ? TriggerPhase.Ongoing : TriggerPhase.Idle;
+            return memory.Timer <= tap + TimeEpsilon ? TriggerPhase.Ongoing : TriggerPhase.Idle;
         }
 
-        bool fire = wasActuated && memory.Timer <= TapSeconds + TimeEpsilon;
+        bool fire = wasActuated && memory.Timer <= tap + TimeEpsilon;
         memory.Timer = 0;
         return fire ? TriggerPhase.Triggered : TriggerPhase.Idle;
     }

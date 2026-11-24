@@ -35,7 +35,7 @@ public partial class RepeatTrigger : InputTrigger
 
         if (!wasActuated)
         {
-            m.Timer = InitialDelaySeconds;
+            m.Timer = Scaled(context, InitialDelaySeconds, HoldTimeScaleSetting);
             m.Count = 0;
             return TriggerOnPress ? TriggerPhase.Triggered : TriggerPhase.Ongoing;
         }
@@ -44,7 +44,7 @@ public partial class RepeatTrigger : InputTrigger
         m.Timer -= context.Delta;
         if (m.Timer <= TimeEpsilon)
         {
-            m.Timer += IntervalSeconds;
+            m.Timer += Scaled(context, IntervalSeconds, RepeatTimeScaleSetting);
             if (m.Timer < 0) m.Timer = 0;
             m.Count++;
             return TriggerPhase.Triggered;

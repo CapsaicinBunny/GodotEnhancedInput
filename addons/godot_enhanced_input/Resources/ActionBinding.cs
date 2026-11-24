@@ -24,6 +24,20 @@ public partial class ActionBinding : Resource
     [Export] public Array<InputTrigger> Triggers { get; set; } = new();
 
     /// <summary>
+    /// Binding groups this binding belongs to ("keyboard_mouse", "gamepad", "touch", "left_handed"…).
+    /// When the player has an active <see cref="InputMode"/>, a binding with groups is evaluated only if
+    /// the mode turns one of them on. Empty: always evaluated.
+    /// </summary>
+    [Export] public string[] Groups { get; set; } = System.Array.Empty<string>();
+
+    /// <summary>Puts the binding in groups and returns it (for code-built contexts).</summary>
+    public ActionBinding InGroups(params string[] groups)
+    {
+        Groups = groups ?? System.Array.Empty<string>();
+        return this;
+    }
+
+    /// <summary>
     /// Makes the binding rebindable: a player's profile can replace its source under this id. Bindings
     /// in different contexts that share an id are rebound together. Empty: the binding is fixed.
     /// </summary>

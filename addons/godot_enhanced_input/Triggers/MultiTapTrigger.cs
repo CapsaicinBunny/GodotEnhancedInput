@@ -23,18 +23,19 @@ public partial class MultiTapTrigger : InputTrigger
 
     protected override TriggerPhase Update(in TriggerContext context, bool actuated, bool wasActuated)
     {
+        double tapSeconds = Scaled(context, TapSeconds, TapTimeScaleSetting), gapSeconds = Scaled(context, GapSeconds, TapTimeScaleSetting);
         var m = context.Memory;   // Count: taps done · Timer: time since last release · Timer2: current press length
         if (actuated)
         {
             if (!wasActuated)
             {
-                if (m.Count > 0 && m.Timer > GapSeconds + TimeEpsilon) m.Count = 0;
+                if (m.Count > 0 && m.Timer > gapSeconds + TimeEpsilon) m.Count = 0;
                 m.Timer2 = 0;
                 m.Flag = true;   // pressing a candidate tap
             }
             if (!m.Flag) return TriggerPhase.Idle;   // held too long: wait for release
             m.Timer2 += context.Delta;
-            if (m.Timer2 > TapSeconds + TimeEpsilon)
+            if (m.Timer2 > tapSeconds + TimeEpsilon)
             {
                 m.Count = 0;
                 m.Flag = false;
@@ -59,7 +60,7 @@ public partial class MultiTapTrigger : InputTrigger
         if (m.Count > 0)
         {
             m.Timer += context.Delta;
-            if (m.Timer > GapSeconds + TimeEpsilon)
+            if (m.Timer > gapSeconds + TimeEpsilon)
             {
                 m.Count = 0;
                 return TriggerPhase.Idle;

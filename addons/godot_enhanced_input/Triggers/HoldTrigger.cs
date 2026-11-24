@@ -28,7 +28,7 @@ public partial class HoldTrigger : InputTrigger
         }
 
         memory.Timer += context.Delta;
-        if (memory.Timer + TimeEpsilon < HoldSeconds) return TriggerPhase.Ongoing;
+        if (memory.Timer + TimeEpsilon < Scaled(context, HoldSeconds, HoldTimeScaleSetting)) return TriggerPhase.Ongoing;
 
         if (OneShot && memory.Flag) return TriggerPhase.Idle;
         memory.Flag = true;

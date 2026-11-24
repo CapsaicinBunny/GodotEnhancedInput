@@ -64,9 +64,11 @@ public partial class InputPlayer
         }
 
         if (kind == LastDeviceKind && joypad == LastJoypad) return;
+        bool kindChanged = kind != LastDeviceKind;
         LastDeviceKind = kind;
         LastJoypad = joypad;
         EmitSignal(SignalName.InputDeviceChanged, Variant.From(kind), joypad);
+        if (kindChanged) SwitchModeFor(kind);
     }
 
     /// <summary>
@@ -88,7 +90,7 @@ public partial class InputPlayer
         {
             foreach (var binding in context.Bindings)
             {
-                if (binding?.Action != action) continue;
+                if (binding?.Action != action || !IsBindingActive(binding)) continue;
                 var source = GetEffectiveSource(binding);
                 if (source == null || source.Kind == SourceKind.None) continue;
                 // A chord ("Shift + Space") is shown in front of the source, using the chord action's prompt

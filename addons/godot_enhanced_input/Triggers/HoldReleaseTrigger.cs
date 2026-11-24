@@ -22,7 +22,7 @@ public partial class HoldReleaseTrigger : InputTrigger
             return TriggerPhase.Ongoing;
         }
 
-        bool fire = wasActuated && memory.Timer + TimeEpsilon >= HoldSeconds;
+        bool fire = wasActuated && memory.Timer + TimeEpsilon >= Scaled(context, HoldSeconds, HoldTimeScaleSetting);
         memory.Timer = 0;
         return fire ? TriggerPhase.Triggered : TriggerPhase.Idle;
     }

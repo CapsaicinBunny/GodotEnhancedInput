@@ -61,6 +61,9 @@ public sealed class ActionState
 
     // Evaluation bookkeeping (owned by InputPlayer).
     internal ulong ResolvedTick;
+    internal bool ToggleOn;
+    internal bool TogglePressed;
+    internal Vector3 ToggleValue;
     internal bool Resolving;
     internal ModifierMemory[] ModifierMemories = System.Array.Empty<ModifierMemory>();
     internal TriggerMemory[] TriggerMemories = System.Array.Empty<TriggerMemory>();

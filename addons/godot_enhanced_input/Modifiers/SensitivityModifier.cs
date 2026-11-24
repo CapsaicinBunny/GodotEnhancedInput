@@ -26,11 +26,11 @@ public partial class SensitivityModifier : InputModifier
 
     public override Vector3 Apply(Vector3 value, in ModifierContext context)
     {
-        var profile = context.Player?.Profile;
-        float multiplier = (float)(profile?.GetSetting(Setting, 1.0) ?? 1.0);
+        var player = context.Player;
+        float multiplier = (float)(player?.GetSetting(Setting, 1.0) ?? 1.0);
         var result = value * Scale * multiplier;
-        if (profile != null && !string.IsNullOrEmpty(InvertYSetting) && profile.GetFlag(InvertYSetting)) result.Y = -result.Y;
-        if (profile != null && !string.IsNullOrEmpty(InvertXSetting) && profile.GetFlag(InvertXSetting)) result.X = -result.X;
+        if (player != null && !string.IsNullOrEmpty(InvertYSetting) && player.GetFlag(InvertYSetting)) result.Y = -result.Y;
+        if (player != null && !string.IsNullOrEmpty(InvertXSetting) && player.GetFlag(InvertXSetting)) result.X = -result.X;
         return result;
     }
 }

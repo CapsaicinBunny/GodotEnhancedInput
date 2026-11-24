@@ -68,6 +68,7 @@ public partial class InputPlayer : IChannelMask
                 var binding = bindings[i];
                 var action = binding?.Action;
                 if (action == null) continue;
+                if (!IsBindingActive(binding)) continue;   // not in the active mode's groups
 
                 if (!_bindingsByAction.TryGetValue(action, out var list))
                 {
@@ -204,6 +205,8 @@ public partial class InputPlayer : IChannelMask
             if (!anyEvaluated)
             {
                 state.ResetMemories();
+                state.ToggleOn = false;
+                state.TogglePressed = false;
                 state.Advance(TriggerPhase.Idle, ActionValue.Zero(kind), _delta, ActionValue.Zero(kind));
             }
             else
@@ -219,6 +222,19 @@ public partial class InputPlayer : IChannelMask
                 {
                     finalPhase = bindingPhase;
                     if (triggerlessNonZero) finalPhase = TriggerPhase.Triggered;
+                }
+                if (IsHoldToToggle(action))
+                {
+                    // Accessibility: each press flips the action instead of having to hold it.
+                    bool pressed = finalPhase == TriggerPhase.Triggered;
+                    if (pressed && !state.TogglePressed)
+                    {
+                        state.ToggleOn = !state.ToggleOn;
+                        if (state.ToggleOn) state.ToggleValue = value != Vector3.Zero ? value : ActionValue.Shape(kind, Vector3.Right);
+                    }
+                    state.TogglePressed = pressed;
+                    finalPhase = state.ToggleOn ? TriggerPhase.Triggered : TriggerPhase.Idle;
+                    value = state.ToggleOn ? state.ToggleValue : Vector3.Zero;
                 }
                 state.Advance(finalPhase, new ActionValue(kind, value), _delta, new ActionValue(kind, Trim(kind, raw)));
             }

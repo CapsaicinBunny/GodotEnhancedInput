@@ -194,6 +194,36 @@ public enum InputDeviceKind
     Custom,
 }
 
+/// <summary>A set of device families (for <see cref="InputMode"/>).</summary>
+[Flags]
+public enum DeviceKinds
+{
+    None = 0,
+    KeyboardMouse = 1 << 0,
+    Joypad = 1 << 1,
+    Touch = 1 << 2,
+    Pen = 1 << 3,
+    Custom = 1 << 4,
+}
+
+/// <summary>Conversions between <see cref="InputDeviceKind"/> and <see cref="DeviceKinds"/>.</summary>
+public static class DeviceKindsExtensions
+{
+    /// <summary>The flag of one device family (none for <see cref="InputDeviceKind.Other"/>).</summary>
+    public static DeviceKinds ToFlag(this InputDeviceKind kind) => kind switch
+    {
+        InputDeviceKind.KeyboardMouse => DeviceKinds.KeyboardMouse,
+        InputDeviceKind.Joypad => DeviceKinds.Joypad,
+        InputDeviceKind.Touch => DeviceKinds.Touch,
+        InputDeviceKind.Pen => DeviceKinds.Pen,
+        InputDeviceKind.Custom => DeviceKinds.Custom,
+        _ => DeviceKinds.None,
+    };
+
+    /// <summary>Whether the set contains a family.</summary>
+    public static bool Has(this DeviceKinds set, InputDeviceKind kind) => kind != InputDeviceKind.Other && (set & kind.ToFlag()) != 0;
+}
+
 /// <summary>How joypad buttons and axes are named in prompts.</summary>
 public enum JoypadStyle
 {
