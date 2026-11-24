@@ -17,7 +17,8 @@ history up to 0.2.3 is in its repository.
   base `EnhancedInputResource`, which groups them in the dialog.
 - Left and right Shift, Ctrl, Alt and Meta: `InputSource.KeySide` (`key:left_shift`, `key:right_ctrl`;
   `key:shift` is either). Listening and capture record the side pressed; prompts say "Left Shift".
-- Editor dock: lists every action file (not only mapped ones) and offers them in the action picker;
+- Editor dock: mappings grouped by action (one row per action, its inputs under it; drag inputs between
+  groups or whole groups between mapping contexts); lists every action file (not only mapped ones) and offers them in the action picker;
   drag mappings to reorder them or move them between mapping contexts; drop action files on a
   mapping or a mapping context; *+ Action* button; config filter; double-clicking an action, mapping
   context or config file shows it in the dock; Inspector edits show up at once.

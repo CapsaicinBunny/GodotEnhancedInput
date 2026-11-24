@@ -40,16 +40,19 @@ The file is compact JSON: one entry per tick with its time step and inputs.
 
 With the plugin enabled, the **Enhanced Input** dock in the bottom panel shows:
 
-- **Mappings** — every `EnhancedInputMappingContext` in the project with its mappings: action, input
+- **Mappings** — every `EnhancedInputMappingContext` in the project with its mappings grouped by action
+  (one row per action, its inputs under it): action, input
   (as a [source path](sources-and-devices.md), with a device icon), modifiers, triggers, groups and
   rebind id; mappings with problems are coloured. Search by action, input, group, rebind id or
   modifier. The side panel edits the selected mapping: pick its action (any action file in the
   project) or create a new one (saved next to the mapping context), type an input path (checked as you
   type) or press **Listen** and press a key or button or move a stick (Esc cancels), set groups and the
   rebind id, and add, remove or reorder modifiers and triggers (double-click one to tune it in the
-  Inspector). Drag a mapping to reorder it or to move it to another mapping context; drop an action
-  file from the FileSystem dock (or a row of the Actions tab) on a mapping to set its action, or on a
-  mapping context to add a mapping for it. The toolbar adds actions, mapping contexts and mappings,
+  Inspector). Drag an input to reorder it, into another action's group to give it that action, or onto
+  a mapping context to move it there; drag an action's row to move all its inputs at once. Drop an
+  action file from the FileSystem dock (or a row of the Actions tab) on a mapping to set its action, or
+  on a mapping context or an action's row to add a mapping for it. With an action's row selected,
+  **+ Mapping** adds another input for that action; double-clicking the row opens the action. The toolbar adds actions, mapping contexts and mappings,
   and when the project has `EnhancedInputConfig`s, shows only one config's mapping contexts. Every
   change can be undone and is saved at once.
 - **Actions** — every action file in the project with its value kind, how many mappings use it and in

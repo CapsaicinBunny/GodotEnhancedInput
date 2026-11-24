@@ -68,6 +68,10 @@ public partial class EnhancedInputDock : VBoxContainer
     private readonly List<BindingIssue> _issues = new();
     private string _selectedPath;
     private int _selectedIndex = -1;
+    private bool _groupSelected;
+    private EnhancedInputAction _selectedGroupAction;
+    private readonly HashSet<string> _collapsed = new();
+    private bool _selfEdit;
     private int _selectedPad = -1;
     private bool _listening;
     private ulong _listenStartedMs;
@@ -281,7 +285,7 @@ public partial class EnhancedInputDock : VBoxContainer
         {
             Columns = 3, ColumnTitlesVisible = true, HideRoot = true, SelectMode = Tree.SelectModeEnum.Row, SizeFlagsHorizontal = SizeFlags.ExpandFill,
             DropModeFlags = (int)(Tree.DropModeFlagsEnum.OnItem | Tree.DropModeFlagsEnum.Inbetween),
-            TooltipText = "Drag a mapping to reorder it or move it to another mapping context. Drop an action file (or an Actions row) on a mapping to set its action, or on a mapping context to add a mapping.",
+            TooltipText = "Mappings are grouped by action. Drag an input into another action's group to give it that action, or onto a mapping context to move it there; drag an action's row to move all its inputs. Drop an action file (or an Actions row) on a mapping to set its action, or on a mapping context or action to add a mapping.",
         };
         _bindings.SetDragForwarding(
             Callable.From<Vector2, Variant>(GetMappingDragData),
@@ -294,7 +298,13 @@ public partial class EnhancedInputDock : VBoxContainer
         _bindings.SetColumnExpandRatio(1, 2);
         _bindings.SetColumnExpandRatio(2, 3);
         _bindings.ItemSelected += OnBindingSelected;
-        _bindings.ItemActivated += StartListening;
+        _bindings.ItemActivated += OnMappingActivated;
+        _bindings.ItemCollapsed += item =>
+        {
+            var key = CollapseKey(item);
+            if (key == null) return;
+            if (item.Collapsed) _collapsed.Add(key); else _collapsed.Remove(key);
+        };
         split.AddChild(_bindings);
 
         var scroll = new ScrollContainer { CustomMinimumSize = new Vector2(320, 0), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
@@ -366,7 +376,7 @@ public partial class EnhancedInputDock : VBoxContainer
         _detail.AddChild(StackEditor(false, out _addTrigger));
 
         var inspect = new Button { Text = "Open mapping in the Inspector", Icon = Icon("Edit") };
-        inspect.Pressed += () => { var b = SelectedBinding(); if (b != null) EditorInterface.Singleton.EditResource(b); };
+        inspect.Pressed += () => EditInInspector(SelectedBinding());
         _detail.AddChild(inspect);
 
         SetDetailEnabled(false);
@@ -408,7 +418,7 @@ public partial class EnhancedInputDock : VBoxContainer
         _actions.TooltipText = "Double-click to open an action in the Inspector; drag it onto a mapping or a mapping context.";
         _actions.ItemActivated += () =>
         {
-            if (_actions.GetSelected()?.GetMetadata(0).AsGodotObject() is EnhancedInputAction action) EditorInterface.Singleton.EditResource(action);
+            if (_actions.GetSelected()?.GetMetadata(0).AsGodotObject() is EnhancedInputAction action) EditInInspector(action);
         };
         _actions.SetDragForwarding(
             Callable.From<Vector2, Variant>(at =>
@@ -553,6 +563,7 @@ public partial class EnhancedInputDock : VBoxContainer
     /// </summary>
     public bool Reveal(GodotObject target)
     {
+        if (_selfEdit) return false;
         switch (target)
         {
             case EnhancedInputMappingContext context:
@@ -602,6 +613,7 @@ public partial class EnhancedInputDock : VBoxContainer
         RebuildConfigFilter();
         _selectedPath = path;
         _selectedIndex = index;
+        _groupSelected = false;
         _search.Text = string.Empty;
         _tabs.CurrentTab = 0;
         RebuildBindings();
@@ -659,6 +671,26 @@ public partial class EnhancedInputDock : VBoxContainer
         return null;
     }
 
+    // Rows of the Mappings tree. Column 0 metadata: the mapping context's path; column 1: what the row
+    // is (RowContext, RowGroup, or the mapping's index); column 2 (groups): the action.
+    private const int RowContext = -1;
+    private const int RowGroup = -2;
+
+    private static int RowKind(TreeItem item) => item == null ? RowContext : item.GetMetadata(1).AsInt32();
+
+    private static string GroupKey(string path, EnhancedInputAction action) => $"{path}|{(action == null ? "none" : action.GetInstanceId().ToString())}";
+
+    private string CollapseKey(TreeItem item) => RowKind(item) switch
+    {
+        RowContext => "ctx|" + item.GetMetadata(0).AsString(),
+        RowGroup => GroupKey(item.GetMetadata(0).AsString(), item.GetMetadata(2).AsGodotObject() as EnhancedInputAction),
+        _ => null,
+    };
+
+    /// <summary>
+    /// Builds the Mappings tree: each mapping context, then one row per action (in the order the action
+    /// first appears) with that action's mappings — its inputs — under it.
+    /// </summary>
     private void RebuildBindings()
     {
         _bindings.Clear();
@@ -675,39 +707,70 @@ public partial class EnhancedInputDock : VBoxContainer
             contextItem.SetText(1, path);
             contextItem.SetCustomColor(1, DimColor);
             contextItem.SetMetadata(0, path);
-            contextItem.SetMetadata(1, -1);
+            contextItem.SetMetadata(1, RowContext);
             if (context.BlockLowerPriority) contextItem.SetText(2, "blocks lower contexts");
+            contextItem.Collapsed = _collapsed.Contains(CollapseKey(contextItem));
+            if (path == _selectedPath && _selectedIndex < 0 && !_groupSelected) reselect = contextItem;
 
             var bindings = context.Bindings;
-            int shown = 0;
+            var groups = new List<(EnhancedInputAction Action, List<int> Indices)>();
             for (int i = 0; i < bindings.Count; i++)
             {
-                var binding = bindings[i];
-                if (!BindingEditing.Matches(binding, _search.Text)) continue;
-                shown++;
-                var item = _bindings.CreateItem(contextItem);
-                item.SetText(0, binding?.Action?.Name ?? "(no action)");
-                item.SetIcon(0, actionIcon);
-                item.SetText(1, BindingEditing.PathOf(binding?.Source));
-                item.SetIcon(1, IconFor(BindingEditing.DeviceKindOf(binding?.Source)));
-                item.SetTooltipText(1, binding?.Source == null ? "no input" : InputPrompts.GetName(binding.Source));
-                item.SetText(2, BindingEditing.Summary(binding));
-                item.SetCustomColor(2, DimColor);
-                item.SetMetadata(0, path);
-                item.SetMetadata(1, i);
-                var worst = _issues.Where(x => x.Context == context && x.BindingIndex == i).Select(x => x.Severity).DefaultIfEmpty(IssueSeverity.Info).Max();
-                if (_issues.Any(x => x.Context == context && x.BindingIndex == i && x.Severity >= IssueSeverity.Warning))
-                {
-                    item.SetCustomColor(0, worst == IssueSeverity.Error ? ErrorColor : WarningColor);
-                    item.SetTooltipText(0, string.Join("\n", _issues.Where(x => x.Context == context && x.BindingIndex == i).Select(x => x.Message)));
-                }
-                if (path == _selectedPath && i == _selectedIndex) reselect = item;
+                if (!BindingEditing.Matches(bindings[i], _search.Text)) continue;
+                var action = bindings[i]?.Action;
+                int g = groups.FindIndex(x => x.Action == action);
+                if (g < 0) groups.Add((action, new List<int> { i }));
+                else groups[g].Indices.Add(i);
             }
-            if (shown == 0 && !string.IsNullOrWhiteSpace(_search.Text)) contextItem.Free();
+            if (groups.Count == 0 && !string.IsNullOrWhiteSpace(_search.Text)) { contextItem.Free(); continue; }
+
+            foreach (var (action, indices) in groups)
+            {
+                var group = _bindings.CreateItem(contextItem);
+                group.SetText(0, action?.Name ?? "(no action)");
+                group.SetIcon(0, actionIcon);
+                group.SetText(1, indices.Count == 1 ? "1 input" : $"{indices.Count} inputs");
+                group.SetCustomColor(1, DimColor);
+                group.SetText(2, action == null ? "drop an action here" : action.ValueKind.ToString());
+                group.SetCustomColor(2, DimColor);
+                group.SetTooltipText(0, action == null ? "Mappings without an action" : $"{action.Name} ({action.ValueKind}). Double-click to open the action; drop a mapping here to give it this action.");
+                group.SetMetadata(0, path);
+                group.SetMetadata(1, RowGroup);
+                group.SetMetadata(2, action);
+                group.Collapsed = _collapsed.Contains(CollapseKey(group));
+                if (path == _selectedPath && _groupSelected && _selectedIndex < 0 && action == _selectedGroupAction) reselect = group;
+                var groupWorst = IssueSeverity.Info;
+
+                foreach (int i in indices)
+                {
+                    var binding = bindings[i];
+                    var item = _bindings.CreateItem(group);
+                    item.SetText(0, binding?.Source == null ? "(no input)" : InputPrompts.GetName(binding.Source));
+                    item.SetCustomColor(0, DimColor);
+                    item.SetText(1, BindingEditing.PathOf(binding?.Source));
+                    item.SetIcon(1, IconFor(BindingEditing.DeviceKindOf(binding?.Source)));
+                    item.SetTooltipText(1, binding?.Source == null ? "no input" : InputPrompts.GetName(binding.Source));
+                    item.SetText(2, BindingEditing.Summary(binding));
+                    item.SetCustomColor(2, DimColor);
+                    item.SetMetadata(0, path);
+                    item.SetMetadata(1, i);
+                    var mine = _issues.Where(x => x.Context == context && x.BindingIndex == i).ToList();
+                    var worst = mine.Select(x => x.Severity).DefaultIfEmpty(IssueSeverity.Info).Max();
+                    if (worst >= IssueSeverity.Warning)
+                    {
+                        item.SetCustomColor(0, worst == IssueSeverity.Error ? ErrorColor : WarningColor);
+                        item.SetTooltipText(0, string.Join("\n", mine.Select(x => x.Message)));
+                        if (worst > groupWorst) groupWorst = worst;
+                    }
+                    if (path == _selectedPath && i == _selectedIndex) reselect = item;
+                }
+                if (groupWorst >= IssueSeverity.Warning) group.SetCustomColor(0, groupWorst == IssueSeverity.Error ? ErrorColor : WarningColor);
+            }
         }
         if (reselect != null)
         {
             _updatingDetail = true;
+            for (var parent = reselect.GetParent(); parent != null; parent = parent.GetParent()) parent.Collapsed = false;
             reselect.Select(0);
             _bindings.ScrollToItem(reselect);
             _updatingDetail = false;
@@ -793,7 +856,10 @@ public partial class EnhancedInputDock : VBoxContainer
         if (_updatingDetail) return;
         var item = _bindings.GetSelected();
         _selectedPath = item?.GetMetadata(0).AsString();
-        _selectedIndex = item == null ? -1 : item.GetMetadata(1).AsInt32();
+        int kind = RowKind(item);
+        _groupSelected = item != null && kind == RowGroup;
+        _selectedGroupAction = _groupSelected ? item.GetMetadata(2).AsGodotObject() as EnhancedInputAction : null;
+        _selectedIndex = kind >= 0 ? kind : -1;
         UpdateDetail();
     }
 
@@ -821,7 +887,9 @@ public partial class EnhancedInputDock : VBoxContainer
             _pathError.Text = string.Empty;
             if (binding == null)
             {
-                _detailTitle.Text = context != null ? $"{context.Name}: select a mapping, or add one (+ Mapping)" : "Select a mapping";
+                _detailTitle.Text = context == null ? "Select a mapping"
+                    : _groupSelected ? $"{context.Name} · {_selectedGroupAction?.Name ?? "(no action)"}: {context.Bindings.Count(b => b?.Action == _selectedGroupAction)} input(s). + Mapping adds another input for it; double-click opens the action."
+                    : $"{context.Name}: select a mapping, or add one (+ Mapping)";
                 _pathEdit.Text = _groupsEdit.Text = _rebindEdit.Text = string.Empty;
                 return;
             }
@@ -852,7 +920,7 @@ public partial class EnhancedInputDock : VBoxContainer
         var binding = SelectedBinding();
         if (binding == null) return;
         Resource item = modifiers ? (index < binding.Modifiers.Count ? binding.Modifiers[index] : null) : (index < binding.Triggers.Count ? binding.Triggers[index] : null);
-        if (item != null) EditorInterface.Singleton.EditResource(item);
+        if (item != null) EditInInspector(item);
     }
 
     // ------------------------------------------------------------------
@@ -995,10 +1063,42 @@ public partial class EnhancedInputDock : VBoxContainer
     {
         var context = SelectedContext();
         if (context == null) { SetStatus("Select a mapping context first."); return; }
-        var binding = ActionBinding.Create(action ?? SelectedBinding()?.Action, null);
-        var list = new Godot.Collections.Array<ActionBinding>(context.Bindings) { binding };
-        _selectedIndex = list.Count - 1;
+        var chosen = action ?? SelectedBinding()?.Action ?? (_groupSelected ? _selectedGroupAction : null);
+        var list = new Godot.Collections.Array<ActionBinding>(context.Bindings);
+        int at = InsertAfterGroup(list, chosen);
+        list.Insert(at, ActionBinding.Create(chosen, null));
+        _selectedIndex = at;
+        _groupSelected = false;
         Change("Add mapping", context, EnhancedInputMappingContext.PropertyName.Bindings, list);
+    }
+
+    /// <summary>Where a new mapping for an action goes: after that action's last mapping, else at the end.</summary>
+    private static int InsertAfterGroup(Godot.Collections.Array<ActionBinding> list, EnhancedInputAction action)
+    {
+        if (action == null) return list.Count;
+        for (int i = list.Count - 1; i >= 0; i--)
+            if (list[i]?.Action == action) return i + 1;
+        return list.Count;
+    }
+
+    private void EditInInspector(Resource resource)
+    {
+        if (resource == null) return;
+        _selfEdit = true;
+        try { EditorInterface.Singleton.EditResource(resource); }
+        finally { _selfEdit = false; }
+    }
+
+    private void OnMappingActivated()
+    {
+        var item = _bindings.GetSelected();
+        if (item == null) return;
+        switch (RowKind(item))
+        {
+            case RowContext: EditInInspector(ContextAt(item.GetMetadata(0).AsString())); break;
+            case RowGroup: EditInInspector(item.GetMetadata(2).AsGodotObject() as EnhancedInputAction); break;
+            default: StartListening(); break;
+        }
     }
 
     // ------------------------------------------------------------------
@@ -1008,9 +1108,24 @@ public partial class EnhancedInputDock : VBoxContainer
     private Variant GetMappingDragData(Vector2 at)
     {
         var item = _bindings.GetItemAtPosition(at);
-        if (item == null || item.GetMetadata(1).AsInt32() < 0) return default;
-        _bindings.SetDragPreview(new Label { Text = $"{item.GetText(0)}   {item.GetText(1)}" });
-        return new Godot.Collections.Dictionary { ["type"] = "gei_mapping", ["path"] = item.GetMetadata(0).AsString(), ["index"] = item.GetMetadata(1).AsInt32() };
+        if (item == null || RowKind(item) == RowContext) return default;
+        var path = item.GetMetadata(0).AsString();
+        var context = ContextAt(path);
+        if (context == null) return default;
+        int[] indices;
+        bool group = RowKind(item) == RowGroup;
+        if (group)
+        {
+            var action = item.GetMetadata(2).AsGodotObject() as EnhancedInputAction;
+            indices = Enumerable.Range(0, context.Bindings.Count).Where(i => context.Bindings[i]?.Action == action).ToArray();
+            _bindings.SetDragPreview(new Label { Text = $"{item.GetText(0)}  ({indices.Length} inputs)" });
+        }
+        else
+        {
+            indices = new[] { RowKind(item) };
+            _bindings.SetDragPreview(new Label { Text = $"{item.GetParent()?.GetText(0)}   {item.GetText(1)}" });
+        }
+        return new Godot.Collections.Dictionary { ["type"] = "gei_mappings", ["path"] = path, ["indices"] = indices, ["group"] = group };
     }
 
     /// <summary>The actions a drop carries: an Actions row, a dragged resource, or action files.</summary>
@@ -1030,7 +1145,7 @@ public partial class EnhancedInputDock : VBoxContainer
     {
         if (data.VariantType != Variant.Type.Dictionary || _bindings.GetItemAtPosition(at) == null) return false;
         var dict = data.AsGodotDictionary();
-        return dict.TryGetValue("type", out var t) && t.AsString() == "gei_mapping" || DroppedActions(dict).Count > 0;
+        return dict.TryGetValue("type", out var t) && t.AsString() == "gei_mappings" || DroppedActions(dict).Count > 0;
     }
 
     private void DropOnMappings(Vector2 at, Variant data)
@@ -1038,21 +1153,21 @@ public partial class EnhancedInputDock : VBoxContainer
         var target = _bindings.GetItemAtPosition(at);
         if (target == null || data.VariantType != Variant.Type.Dictionary) return;
         var dict = data.AsGodotDictionary();
-        string targetPath = target.GetMetadata(0).AsString();
-        int targetIndex = target.GetMetadata(1).AsInt32();
-        if (dict.TryGetValue("type", out var t) && t.AsString() == "gei_mapping")
+        if (dict.TryGetValue("type", out var t) && t.AsString() == "gei_mappings")
         {
-            MoveMapping(dict["path"].AsString(), dict["index"].AsInt32(), targetPath, targetIndex, _bindings.GetDropSectionAtPosition(at));
+            MoveMappings(dict["path"].AsString(), dict["indices"].AsInt32Array(), target, _bindings.GetDropSectionAtPosition(at), joinGroup: !dict["group"].AsBool());
             return;
         }
         var actions = DroppedActions(dict);
         if (actions.Count == 0) return;
+        string targetPath = target.GetMetadata(0).AsString();
         var context = ContextAt(targetPath);
         if (context == null) return;
         _selectedPath = targetPath;
-        if (targetIndex >= 0)
+        _groupSelected = false;
+        if (RowKind(target) >= 0)
         {
-            _selectedIndex = targetIndex;
+            _selectedIndex = RowKind(target);
             var binding = SelectedBinding();
             if (binding != null) Change("Set mapping action", binding, ActionBinding.PropertyName.Action, actions[0]);
             SetStatus($"The mapping now triggers {actions[0].Name}.");
@@ -1060,59 +1175,85 @@ public partial class EnhancedInputDock : VBoxContainer
         else
         {
             var list = new Godot.Collections.Array<ActionBinding>(context.Bindings);
-            foreach (var action in actions) list.Add(ActionBinding.Create(action, null));
-            _selectedIndex = list.Count - 1;
+            foreach (var action in actions)
+            {
+                _selectedIndex = InsertAfterGroup(list, action);
+                list.Insert(_selectedIndex, ActionBinding.Create(action, null));
+            }
             Change(actions.Count == 1 ? "Add mapping" : "Add mappings", context, EnhancedInputMappingContext.PropertyName.Bindings, list);
             SetStatus($"Added {actions.Count} mapping(s) to {context.Name}; set the input with Listen or a path.");
         }
     }
 
     /// <summary>
-    /// Moves a mapping: onto a mapping context (to its end), or before / after another mapping, in the
-    /// same mapping context or another. One undo step; both files are saved.
+    /// Moves mappings (one, or an action's whole group) to where they were dropped: onto a mapping
+    /// context (its end), onto or next to an action's group, or before / after a mapping — in the same
+    /// mapping context or another. A single mapping dropped into another action's group takes that
+    /// action (that is the group it then shows in); a dragged group keeps its action and only moves.
+    /// One undo step; both files are saved.
     /// </summary>
-    private void MoveMapping(string fromPath, int fromIndex, string toPath, int toIndex, int section)
+    private void MoveMappings(string fromPath, int[] indices, TreeItem target, int section, bool joinGroup)
     {
         var from = ContextAt(fromPath);
+        string toPath = target.GetMetadata(0).AsString();
         var to = ContextAt(toPath);
-        if (from == null || to == null || fromIndex < 0 || fromIndex >= from.Bindings.Count) return;
-        var binding = from.Bindings[fromIndex];
-        int insert = toIndex < 0 ? to.Bindings.Count : section < 0 ? toIndex : toIndex + 1;
+        if (from == null || to == null) return;
+        var moving = indices.Where(i => i >= 0 && i < from.Bindings.Count).Select(i => from.Bindings[i]).ToList();
+        if (moving.Count == 0) return;
 
-        var undo = _plugin.GetUndoRedo();
-        if (from == to)
-        {
-            var list = new Godot.Collections.Array<ActionBinding>(from.Bindings);
-            list.RemoveAt(fromIndex);
-            if (insert > fromIndex) insert--;
-            insert = Math.Clamp(insert, 0, list.Count);
-            if (insert == fromIndex) return;
-            list.Insert(insert, binding);
-            undo.CreateAction("Reorder mappings");
-            undo.AddDoProperty(from, EnhancedInputMappingContext.PropertyName.Bindings, list);
-            undo.AddUndoProperty(from, EnhancedInputMappingContext.PropertyName.Bindings, from.Bindings);
-        }
+        int kind = RowKind(target);
+        var targetBinding = kind >= 0 && kind < to.Bindings.Count ? to.Bindings[kind] : null;
+        if (targetBinding != null && moving.Contains(targetBinding)) return;
+        var targetAction = kind == RowGroup ? target.GetMetadata(2).AsGodotObject() as EnhancedInputAction : targetBinding?.Action;
+
+        var source = new Godot.Collections.Array<ActionBinding>(from.Bindings);
+        foreach (var m in moving) source.Remove(m);
+        var dest = from == to ? source : new Godot.Collections.Array<ActionBinding>(to.Bindings);
+        int insert;
+        if (kind == RowContext) insert = dest.Count;
+        else if (targetBinding != null && joinGroup) insert = dest.IndexOf(targetBinding) + (section < 0 ? 0 : 1);
         else
         {
-            var source = new Godot.Collections.Array<ActionBinding>(from.Bindings);
-            source.RemoveAt(fromIndex);
-            var target = new Godot.Collections.Array<ActionBinding>(to.Bindings);
-            insert = Math.Clamp(insert, 0, target.Count);
-            target.Insert(insert, binding);
-            undo.CreateAction($"Move mapping to {to.Name}");
-            undo.AddDoProperty(from, EnhancedInputMappingContext.PropertyName.Bindings, source);
-            undo.AddUndoProperty(from, EnhancedInputMappingContext.PropertyName.Bindings, from.Bindings);
-            undo.AddDoProperty(to, EnhancedInputMappingContext.PropertyName.Bindings, target);
+            var members = Enumerable.Range(0, dest.Count).Where(i => dest[i]?.Action == targetAction).ToList();
+            insert = members.Count == 0 ? dest.Count : section < 0 ? members[0] : members[^1] + 1;
+        }
+        insert = Math.Clamp(insert, 0, dest.Count);
+        for (int k = 0; k < moving.Count; k++) dest.Insert(insert + k, moving[k]);
+
+        bool retarget = joinGroup && kind != RowContext && moving.Any(m => m?.Action != targetAction);
+        if (from == to && !retarget && dest.SequenceEqual(from.Bindings)) return;
+
+        var undo = _plugin.GetUndoRedo();
+        string what = moving.Count == 1 ? "mapping" : $"{moving[0]?.Action?.Name ?? "unassigned"} mappings";
+        undo.CreateAction(from == to ? (retarget ? $"Move {what} to {targetAction?.Name ?? "no action"}" : $"Reorder {what}") : $"Move {what} to {to.Name}");
+        undo.AddDoProperty(from, EnhancedInputMappingContext.PropertyName.Bindings, source);
+        undo.AddUndoProperty(from, EnhancedInputMappingContext.PropertyName.Bindings, from.Bindings);
+        if (from != to)
+        {
+            undo.AddDoProperty(to, EnhancedInputMappingContext.PropertyName.Bindings, dest);
             undo.AddUndoProperty(to, EnhancedInputMappingContext.PropertyName.Bindings, to.Bindings);
+        }
+        if (retarget)
+            foreach (var m in moving)
+                if (m != null && m.Action != targetAction)
+                {
+                    undo.AddDoProperty(m, ActionBinding.PropertyName.Action, targetAction);
+                    undo.AddUndoProperty(m, ActionBinding.PropertyName.Action, m.Action);
+                }
+        if (from != to)
+        {
             undo.AddDoMethod(this, MethodName.SaveContext, toPath);
             undo.AddUndoMethod(this, MethodName.SaveContext, toPath);
         }
         undo.AddDoMethod(this, MethodName.SaveContext, fromPath);
         undo.AddUndoMethod(this, MethodName.SaveContext, fromPath);
+
         _selectedPath = toPath;
-        _selectedIndex = insert;
+        _groupSelected = !joinGroup;
+        _selectedGroupAction = joinGroup ? null : moving[0]?.Action;
+        _selectedIndex = joinGroup ? insert : -1;
         undo.CommitAction();
-        SetStatus(from == to ? "Mapping moved." : $"Mapping moved to {to.Name}.");
+        SetStatus(retarget ? $"Mapping now triggers {targetAction?.Name ?? "nothing"}." : from == to ? "Moved." : $"Moved to {to.Name}.");
     }
 
     private void RemoveBinding()
