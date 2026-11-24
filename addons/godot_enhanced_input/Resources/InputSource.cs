@@ -123,30 +123,42 @@ public partial class InputSource : Resource
     //  Factories for code-built bindings
     // ------------------------------------------------------------------
 
+    /// <summary>A key (its physical position by default, like WASD on any layout).</summary>
     public static InputSource ForKey(Key key, KeyMatch match = KeyMatch.Physical)
         => new() { Kind = SourceKind.Key, Key = key, KeyMatch = match };
 
+    /// <summary>Two keys as one axis: positive minus negative.</summary>
     public static InputSource ForKeyAxis1D(Key positive, Key negative, KeyMatch match = KeyMatch.Physical)
         => new() { Kind = SourceKind.KeyAxis1D, PositiveKey = positive, NegativeKey = negative, KeyMatch = match };
 
+    /// <summary>Four keys as a 2D axis (up is −Y, like sticks).</summary>
     public static InputSource ForKeyAxis2D(Key up, Key down, Key left, Key right, KeyMatch match = KeyMatch.Physical)
         => new() { Kind = SourceKind.KeyAxis2D, UpKey = up, DownKey = down, NegativeKey = left, PositiveKey = right, KeyMatch = match };
 
+    /// <summary>A mouse button (wheel directions included).</summary>
     public static InputSource ForMouseButton(MouseButton button) => new() { Kind = SourceKind.MouseButton, MouseButton = button };
+    /// <summary>Mouse movement in pixels, summed over the tick.</summary>
     public static InputSource ForMouseMotion() => new() { Kind = SourceKind.MouseMotion };
+    /// <summary>The mouse position in viewport pixels.</summary>
     public static InputSource ForMousePosition() => new() { Kind = SourceKind.MousePosition };
 
+    /// <summary>A joypad button (any pad the player uses, or one).</summary>
     public static InputSource ForJoyButton(JoyButton button, int device = SourceKey.AnyDevice)
         => new() { Kind = SourceKind.JoyButton, JoyButton = button, Device = device };
 
+    /// <summary>A joypad axis, or one half of it.</summary>
     public static InputSource ForJoyAxis(JoyAxis axis, int device = SourceKey.AnyDevice, JoyAxisRange range = JoyAxisRange.Full)
         => new() { Kind = SourceKind.JoyAxis, JoyAxis = axis, Device = device, AxisRange = range };
 
+    /// <summary>Both axes of a stick, from one pad.</summary>
     public static InputSource ForJoyStick(JoyStickSide side, int device = SourceKey.AnyDevice)
         => new() { Kind = SourceKind.JoyStick, JoyStick = side, Device = device };
 
+    /// <summary>A Godot InputMap action, by name.</summary>
     public static InputSource ForInputMapAction(string action) => new() { Kind = SourceKind.InputMapAction, InputMapAction = action };
+    /// <summary>A named virtual control, set from code or on-screen controls.</summary>
     public static InputSource ForVirtual(string name) => new() { Kind = SourceKind.Virtual, VirtualName = name };
+    /// <summary>No input (for bindings driven only by triggers, like combos).</summary>
     public static InputSource Nothing() => new() { Kind = SourceKind.None };
 
     /// <summary>What kind of quantity this source produces.</summary>
@@ -164,11 +176,15 @@ public partial class InputSource : Resource
         _ => ValueNature.State,
     };
 
+    /// <summary>A touch channel of any finger or one finger.</summary>
     public static InputSource ForTouch(TouchChannel channel, int finger = SourceKey.AnyDevice)
         => new() { Kind = SourceKind.Touch, TouchChannel = channel, TouchIndex = finger };
 
+    /// <summary>Scrolling per tick, wheel and trackpad (down and right positive).</summary>
     public static InputSource ForMouseWheel() => new() { Kind = SourceKind.MouseWheel };
+    /// <summary>A touch or trackpad gesture.</summary>
     public static InputSource ForGesture(GestureChannel channel) => new() { Kind = SourceKind.Gesture, GestureChannel = channel };
+    /// <summary>A pen channel.</summary>
     public static InputSource ForPen(PenChannel channel) => new() { Kind = SourceKind.Pen, PenChannel = channel };
 
     /// <summary>A motion sensor of the handheld device (<paramref name="joypad"/> null) or of a joypad (an index, or −1 for any).</summary>
@@ -575,6 +591,7 @@ public partial class InputSource : Resource
     //  Inspector
     // ------------------------------------------------------------------
 
+    /// <inheritdoc/>
     public override void _ValidateProperty(Godot.Collections.Dictionary property)
     {
         string name = property["name"].AsString();

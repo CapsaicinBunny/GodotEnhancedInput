@@ -12,6 +12,7 @@ namespace GodotEnhancedInput;
 [GlobalClass]
 public partial class RepeatTrigger : InputTrigger
 {
+    /// <summary>Trigger on the press itself, not only on repeats.</summary>
     [Export] public bool TriggerOnPress { get; set; } = true;
 
     /// <summary>Time from the press to the first repeat.</summary>
@@ -23,6 +24,7 @@ public partial class RepeatTrigger : InputTrigger
     /// <summary>Most repeats after the press (0: no limit).</summary>
     [Export(PropertyHint.Range, "0,1000,1,or_greater")] public int MaxRepeats { get; set; }
 
+    /// <inheritdoc/>
     protected override TriggerPhase Update(in TriggerContext context, bool actuated, bool wasActuated)
     {
         var m = context.Memory;   // Timer: time to the next repeat · Count: repeats so far

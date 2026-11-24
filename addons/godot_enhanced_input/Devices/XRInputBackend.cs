@@ -24,6 +24,7 @@ namespace GodotEnhancedInput;
 /// </summary>
 public sealed class XRInputBackend : InputBackend
 {
+    /// <summary>Device type of XR trackers ("xr"), as in the source path <c>@xr:trigger</c>.</summary>
     public const string DeviceType = "xr";
 
     private readonly Dictionary<string, int> _indices = new();
@@ -49,6 +50,7 @@ public sealed class XRInputBackend : InputBackend
     /// <summary>Average fingertip-to-palm distance (metres) that counts as a full grab, and one that counts as none.</summary>
     public Vector2 GrabRange { get; set; } = new(0.04f, 0.09f);
 
+    /// <inheritdoc/>
     public override string Name => "XR";
 
     /// <summary>The device index a tracker name maps to (assigned on first sight, then stable).</summary>
@@ -59,6 +61,7 @@ public sealed class XRInputBackend : InputBackend
         return index;
     }
 
+    /// <inheritdoc/>
     public override void Attached()
     {
         XRServer.TrackerAdded += OnTrackerAdded;
@@ -67,6 +70,7 @@ public sealed class XRInputBackend : InputBackend
             if (pair.Value.AsGodotObject() is XRTracker tracker) Add(tracker);
     }
 
+    /// <inheritdoc/>
     public override void Detached()
     {
         XRServer.TrackerAdded -= OnTrackerAdded;
@@ -126,6 +130,7 @@ public sealed class XRInputBackend : InputBackend
         (XRHandTracker.HandJoint.PinkyFingerTip, "pinky_tip"),
     };
 
+    /// <inheritdoc/>
     public override void Poll(double delta)
     {
         foreach (var pair in _trackers)
@@ -217,9 +222,11 @@ public sealed class XRInputBackend : InputBackend
         SetControl(DeviceType, index, "jaw_open", B(XRFaceTracker.BlendShapeEntry.JawOpen));
     }
 
+    /// <inheritdoc/>
     public override void Rumble(InputDeviceInfo device, float weak, float strong, float seconds)
         => Rumble(device, weak, strong, seconds, 0f);
 
+    /// <inheritdoc/>
     public override void Rumble(InputDeviceInfo device, float weak, float strong, float seconds, float frequency)
     {
         var xr = XRServer.PrimaryInterface;

@@ -11,8 +11,10 @@ namespace GodotEnhancedInput;
 [GlobalClass]
 public partial class DifferentiateModifier : InputModifier
 {
+    /// <summary>Divide the change by the tick's delta (a rate per second).</summary>
     [Export] public bool PerSecond { get; set; }
 
+    /// <inheritdoc/>
     public override Vector3 Apply(Vector3 value, in ModifierContext context)
     {
         var m = context.Memory;

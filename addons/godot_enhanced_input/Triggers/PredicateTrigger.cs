@@ -13,6 +13,7 @@ namespace GodotEnhancedInput;
 [GlobalClass]
 public partial class PredicateTrigger : InputTrigger
 {
+    /// <inheritdoc/>
     public override bool ReadsOtherActions => true;
 
     /// <summary>How this trigger combines with others.</summary>
@@ -21,8 +22,10 @@ public partial class PredicateTrigger : InputTrigger
     /// <summary>The rule. Null: idle.</summary>
     public Func<TriggerContext, TriggerPhase> Evaluator { get; set; }
 
+    /// <inheritdoc/>
     public override TriggerRole Role => TriggerRole;
 
+    /// <inheritdoc/>
     protected override TriggerPhase Update(in TriggerContext context, bool actuated, bool wasActuated)
         => Evaluator?.Invoke(context) ?? TriggerPhase.Idle;
 }

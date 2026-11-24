@@ -13,29 +13,35 @@ public partial class VirtualButton : TouchControl
     /// <summary>Label drawn on the button.</summary>
     [Export] public string Text { get; set; } = string.Empty;
 
+    /// <summary>Colour when not pressed.</summary>
     [Export] public Color IdleColor { get; set; } = new(1f, 1f, 1f, 0.2f);
+    /// <summary>Colour while pressed.</summary>
     [Export] public Color PressedColor { get; set; } = new(1f, 1f, 1f, 0.55f);
 
     /// <summary>Whether a finger is on the button.</summary>
     public bool IsPressed => Pointers.Count > 0;
 
+    /// <summary>Creates a button.</summary>
     public VirtualButton()
     {
         ControlName = "touch_button";
         CustomMinimumSize = new Vector2(72, 72);
     }
 
+    /// <inheritdoc/>
     protected override bool OnPointerDown(int pointer, Vector2 localPosition)
     {
         Player?.SetVirtualControl(ControlName, 1f);
         return true;
     }
 
+    /// <inheritdoc/>
     protected override void OnPointerUp(int pointer)
     {
         if (Pointers.Count == 0) Player?.SetVirtualControl(ControlName, 0f);
     }
 
+    /// <inheritdoc/>
     public override void _Draw()
     {
         float radius = Mathf.Min(Size.X, Size.Y) / 2f;

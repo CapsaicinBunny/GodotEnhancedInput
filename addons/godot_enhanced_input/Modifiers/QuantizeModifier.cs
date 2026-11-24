@@ -16,10 +16,14 @@ public enum QuantizeMode
 [GlobalClass]
 public partial class QuantizeModifier : InputModifier
 {
+    /// <summary>Round to steps, or snap a direction.</summary>
     [Export] public QuantizeMode Mode { get; set; } = QuantizeMode.Steps;
+    /// <summary>Step size (steps mode).</summary>
     [Export(PropertyHint.Range, "0.001,1,0.001,or_greater")] public float Step { get; set; } = 0.25f;
+    /// <summary>Number of directions (directions mode: 4, 8…).</summary>
     [Export(PropertyHint.Range, "2,64,1")] public int Directions { get; set; } = 8;
 
+    /// <inheritdoc/>
     public override Vector3 Apply(Vector3 v, in ModifierContext context)
     {
         if (Mode == QuantizeMode.Steps)

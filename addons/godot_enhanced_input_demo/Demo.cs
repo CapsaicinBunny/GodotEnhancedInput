@@ -58,6 +58,7 @@ public partial class Demo : Node2D
     private GridContainer _slotGrid;
     private Control _touchControls;
 
+    /// <inheritdoc/>
     public override void _Ready()
     {
         Gameplay ??= GD.Load<BindingContext>($"{DemoContent.Folder}/contexts/gameplay.tres");
@@ -109,6 +110,7 @@ public partial class Demo : Node2D
             $"Pause & rebind: {P("pause")} · F2: touch controls · F3: debug overlay";
     }
 
+    /// <inheritdoc/>
     public override void _ExitTree()
     {
         if (_system == null || !IsInstanceValid(_system)) return;
@@ -263,6 +265,7 @@ public partial class Demo : Node2D
     //  Frame update
     // ------------------------------------------------------------------
 
+    /// <inheritdoc/>
     public override void _Process(double delta)
     {
         if (_player == null) return;

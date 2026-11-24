@@ -47,6 +47,7 @@ public sealed class ModifierMemory
 /// <summary>What a modifier is given besides the value.</summary>
 public readonly struct ModifierContext
 {
+    /// <summary>Creates a context (the player does this; tests and tools can too).</summary>
     public ModifierContext(ActionValueKind kind, double delta, InputPlayer player, ModifierMemory memory, ValueNature nature = ValueNature.State)
     {
         Kind = kind;

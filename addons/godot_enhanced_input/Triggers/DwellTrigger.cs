@@ -23,6 +23,7 @@ public partial class DwellTrigger : InputTrigger
     /// <summary>Trigger again after another full dwell while still looking at the same spot.</summary>
     [Export] public bool Repeat { get; set; }
 
+    /// <inheritdoc/>
     protected override TriggerPhase Update(in TriggerContext context, bool actuated, bool wasActuated)
     {
         var m = context.Memory;

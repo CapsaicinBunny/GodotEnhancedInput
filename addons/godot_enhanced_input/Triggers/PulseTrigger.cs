@@ -20,6 +20,7 @@ public partial class PulseTrigger : InputTrigger
     /// <summary>Most pulses per press; 0 for no limit.</summary>
     [Export(PropertyHint.Range, "0,100,1,or_greater")] public int MaxPulses { get; set; }
 
+    /// <inheritdoc/>
     protected override TriggerPhase Update(in TriggerContext context, bool actuated, bool wasActuated)
     {
         var memory = context.Memory;

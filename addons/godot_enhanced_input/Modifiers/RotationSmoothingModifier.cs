@@ -14,6 +14,7 @@ public partial class RotationSmoothingModifier : InputModifier
     /// <summary>How fast the output catches up, per second (higher: snappier).</summary>
     [Export(PropertyHint.Range, "0.1,100,0.1,or_greater")] public float Rate { get; set; } = 20f;
 
+    /// <inheritdoc/>
     public override Vector4 Apply(Vector4 value, in ModifierContext context)
     {
         var memory = context.Memory;

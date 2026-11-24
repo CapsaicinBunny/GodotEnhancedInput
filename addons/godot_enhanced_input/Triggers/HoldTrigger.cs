@@ -17,6 +17,7 @@ public partial class HoldTrigger : InputTrigger
     /// <summary>Trigger only on the first tick the hold time is reached.</summary>
     [Export] public bool OneShot { get; set; }
 
+    /// <inheritdoc/>
     protected override TriggerPhase Update(in TriggerContext context, bool actuated, bool wasActuated)
     {
         var memory = context.Memory;

@@ -11,9 +11,12 @@ namespace GodotEnhancedInput;
 [GlobalClass]
 public partial class NormalizeModifier : InputModifier
 {
+    /// <summary>Shorter vectors become zero.</summary>
     [Export] public float MinLength { get; set; } = 0.001f;
+    /// <summary>Only shorten vectors longer than 1; keep shorter ones.</summary>
     [Export] public bool OnlyIfLonger { get; set; }
 
+    /// <inheritdoc/>
     public override Vector3 Apply(Vector3 value, in ModifierContext context)
     {
         float length = value.Length();
@@ -22,6 +25,7 @@ public partial class NormalizeModifier : InputModifier
         return value / length;
     }
 
+    /// <inheritdoc/>
     public override Vector4 Apply(Vector4 value, in ModifierContext context)
     {
         if (context.Kind == ActionValueKind.Quaternion)

@@ -10,6 +10,7 @@ namespace GodotEnhancedInput;
 [GlobalClass]
 public partial class ToggleTrigger : InputTrigger
 {
+    /// <inheritdoc/>
     protected override TriggerPhase Update(in TriggerContext context, bool actuated, bool wasActuated)
     {
         var memory = context.Memory;

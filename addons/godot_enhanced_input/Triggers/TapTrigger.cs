@@ -13,6 +13,7 @@ public partial class TapTrigger : InputTrigger
     /// <summary>The longest press that still counts as a tap.</summary>
     [Export(PropertyHint.Range, "0,2,0.01,or_greater,suffix:s")] public float TapSeconds { get; set; } = 0.2f;
 
+    /// <inheritdoc/>
     protected override TriggerPhase Update(in TriggerContext context, bool actuated, bool wasActuated)
     {
         var memory = context.Memory;

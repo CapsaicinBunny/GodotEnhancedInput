@@ -17,6 +17,7 @@ public partial class GyroCalibrationModifier : InputModifier
     /// <summary>How fast the bias follows the resting reading, per second.</summary>
     [Export(PropertyHint.Range, "0.01,10,0.01")] public float LearnRate { get; set; } = 1f;
 
+    /// <inheritdoc/>
     public override Vector3 Apply(Vector3 value, in ModifierContext context)
     {
         var m = context.Memory;

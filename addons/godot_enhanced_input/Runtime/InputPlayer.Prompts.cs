@@ -63,7 +63,7 @@ public partial class InputPlayer
     internal void OnDeviceLost(InputDeviceInfo device)
     {
         if (CurrentDevice != device && !(LastDeviceKind == InputDeviceKind.Joypad && LastJoypad == device.Index)) return;
-        InputDeviceKind kind = LastDeviceKind;
+        InputDeviceKind kind;
         int joypad = -1;
         foreach (var d in JoypadsToRead(SourceKey.AnyDevice))
             if (d != device.Index) { joypad = d; break; }
@@ -213,7 +213,7 @@ public partial class InputPlayer
         return source.Kind == SourceKind.JoyButton ? profile.ButtonName(source.RawIndex) : profile.AxisName(source.RawIndex);
     }
 
-    /// <summary>The prompt texts for an action joined with <paramref name="separator"/> (see <see cref="GetPrompts"/>).</summary>
+    /// <summary>The prompt texts for an action joined with <paramref name="separator"/> (see <see cref="GetPrompts(GameAction, InputDeviceKind?, JoypadStyle?)"/>).</summary>
     public string GetPromptText(GameAction action, InputDeviceKind? kind = null, string separator = " / ")
         => string.Join(separator, GetPrompts(action, kind).ConvertAll(p => p.Text));
 }

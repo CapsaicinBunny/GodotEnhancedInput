@@ -10,13 +10,16 @@ namespace GodotEnhancedInput;
 [GlobalClass]
 public partial class ScaleModifier : InputModifier
 {
+    /// <summary>Factor per component (rotations: X scales the angle).</summary>
     [Export] public Vector3 Scale { get; set; } = Vector3.One;
 
     /// <summary>Multiplier for the fourth component of 4D values.</summary>
     [Export] public float ScaleW { get; set; } = 1f;
 
+    /// <inheritdoc/>
     public override Vector3 Apply(Vector3 value, in ModifierContext context) => value * Scale;
 
+    /// <inheritdoc/>
     public override Vector4 Apply(Vector4 value, in ModifierContext context)
     {
         if (context.Kind == ActionValueKind.Quaternion) return ActionValue.ScaleRotation(value, Scale.X);

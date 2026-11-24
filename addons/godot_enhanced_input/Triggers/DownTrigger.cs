@@ -7,6 +7,7 @@ namespace GodotEnhancedInput;
 [GlobalClass]
 public partial class DownTrigger : InputTrigger
 {
+    /// <inheritdoc/>
     protected override TriggerPhase Update(in TriggerContext context, bool actuated, bool wasActuated)
         => actuated ? TriggerPhase.Triggered : TriggerPhase.Idle;
 }

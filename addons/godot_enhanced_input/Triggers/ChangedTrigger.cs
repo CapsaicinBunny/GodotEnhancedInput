@@ -14,6 +14,7 @@ public partial class ChangedTrigger : InputTrigger
     /// <summary>Smallest change per component that counts.</summary>
     [Export(PropertyHint.Range, "0,1,0.0001,or_greater")] public float Tolerance { get; set; }
 
+    /// <inheritdoc/>
     protected override TriggerPhase Update(in TriggerContext context, bool actuated, bool wasActuated)
     {
         var memory = context.Memory;

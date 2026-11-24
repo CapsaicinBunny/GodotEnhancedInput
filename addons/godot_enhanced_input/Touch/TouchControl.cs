@@ -46,6 +46,7 @@ public abstract partial class TouchControl : Control
     /// <summary>Overrides the safe area, in viewport pixels (tests, custom layouts).</summary>
     public Rect2? SafeAreaOverride { get; set; }
 
+    /// <inheritdoc/>
     public override void _Ready()
     {
         // Input is read in _Input, not through the GUI, so several fingers work at once.
@@ -83,12 +84,14 @@ public abstract partial class TouchControl : Control
         if (position != rect.Position) GlobalPosition = position;
     }
 
+    /// <inheritdoc/>
     public override void _Input(InputEvent @event)
     {
         if (Engine.IsEditorHint()) return;
         if (HandlePointerEvent(@event)) GetViewport().SetInputAsHandled();
     }
 
+    /// <inheritdoc/>
     public override void _Notification(int what)
     {
         // Hidden, removed, or the app lost focus / was suspended: fingers may never send their release.

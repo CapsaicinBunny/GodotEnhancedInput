@@ -21,6 +21,7 @@ public partial class MultiTapTrigger : InputTrigger
     /// <summary>The longest pause allowed between taps.</summary>
     [Export(PropertyHint.Range, "0.01,2,0.01,suffix:s")] public float GapSeconds { get; set; } = 0.3f;
 
+    /// <inheritdoc/>
     protected override TriggerPhase Update(in TriggerContext context, bool actuated, bool wasActuated)
     {
         double tapSeconds = Scaled(context, TapSeconds, TapTimeScaleSetting), gapSeconds = Scaled(context, GapSeconds, TapTimeScaleSetting);

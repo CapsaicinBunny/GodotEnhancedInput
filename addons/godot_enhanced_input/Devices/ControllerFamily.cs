@@ -6,24 +6,39 @@ namespace GodotEnhancedInput;
 /// <summary>Which controller a joypad is, as far as its USB ids and name tell.</summary>
 public enum ControllerFamily
 {
+    /// <summary>Not identified yet (the pad has not been read).</summary>
     Unknown,
     /// <summary>A pad that reports no recognised make (generic, arcade stick, older pads).</summary>
     Generic,
+    /// <summary>Xbox 360 controller.</summary>
     Xbox360,
+    /// <summary>Xbox One controller (including the One S over Bluetooth).</summary>
     XboxOne,
+    /// <summary>Xbox Series X|S controller.</summary>
     XboxSeries,
+    /// <summary>Xbox Elite controller (back paddles).</summary>
     XboxElite,
+    /// <summary>DualShock 3.</summary>
     PlayStation3,
+    /// <summary>DualShock 4.</summary>
     PlayStation4,
+    /// <summary>DualSense.</summary>
     PlayStation5,
+    /// <summary>DualSense Edge (back buttons).</summary>
     PlayStation5Edge,
+    /// <summary>Nintendo Switch Pro Controller.</summary>
     SwitchPro,
+    /// <summary>A single left Joy-Con.</summary>
     JoyConLeft,
+    /// <summary>A single right Joy-Con.</summary>
     JoyConRight,
+    /// <summary>Two Joy-Cons used as one pad.</summary>
     JoyConPair,
     /// <summary>Other Nintendo pads (GameCube adapters, NSO pads…).</summary>
     NintendoOther,
+    /// <summary>The Steam Deck's built-in controls.</summary>
     SteamDeck,
+    /// <summary>Valve's Steam Controller.</summary>
     SteamController,
     /// <summary>Steam Input's virtual pad: the real controller is hidden behind Steam's mapping.</summary>
     SteamVirtual,
@@ -35,13 +50,17 @@ public enum ControllerFamily
 [Flags]
 public enum ControllerFeatures
 {
+    /// <summary>No features.</summary>
     None = 0,
+    /// <summary>Weak and strong rumble motors.</summary>
     Rumble = 1 << 0,
     /// <summary>Motors in the triggers (Xbox One and later). Godot's joypad API cannot drive them.</summary>
     TriggerRumble = 1 << 1,
     /// <summary>Triggers with programmable resistance (DualSense). Godot's joypad API cannot drive them.</summary>
     AdaptiveTriggers = 1 << 2,
+    /// <summary>A light bar or player light that can be coloured.</summary>
     Light = 1 << 3,
+    /// <summary>Gyroscope and accelerometer.</summary>
     MotionSensors = 1 << 4,
     /// <summary>A touchpad (Godot reports its click as a button; finger positions are not exposed).</summary>
     Touchpad = 1 << 5,
@@ -49,6 +68,7 @@ public enum ControllerFeatures
     BackButtons = 1 << 6,
     /// <summary>Trackpads (Steam Deck, Steam Controller), reachable only through Steam Input.</summary>
     Trackpads = 1 << 7,
+    /// <summary>A built-in microphone.</summary>
     Microphone = 1 << 8,
     /// <summary>A share / capture / quick-access button (Misc1).</summary>
     ShareButton = 1 << 9,
@@ -62,9 +82,13 @@ public enum ControllerFeatures
 /// </summary>
 public static class ControllerDetection
 {
+    /// <summary>USB vendor id of Sony.</summary>
     public const int VendorSony = 0x054C;
+    /// <summary>USB vendor id of Microsoft.</summary>
     public const int VendorMicrosoft = 0x045E;
+    /// <summary>USB vendor id of Nintendo.</summary>
     public const int VendorNintendo = 0x057E;
+    /// <summary>USB vendor id of Valve.</summary>
     public const int VendorValve = 0x28DE;
 
     /// <summary>Reads a connected joypad's USB vendor and product ids (0 when the platform does not say).</summary>

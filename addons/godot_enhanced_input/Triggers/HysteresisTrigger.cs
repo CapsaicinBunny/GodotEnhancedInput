@@ -11,9 +11,12 @@ namespace GodotEnhancedInput;
 [GlobalClass]
 public partial class HysteresisTrigger : InputTrigger
 {
+    /// <summary>Turns on at this magnitude.</summary>
     [Export(PropertyHint.Range, "0,1,0.01")] public float PressThreshold { get; set; } = 0.6f;
+    /// <summary>Turns off below this magnitude.</summary>
     [Export(PropertyHint.Range, "0,1,0.01")] public float ReleaseThreshold { get; set; } = 0.4f;
 
+    /// <inheritdoc/>
     protected override TriggerPhase Update(in TriggerContext context, bool actuated, bool wasActuated)
     {
         var m = context.Memory;

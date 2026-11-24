@@ -28,6 +28,7 @@ public partial class InputDebugOverlay : CanvasLayer
     /// <summary>How many recent events to keep.</summary>
     [Export(PropertyHint.Range, "0,100,1")] public int HistoryLength { get; set; } = 12;
 
+    /// <summary>Font size of the overlay text.</summary>
     [Export] public int FontSize { get; set; } = 12;
 
     /// <summary>The system to show; defaults to <see cref="EnhancedInput.Instance"/>.</summary>
@@ -46,11 +47,13 @@ public partial class InputDebugOverlay : CanvasLayer
     private Label _label;
     private EnhancedInput _connectedSystem;
 
+    /// <summary>Creates the overlay (it draws above everything, on layer 128).</summary>
     public InputDebugOverlay()
     {
         Layer = 100;
     }
 
+    /// <inheritdoc/>
     public override void _Ready()
     {
         _panel = new PanelContainer { MouseFilter = Control.MouseFilterEnum.Ignore, Position = new Vector2(8, 8) };
@@ -64,6 +67,7 @@ public partial class InputDebugOverlay : CanvasLayer
         Visible = StartVisible;
     }
 
+    /// <inheritdoc/>
     public override void _ExitTree()
     {
         foreach (var pair in _handlers)
@@ -74,6 +78,7 @@ public partial class InputDebugOverlay : CanvasLayer
         _connectedSystem = null;
     }
 
+    /// <inheritdoc/>
     public override void _Input(InputEvent @event)
     {
         if (ToggleKey != Key.None && @event is InputEventKey { Pressed: true, Echo: false } key
@@ -81,6 +86,7 @@ public partial class InputDebugOverlay : CanvasLayer
             Visible = !Visible;
     }
 
+    /// <inheritdoc/>
     public override void _Process(double delta)
     {
         if (Visible) Refresh();

@@ -20,18 +20,22 @@ public partial class VirtualJoystick : TouchControl
     /// <summary>Centre the stick where the finger touches down instead of in the middle of the control.</summary>
     [Export] public bool Floating { get; set; }
 
+    /// <summary>Colour of the base.</summary>
     [Export] public Color BaseColor { get; set; } = new(1f, 1f, 1f, 0.18f);
+    /// <summary>Colour of the knob.</summary>
     [Export] public Color KnobColor { get; set; } = new(1f, 1f, 1f, 0.55f);
 
     /// <summary>The value last written.</summary>
     public Vector2 Value { get; private set; }
 
+    /// <summary>Creates a stick.</summary>
     public VirtualJoystick()
     {
         ControlName = "touch_move";
         CustomMinimumSize = new Vector2(160, 160);
     }
 
+    /// <inheritdoc/>
     protected override bool OnPointerDown(int pointer, Vector2 localPosition)
     {
         if (_pointer != int.MinValue) return false;
@@ -41,11 +45,13 @@ public partial class VirtualJoystick : TouchControl
         return true;
     }
 
+    /// <inheritdoc/>
     protected override void OnPointerMove(int pointer, Vector2 localPosition, Vector2 relative)
     {
         if (pointer == _pointer) Move(localPosition);
     }
 
+    /// <inheritdoc/>
     protected override void OnPointerUp(int pointer)
     {
         if (pointer != _pointer) return;
@@ -65,6 +71,7 @@ public partial class VirtualJoystick : TouchControl
         Player?.SetVirtualControl(ControlName, value);
     }
 
+    /// <inheritdoc/>
     public override void _Draw()
     {
         var center = _pointer != int.MinValue ? _center : Size / 2f;

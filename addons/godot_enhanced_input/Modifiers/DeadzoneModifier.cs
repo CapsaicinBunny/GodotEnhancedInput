@@ -21,13 +21,17 @@ public enum DeadzoneShape
 [GlobalClass]
 public partial class DeadzoneModifier : InputModifier
 {
+    /// <summary>Per component (axial) or on the vector's length (radial, keeps the direction).</summary>
     [Export] public DeadzoneShape Shape { get; set; } = DeadzoneShape.Radial;
+    /// <summary>Below this the output is zero (for rotations: a fraction of half a turn).</summary>
     [Export(PropertyHint.Range, "0,1,0.01")] public float Lower { get; set; } = 0.2f;
+    /// <summary>Above this the output is full.</summary>
     [Export(PropertyHint.Range, "0,1,0.01")] public float Upper { get; set; } = 1f;
 
     /// <summary>Optional player setting that replaces <see cref="Lower"/> (e.g. "stick_deadzone"), so players can tune it.</summary>
     [Export] public string LowerSetting { get; set; } = string.Empty;
 
+    /// <inheritdoc/>
     public override Vector3 Apply(Vector3 value, in ModifierContext context)
     {
         float lower = !string.IsNullOrEmpty(LowerSetting) && context.Player != null ? (float)context.Player.GetSetting(LowerSetting, Lower) : Lower;
@@ -39,6 +43,7 @@ public partial class DeadzoneModifier : InputModifier
         return value / length * Remap(length, lower);
     }
 
+    /// <inheritdoc/>
     public override Vector4 Apply(Vector4 value, in ModifierContext context)
     {
         float lower = !string.IsNullOrEmpty(LowerSetting) && context.Player != null ? (float)context.Player.GetSetting(LowerSetting, Lower) : Lower;

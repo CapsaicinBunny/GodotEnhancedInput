@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using Godot;
 
 namespace GodotEnhancedInput;
 
@@ -17,13 +16,20 @@ public enum IssueSeverity
 /// <summary>One problem in a set of binding contexts.</summary>
 public sealed class BindingIssue
 {
+    /// <summary>How serious it is.</summary>
     public IssueSeverity Severity { get; init; }
+    /// <summary>What is wrong, for people.</summary>
     public string Message { get; init; } = string.Empty;
+    /// <summary>The context it is in.</summary>
     public BindingContext Context { get; init; }
+    /// <summary>The binding concerned, if any.</summary>
     public ActionBinding Binding { get; init; }
+    /// <summary>The binding's index in its context (−1 when not about one binding).</summary>
     public int BindingIndex { get; init; } = -1;
+    /// <summary>The action concerned, if any.</summary>
     public GameAction Action { get; init; }
 
+    /// <inheritdoc/>
     public override string ToString()
     {
         var where = Context == null ? string.Empty : BindingIndex >= 0 ? $"{Context.Name} #{BindingIndex}: " : $"{Context.Name}: ";

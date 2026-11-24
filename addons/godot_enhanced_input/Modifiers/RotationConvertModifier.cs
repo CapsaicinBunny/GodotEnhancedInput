@@ -26,8 +26,10 @@ public enum RotationConversion
 [GlobalClass]
 public partial class RotationConvertModifier : InputModifier
 {
+    /// <summary>What to convert into what.</summary>
     [Export] public RotationConversion Conversion { get; set; } = RotationConversion.EulerToQuaternion;
 
+    /// <inheritdoc/>
     public override Vector4 Apply(Vector4 value, in ModifierContext context)
     {
         var xyz = new Vector3(value.X, value.Y, value.Z);

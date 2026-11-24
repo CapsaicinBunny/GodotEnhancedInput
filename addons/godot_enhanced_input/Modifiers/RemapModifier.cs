@@ -10,12 +10,18 @@ namespace GodotEnhancedInput;
 [GlobalClass]
 public partial class RemapModifier : InputModifier
 {
+    /// <summary>Input that maps to <see cref="OutputMin"/>.</summary>
     [Export] public Vector3 InputMin { get; set; } = new(-1f, -1f, -1f);
+    /// <summary>Input that maps to <see cref="OutputMax"/>.</summary>
     [Export] public Vector3 InputMax { get; set; } = new(1f, 1f, 1f);
+    /// <summary>Output at <see cref="InputMin"/>.</summary>
     [Export] public Vector3 OutputMin { get; set; } = Vector3.Zero;
+    /// <summary>Output at <see cref="InputMax"/>.</summary>
     [Export] public Vector3 OutputMax { get; set; } = Vector3.One;
+    /// <summary>Keep the output within the output range.</summary>
     [Export] public bool Clamp { get; set; } = true;
 
+    /// <inheritdoc/>
     public override Vector3 Apply(Vector3 v, in ModifierContext context)
         => new(Map(v.X, InputMin.X, InputMax.X, OutputMin.X, OutputMax.X),
                Map(v.Y, InputMin.Y, InputMax.Y, OutputMin.Y, OutputMax.Y),

@@ -10,8 +10,10 @@ namespace GodotEnhancedInput;
 [GlobalClass]
 public partial class ExponentCurveModifier : InputModifier
 {
+    /// <summary>Exponent per component (above 1: finer near the centre).</summary>
     [Export] public Vector3 Exponent { get; set; } = new(2f, 2f, 2f);
 
+    /// <inheritdoc/>
     public override Vector3 Apply(Vector3 v, in ModifierContext context)
         => new(Bend(v.X, Exponent.X), Bend(v.Y, Exponent.Y), Bend(v.Z, Exponent.Z));
 

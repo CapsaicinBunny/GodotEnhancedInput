@@ -17,14 +17,17 @@ public readonly struct ActionValue : IEquatable<ActionValue>
     /// <summary>The components as stored, unconverted. For <see cref="ActionValueKind.Digital"/> the strength is in X.</summary>
     public Vector4 Raw { get; }
 
+    /// <summary>A value of a kind from four components, stored as given.</summary>
     public ActionValue(ActionValueKind kind, Vector4 raw)
     {
         Kind = kind;
         Raw = raw;
     }
 
+    /// <summary>A value of a kind from three components.</summary>
     public ActionValue(ActionValueKind kind, Vector3 raw) : this(kind, new Vector4(raw.X, raw.Y, raw.Z, 0f)) { }
 
+    /// <summary>A quaternion value.</summary>
     public ActionValue(Quaternion rotation) : this(ActionValueKind.Quaternion, new Vector4(rotation.X, rotation.Y, rotation.Z, rotation.W)) { }
 
     /// <summary>A zero value of the given kind (for a quaternion: no rotation).</summary>
@@ -136,19 +139,31 @@ public readonly struct ActionValue : IEquatable<ActionValue>
     /// <summary>A quaternion stored as (x, y, z, w).</summary>
     public static Vector4 FromQuaternion(Quaternion q) => new(q.X, q.Y, q.Z, q.W);
 
+    /// <summary><see cref="AsBool"/>.</summary>
     public static implicit operator bool(ActionValue v) => v.AsBool();
+    /// <summary><see cref="AsFloat"/>.</summary>
     public static implicit operator float(ActionValue v) => v.AsFloat();
+    /// <summary><see cref="AsVector2"/>.</summary>
     public static implicit operator Vector2(ActionValue v) => v.AsVector2();
+    /// <summary><see cref="AsVector3"/>.</summary>
     public static implicit operator Vector3(ActionValue v) => v.AsVector3();
+    /// <summary><see cref="AsVector4"/>.</summary>
     public static implicit operator Vector4(ActionValue v) => v.AsVector4();
+    /// <summary><see cref="AsQuaternion"/>.</summary>
     public static implicit operator Quaternion(ActionValue v) => v.AsQuaternion();
 
+    /// <summary>Same kind and same components.</summary>
     public bool Equals(ActionValue other) => Kind == other.Kind && Raw == other.Raw;
+    /// <inheritdoc/>
     public override bool Equals(object obj) => obj is ActionValue other && Equals(other);
+    /// <inheritdoc/>
     public override int GetHashCode() => HashCode.Combine((int)Kind, Raw);
+    /// <summary>Same kind and same components.</summary>
     public static bool operator ==(ActionValue a, ActionValue b) => a.Equals(b);
+    /// <summary>Different kind or components.</summary>
     public static bool operator !=(ActionValue a, ActionValue b) => !a.Equals(b);
 
+    /// <inheritdoc/>
     public override string ToString() => Kind switch
     {
         ActionValueKind.Digital => $"{AsBool()} ({Raw.X:0.###})",

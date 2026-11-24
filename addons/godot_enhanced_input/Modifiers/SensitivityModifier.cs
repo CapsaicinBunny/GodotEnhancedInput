@@ -24,6 +24,7 @@ public partial class SensitivityModifier : InputModifier
     /// <summary>Optional yes/no setting that flips X.</summary>
     [Export] public string InvertXSetting { get; set; } = string.Empty;
 
+    /// <inheritdoc/>
     public override Vector3 Apply(Vector3 value, in ModifierContext context)
     {
         var player = context.Player;

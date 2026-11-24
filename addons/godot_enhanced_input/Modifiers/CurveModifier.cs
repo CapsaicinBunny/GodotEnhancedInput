@@ -11,13 +11,17 @@ namespace GodotEnhancedInput;
 [GlobalClass]
 public partial class CurveModifier : InputModifier
 {
+    /// <summary>Response curve of X (none: unchanged).</summary>
     [Export] public Curve CurveX { get; set; }
+    /// <summary>Response curve of Y (none: same as X).</summary>
     [Export] public Curve CurveY { get; set; }
+    /// <summary>Response curve of Z (none: same as X).</summary>
     [Export] public Curve CurveZ { get; set; }
 
     /// <summary>When off, the curve is sampled at the signed value and its result used as is.</summary>
     [Export] public bool Symmetric { get; set; } = true;
 
+    /// <inheritdoc/>
     public override Vector3 Apply(Vector3 v, in ModifierContext context)
         => new(Map(CurveX, v.X), Map(CurveY, v.Y), Map(CurveZ, v.Z));
 

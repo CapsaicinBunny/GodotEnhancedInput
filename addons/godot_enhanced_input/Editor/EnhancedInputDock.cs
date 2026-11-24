@@ -66,6 +66,7 @@ public partial class EnhancedInputDock : VBoxContainer
     private ulong _listenStartedMs;
     private bool _updatingDetail;
 
+    /// <summary>Builds the dock's interface; called once by the plugin.</summary>
     public void Setup(EditorPlugin plugin)
     {
         _plugin = plugin;
@@ -75,6 +76,7 @@ public partial class EnhancedInputDock : VBoxContainer
         BuildUi();
     }
 
+    /// <inheritdoc/>
     public override void _Ready()
     {
         Input.Singleton.JoyConnectionChanged += OnJoyConnectionChanged;
@@ -82,6 +84,7 @@ public partial class EnhancedInputDock : VBoxContainer
         Refresh();
     }
 
+    /// <inheritdoc/>
     public override void _ExitTree()
     {
         Input.Singleton.JoyConnectionChanged -= OnJoyConnectionChanged;
@@ -145,7 +148,7 @@ public partial class EnhancedInputDock : VBoxContainer
         return label;
     }
 
-    private Label Badge(Texture2D icon, Color color)
+    private Label Badge(Color color)
     {
         var label = new Label { Text = "0", TooltipText = "", VerticalAlignment = VerticalAlignment.Center };
         label.AddThemeColorOverride("font_color", color);
@@ -187,11 +190,11 @@ public partial class EnhancedInputDock : VBoxContainer
         toolbar.AddChild(new VSeparator());
         var errorIcon = new TextureRect { Texture = Icon("StatusError"), StretchMode = TextureRect.StretchModeEnum.KeepCentered };
         toolbar.AddChild(errorIcon);
-        _errorsBadge = Badge(Icon("StatusError"), ErrorColor);
+        _errorsBadge = Badge(ErrorColor);
         toolbar.AddChild(_errorsBadge);
         var warningIcon = new TextureRect { Texture = Icon("StatusWarning"), StretchMode = TextureRect.StretchModeEnum.KeepCentered };
         toolbar.AddChild(warningIcon);
-        _warningsBadge = Badge(Icon("StatusWarning"), WarningColor);
+        _warningsBadge = Badge(WarningColor);
         toolbar.AddChild(_warningsBadge);
 
         _status = new Label { SizeFlagsHorizontal = SizeFlags.ExpandFill, HorizontalAlignment = HorizontalAlignment.Right, ClipText = true };
@@ -858,6 +861,7 @@ public partial class EnhancedInputDock : VBoxContainer
         if (message != null) SetStatus(message);
     }
 
+    /// <inheritdoc/>
     public override void _Input(InputEvent @event)
     {
         bool actuated = @event switch
@@ -934,6 +938,7 @@ public partial class EnhancedInputDock : VBoxContainer
         _lightColor.Disabled = !Input.HasJoyLight(device);
     }
 
+    /// <inheritdoc/>
     public override void _Process(double delta)
     {
         if (_selectedPad < 0 || _tabs == null || _tabs.CurrentTab != 3 || !IsVisibleInTree()) return;

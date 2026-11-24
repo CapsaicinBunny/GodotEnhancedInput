@@ -34,11 +34,13 @@ public partial class TouchLayoutRoot : Control
         }
     }
 
+    /// <summary>Creates the layout root (fills its parent).</summary>
     public TouchLayoutRoot()
     {
         MouseFilter = MouseFilterEnum.Ignore;
     }
 
+    /// <inheritdoc/>
     public override void _Ready()
     {
         if (Layout != null) Apply();
@@ -91,6 +93,7 @@ public partial class TouchLayoutRoot : Control
         return Layout;
     }
 
+    /// <inheritdoc/>
     public override void _Input(InputEvent @event)
     {
         if (!_editMode || Engine.IsEditorHint()) return;

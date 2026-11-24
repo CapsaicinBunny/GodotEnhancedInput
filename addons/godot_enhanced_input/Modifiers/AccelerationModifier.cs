@@ -11,10 +11,14 @@ namespace GodotEnhancedInput;
 [GlobalClass]
 public partial class AccelerationModifier : InputModifier
 {
+    /// <summary>How much faster movement is amplified.</summary>
     [Export(PropertyHint.Range, "0,1,0.0001,or_greater")] public float Acceleration { get; set; } = 0.001f;
+    /// <summary>How the gain grows with speed (1: linearly).</summary>
     [Export(PropertyHint.Range, "0.1,3,0.01")] public float Exponent { get; set; } = 1f;
+    /// <summary>The largest gain applied.</summary>
     [Export(PropertyHint.Range, "1,20,0.1,or_greater")] public float MaxGain { get; set; } = 4f;
 
+    /// <inheritdoc/>
     public override Vector3 Apply(Vector3 value, in ModifierContext context)
     {
         if (context.Delta <= 0) return value;

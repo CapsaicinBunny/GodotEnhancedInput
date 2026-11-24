@@ -190,6 +190,7 @@ public sealed class ActionState
         foreach (var m in TriggerMemories) m?.Reset();
     }
 
+    /// <inheritdoc/>
     public override string ToString() => $"{Action}: {Phase} {Value} [{Events}] {ElapsedSeconds:0.###}s/{TriggeredSeconds:0.###}s";
 }
 
@@ -200,6 +201,7 @@ public sealed class ActionState
 /// </summary>
 public readonly struct InputSample
 {
+    /// <summary>Creates a sample.</summary>
     public InputSample(ActionValue value, bool isTracked, bool isValid, double timestamp)
     {
         Value = value;
@@ -220,12 +222,14 @@ public readonly struct InputSample
     /// <summary>When the value last changed, in seconds on the player's clock.</summary>
     public double Timestamp { get; }
 
+    /// <inheritdoc/>
     public override string ToString() => IsValid ? $"{Value}{(IsTracked ? " (tracked)" : "")} @ {Timestamp:0.###}s" : "no reading";
 }
 
 /// <summary>Passed to action callbacks: one event of one action.</summary>
 public readonly struct ActionEventArgs
 {
+    /// <summary>Creates event arguments from an action's state.</summary>
     public ActionEventArgs(InputPlayer player, GameAction action, ActionEvents @event, ActionState state)
     {
         Player = player;

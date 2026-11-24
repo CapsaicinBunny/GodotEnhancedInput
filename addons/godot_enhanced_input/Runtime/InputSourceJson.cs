@@ -11,6 +11,7 @@ namespace GodotEnhancedInput;
 /// </summary>
 public static class InputSourceJson
 {
+    /// <summary>A source as JSON (enums by name), for profiles and tools.</summary>
     public static JsonObject ToJson(InputSource source)
     {
         var json = new JsonObject { ["kind"] = (source?.Kind ?? SourceKind.None).ToString() };

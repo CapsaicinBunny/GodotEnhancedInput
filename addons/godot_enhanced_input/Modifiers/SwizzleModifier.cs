@@ -24,8 +24,10 @@ public enum SwizzleOrder
 [GlobalClass]
 public partial class SwizzleModifier : InputModifier
 {
+    /// <summary>The new order of the components.</summary>
     [Export] public SwizzleOrder Order { get; set; } = SwizzleOrder.YXZ;
 
+    /// <inheritdoc/>
     public override Vector3 Apply(Vector3 v, in ModifierContext context) => Order switch
     {
         SwizzleOrder.YXZ => new Vector3(v.Y, v.X, v.Z),

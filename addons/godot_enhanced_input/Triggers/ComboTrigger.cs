@@ -14,6 +14,7 @@ namespace GodotEnhancedInput;
 [GlobalClass]
 public partial class ComboTrigger : InputTrigger
 {
+    /// <inheritdoc/>
     public override bool ReadsOtherActions => true;
 
     /// <summary>The steps, in order.</summary>
@@ -22,6 +23,7 @@ public partial class ComboTrigger : InputTrigger
     /// <summary>Actions that break the combo when they trigger.</summary>
     [Export] public Array<GameAction> CancelActions { get; set; } = new();
 
+    /// <inheritdoc/>
     protected override TriggerPhase Update(in TriggerContext context, bool actuated, bool wasActuated)
     {
         var player = context.Player;

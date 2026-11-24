@@ -10,13 +10,16 @@ namespace GodotEnhancedInput;
 [GlobalClass]
 public partial class ChordBlockerTrigger : InputTrigger
 {
+    /// <inheritdoc/>
     public override bool ReadsOtherActions => true;
 
     /// <summary>The action whose triggering blocks this set.</summary>
     [Export] public GameAction BlockingAction { get; set; }
 
+    /// <inheritdoc/>
     public override TriggerRole Role => TriggerRole.Blocker;
 
+    /// <inheritdoc/>
     protected override TriggerPhase Update(in TriggerContext context, bool actuated, bool wasActuated)
     {
         if (BlockingAction == null || context.Player == null) return TriggerPhase.Idle;

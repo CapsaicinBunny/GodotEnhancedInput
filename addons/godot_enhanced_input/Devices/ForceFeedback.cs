@@ -28,6 +28,7 @@ public struct ForceFeedback
     /// <summary>A short jolt added on top (kerbs, collisions), −1…1, for one update.</summary>
     public float Jolt;
 
+    /// <summary>No force: releases the wheel.</summary>
     public static ForceFeedback None => default;
 
     /// <summary>A typical self-centring wheel.</summary>
@@ -43,6 +44,7 @@ public struct ForceFeedback
 /// <summary>Optional extra for an <see cref="IHapticsOutput"/> that can drive force feedback on joypad devices.</summary>
 public interface IForceFeedbackOutput
 {
+    /// <summary>Applies forces to a joypad-device wheel.</summary>
     void SetForceFeedback(int device, ForceFeedback force);
 }
 

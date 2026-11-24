@@ -1,19 +1,27 @@
-using Godot;
-
 namespace GodotEnhancedInput;
 
 /// <summary>What a device is for, as far as the plugin can tell (from a <see cref="DeviceProfile"/> or its name).</summary>
 public enum DeviceRole
 {
+    /// <summary>Not known.</summary>
     Other,
+    /// <summary>Keyboard and mouse.</summary>
     KeyboardMouse,
+    /// <summary>A touchscreen.</summary>
     Touchscreen,
+    /// <summary>A pen or stylus.</summary>
     Pen,
+    /// <summary>A gamepad.</summary>
     Gamepad,
+    /// <summary>A steering wheel.</summary>
     Wheel,
+    /// <summary>Pedals.</summary>
     Pedals,
+    /// <summary>A flight stick.</summary>
     FlightStick,
+    /// <summary>A throttle.</summary>
     Throttle,
+    /// <summary>An XR controller.</summary>
     XRController,
     /// <summary>A tracked hand (hand tracking, no controller).</summary>
     XRHand,
@@ -27,18 +35,31 @@ public enum DeviceRole
 [System.Flags]
 public enum DeviceRoles
 {
+    /// <summary>No roles.</summary>
     None = 0,
+    /// <summary><see cref="DeviceRole.KeyboardMouse"/>.</summary>
     KeyboardMouse = 1 << DeviceRole.KeyboardMouse,
+    /// <summary><see cref="DeviceRole.Touchscreen"/>.</summary>
     Touchscreen = 1 << DeviceRole.Touchscreen,
+    /// <summary><see cref="DeviceRole.Pen"/>.</summary>
     Pen = 1 << DeviceRole.Pen,
+    /// <summary><see cref="DeviceRole.Gamepad"/>.</summary>
     Gamepad = 1 << DeviceRole.Gamepad,
+    /// <summary><see cref="DeviceRole.Wheel"/>.</summary>
     Wheel = 1 << DeviceRole.Wheel,
+    /// <summary><see cref="DeviceRole.Pedals"/>.</summary>
     Pedals = 1 << DeviceRole.Pedals,
+    /// <summary><see cref="DeviceRole.FlightStick"/>.</summary>
     FlightStick = 1 << DeviceRole.FlightStick,
+    /// <summary><see cref="DeviceRole.Throttle"/>.</summary>
     Throttle = 1 << DeviceRole.Throttle,
+    /// <summary><see cref="DeviceRole.XRController"/>.</summary>
     XRController = 1 << DeviceRole.XRController,
+    /// <summary><see cref="DeviceRole.XRHand"/>.</summary>
     XRHand = 1 << DeviceRole.XRHand,
+    /// <summary><see cref="DeviceRole.HeadTracker"/>.</summary>
     HeadTracker = 1 << DeviceRole.HeadTracker,
+    /// <summary><see cref="DeviceRole.EyeTracker"/>.</summary>
     EyeTracker = 1 << DeviceRole.EyeTracker,
 }
 
@@ -154,6 +175,7 @@ public sealed class InputDeviceInfo
         : Family is not (ControllerFamily.Unknown or ControllerFamily.Generic) ? ControllerDetection.DisplayName(Family)
         : Name;
 
+    /// <inheritdoc/>
     public override string ToString() => $"{Id} ({Kind}, {Role}{(IsConnected ? "" : ", disconnected")})";
 
     /// <summary>Guesses the role of a joypad from its name.</summary>

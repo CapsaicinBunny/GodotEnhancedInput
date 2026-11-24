@@ -11,8 +11,10 @@ namespace GodotEnhancedInput;
 [GlobalClass]
 public partial class ViewRelativeModifier : InputModifier
 {
+    /// <summary>Use only the camera's heading (movement stays on the ground).</summary>
     [Export] public bool YawOnly { get; set; } = true;
 
+    /// <inheritdoc/>
     public override Vector3 Apply(Vector3 value, in ModifierContext context)
     {
         var basis = context.Player?.GetViewBasis() ?? Basis.Identity;

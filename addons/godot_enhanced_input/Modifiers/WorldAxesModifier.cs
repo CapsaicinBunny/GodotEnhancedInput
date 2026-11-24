@@ -19,8 +19,10 @@ public enum WorldPlane
 [GlobalClass]
 public partial class WorldAxesModifier : InputModifier
 {
+    /// <summary>Which 3D plane the 2D input is laid on.</summary>
     [Export] public WorldPlane Plane { get; set; } = WorldPlane.GroundXZ;
 
+    /// <inheritdoc/>
     public override Vector3 Apply(Vector3 v, in ModifierContext context) => Plane switch
     {
         WorldPlane.UprightXY => new Vector3(v.X, -v.Y, 0f),

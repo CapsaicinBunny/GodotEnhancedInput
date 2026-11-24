@@ -14,6 +14,7 @@ public partial class DeltaTimeScaleModifier : InputModifier
     /// <summary>Also scale delta values (mouse motion, drags), which are normally already per tick.</summary>
     [Export] public bool ScaleDeltaValues { get; set; }
 
+    /// <inheritdoc/>
     public override Vector3 Apply(Vector3 value, in ModifierContext context)
         => context.Nature == ValueNature.Delta && !ScaleDeltaValues ? value : value * (float)context.Delta;
 }

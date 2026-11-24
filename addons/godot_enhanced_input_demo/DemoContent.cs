@@ -9,26 +9,43 @@ namespace GodotEnhancedInput.Demo;
 /// </summary>
 public sealed class DemoContent
 {
+    /// <summary>Where the demo's resources are saved.</summary>
     public const string Folder = "res://addons/godot_enhanced_input_demo";
 
+    /// <summary>Movement (2D).</summary>
     public GameAction Move { get; } = Action("move", "Move", ActionValueKind.Axis2D);
+    /// <summary>Run while held.</summary>
     public GameAction Sprint { get; } = Action("sprint", "Sprint");
+    /// <summary>Jump on press.</summary>
     public GameAction Jump { get; } = Action("jump", "Jump");
+    /// <summary>Dash: a chord with sprint.</summary>
     public GameAction Dash { get; } = Action("dash", "Dash");
+    /// <summary>Charge: hold.</summary>
     public GameAction Charge { get; } = Action("charge", "Charge");
+    /// <summary>Inspect: tap.</summary>
     public GameAction Inspect { get; } = Action("inspect", "Inspect");
+    /// <summary>Pick up: hold on the same key as inspect.</summary>
     public GameAction PickUp { get; } = Action("pick_up", "Pick up");
+    /// <summary>Fire: pulses while held.</summary>
     public GameAction Fire { get; } = Action("fire", "Fire");
+    /// <summary>Spin: a combo.</summary>
     public GameAction Spin { get; } = Action("spin", "Spin");
+    /// <summary>Open the pause menu.</summary>
     public GameAction Pause { get; } = Action("pause", "Pause");
+    /// <summary>Close the pause menu.</summary>
     public GameAction Resume { get; } = Action("resume", "Resume");
+    /// <summary>Show or hide the on-screen controls.</summary>
     public GameAction ToggleTouch { get; } = Action("toggle_touch", "Touch UI");
 
+    /// <summary>The gameplay bindings.</summary>
     public BindingContext Gameplay { get; }
+    /// <summary>The pause menu bindings (blocks gameplay).</summary>
     public BindingContext Menu { get; }
 
+    /// <summary>Every demo action.</summary>
     public GameAction[] AllActions => new[] { Move, Sprint, Jump, Dash, Charge, Inspect, PickUp, Fire, Spin, Pause, Resume, ToggleTouch };
 
+    /// <summary>Builds the demo's actions and contexts in code.</summary>
     public DemoContent()
     {
         // Move: keys and the left stick; the action keeps diagonals from being faster.

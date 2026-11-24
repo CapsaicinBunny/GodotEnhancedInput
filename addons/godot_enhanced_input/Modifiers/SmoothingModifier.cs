@@ -21,6 +21,7 @@ public partial class SmoothingModifier : InputModifier
 {
     private SmoothingMode _mode = SmoothingMode.Average;
 
+    /// <summary>Average of recent samples, or exponential follow.</summary>
     [Export]
     public SmoothingMode Mode
     {
@@ -34,6 +35,7 @@ public partial class SmoothingModifier : InputModifier
     /// <summary>How quickly the output catches up, per second (Exponential mode). Higher is snappier.</summary>
     [Export(PropertyHint.Range, "0.1,60,0.1,or_greater")] public float Rate { get; set; } = 12f;
 
+    /// <inheritdoc/>
     public override Vector3 Apply(Vector3 value, in ModifierContext context)
     {
         var memory = context.Memory;
@@ -67,6 +69,7 @@ public partial class SmoothingModifier : InputModifier
         return sum / memory.SampleCount;
     }
 
+    /// <inheritdoc/>
     public override void _ValidateProperty(Godot.Collections.Dictionary property)
     {
         string name = property["name"].AsString();

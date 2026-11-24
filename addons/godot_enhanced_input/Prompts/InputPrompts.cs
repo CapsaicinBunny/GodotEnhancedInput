@@ -329,6 +329,7 @@ public static class InputPrompts
 /// <summary>One prompt for an action: a source that currently drives it, with its text and icon key.</summary>
 public readonly struct ActionPrompt
 {
+    /// <summary>Creates a prompt (the player builds these; see <see cref="InputPlayer.GetPrompts(GameAction, InputDeviceKind?, JoypadStyle?)"/>).</summary>
     public ActionPrompt(GameAction action, ActionBinding binding, BindingContext context, InputSource source, JoypadStyle style, string chordText = null, string sourceText = null)
     {
         Action = action;
@@ -349,8 +350,11 @@ public readonly struct ActionPrompt
     /// <summary>The prompt of the action the binding is chorded with (see <see cref="ChordTrigger"/>), or empty.</summary>
     public string ChordText { get; }
 
+    /// <summary>The action the prompt is for.</summary>
     public GameAction Action { get; }
+    /// <summary>The binding it comes from.</summary>
     public ActionBinding Binding { get; }
+    /// <summary>The context of that binding.</summary>
     public BindingContext Context { get; }
 
     /// <summary>The source in use (rebinds applied).</summary>
@@ -359,6 +363,7 @@ public readonly struct ActionPrompt
     /// <summary>The joypad style used for <see cref="Text"/>.</summary>
     public JoypadStyle Style { get; }
 
+    /// <summary>The kind of device the input is on.</summary>
     public InputDeviceKind DeviceKind { get; }
 
     /// <summary>What to show, e.g. "Space", "LB", "W/A/S/D", "Shift + Space".</summary>
@@ -367,5 +372,6 @@ public readonly struct ActionPrompt
     /// <summary>See <see cref="InputPrompts.GetIconKey"/>.</summary>
     public string IconKey { get; }
 
+    /// <inheritdoc/>
     public override string ToString() => Text;
 }

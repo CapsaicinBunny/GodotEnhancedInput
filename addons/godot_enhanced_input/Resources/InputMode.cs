@@ -65,5 +65,6 @@ public partial class InputMode : Resource
     public static InputMode Create(string name, DeviceKinds required, string[] groups, DeviceKinds switchOn = DeviceKinds.None)
         => new() { Name = name, RequiredDevices = required, Groups = groups ?? System.Array.Empty<string>(), SwitchOn = switchOn };
 
+    /// <inheritdoc/>
     public override string ToString() => string.IsNullOrEmpty(Name) ? "InputMode" : Name;
 }

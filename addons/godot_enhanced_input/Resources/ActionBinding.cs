@@ -80,5 +80,6 @@ public partial class ActionBinding : Resource
         return binding;
     }
 
+    /// <inheritdoc/>
     public override string ToString() => $"{Action} <- {Source?.Describe() ?? "None"}";
 }

@@ -34,12 +34,14 @@ public sealed class RebindSlot
 
     internal readonly List<(BindingContext Context, ActionBinding Binding)> _bindings = new();
 
+    /// <inheritdoc/>
     public override string ToString() => $"{Id}: {CurrentSource?.Describe() ?? "None"}{(IsOverridden ? " *" : "")}";
 }
 
 /// <summary>Another binding that reads the same input as a source being assigned to a slot.</summary>
 public readonly struct RebindConflict
 {
+    /// <summary>Creates a conflict record.</summary>
     public RebindConflict(BindingContext context, ActionBinding binding, InputSource source)
     {
         Context = context;
@@ -62,6 +64,7 @@ public readonly struct RebindConflict
     /// <summary>The conflicting binding's action.</summary>
     public GameAction Action => Binding.Action;
 
+    /// <inheritdoc/>
     public override string ToString() => $"{Action} ({RebindId ?? "fixed"}) in {Context}: {Source?.Describe()}";
 }
 
@@ -91,6 +94,7 @@ public sealed class RebindResult
     /// <summary>Why nothing was applied, when <see cref="Applied"/> is false.</summary>
     public string FailureReason { get; internal set; }
 
+    /// <inheritdoc/>
     public override string ToString()
         => Applied ? $"{Id} -> {Source?.Describe() ?? "None"} ({Conflicts.Count} conflicts)" : $"{Id} not rebound: {FailureReason}";
 }

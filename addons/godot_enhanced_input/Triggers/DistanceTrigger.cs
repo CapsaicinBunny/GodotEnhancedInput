@@ -12,10 +12,14 @@ namespace GodotEnhancedInput;
 [GlobalClass]
 public partial class DistanceTrigger : InputTrigger
 {
+    /// <summary>How far the movement must add up to.</summary>
     [Export(PropertyHint.Range, "0,1000,0.1,or_greater")] public float Distance { get; set; } = 20f;
+    /// <summary>A pause this long starts the count over.</summary>
     [Export(PropertyHint.Range, "0,2,0.01,suffix:s")] public float ResetSeconds { get; set; } = 0.15f;
+    /// <summary>Trigger once per movement instead of on every tick past the distance.</summary>
     [Export] public bool OneShot { get; set; }
 
+    /// <inheritdoc/>
     protected override TriggerPhase Update(in TriggerContext context, bool actuated, bool wasActuated)
     {
         var m = context.Memory;   // Timer2: distance so far · Timer: time without movement · Flag: fired

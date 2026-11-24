@@ -53,9 +53,11 @@ public sealed class TriggerMemory
 /// <summary>What a trigger is given besides the value.</summary>
 public readonly struct TriggerContext
 {
+    /// <summary>Creates a context from a three-component value.</summary>
     public TriggerContext(Vector3 value, ActionValueKind kind, double delta, InputPlayer player, TriggerMemory memory)
         : this(new Vector4(value.X, value.Y, value.Z, 0f), kind, delta, player, memory) { }
 
+    /// <summary>Creates a context (the player does this; tests and tools can too).</summary>
     public TriggerContext(Vector4 value, ActionValueKind kind, double delta, InputPlayer player, TriggerMemory memory)
     {
         Value4 = value;

@@ -34,6 +34,7 @@ public enum RecordedInputKind
 /// <summary>One input that reached a player between two ticks.</summary>
 public sealed class RecordedInput
 {
+    /// <summary>What kind of input this is.</summary>
     public RecordedInputKind Kind { get; init; }
 
     /// <summary>The event (for <see cref="RecordedInputKind.Event"/>).</summary>
@@ -76,7 +77,9 @@ public sealed class RecordedInput
 /// <summary>Everything a player received before one tick, and the time step of that tick.</summary>
 public sealed class RecordedTick
 {
+    /// <summary>The tick's time step, in seconds.</summary>
     public double Delta { get; set; }
+    /// <summary>The inputs received before the tick, in order.</summary>
     public List<RecordedInput> Inputs { get; } = new();
 }
 

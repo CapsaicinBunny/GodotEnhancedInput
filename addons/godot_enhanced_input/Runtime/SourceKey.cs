@@ -1,4 +1,3 @@
-using System;
 using Godot;
 
 namespace GodotEnhancedInput;
@@ -6,25 +5,45 @@ namespace GodotEnhancedInput;
 /// <summary>Which table of raw input a <see cref="SourceKey"/> addresses.</summary>
 public enum RawKind
 {
+    /// <summary>A key by physical position.</summary>
     PhysicalKey,
+    /// <summary>A key by key code.</summary>
     LogicalKey,
+    /// <summary>A key by printed label.</summary>
     KeyLabel,
+    /// <summary>A mouse button.</summary>
     MouseButton,
+    /// <summary>Mouse movement this tick.</summary>
     MouseMotion,
+    /// <summary>Mouse position.</summary>
     MousePosition,
+    /// <summary>A joypad button.</summary>
     JoyButton,
+    /// <summary>A joypad axis.</summary>
     JoyAxis,
+    /// <summary>A Godot InputMap action.</summary>
     InputMapAction,
+    /// <summary>A named virtual control.</summary>
     Virtual,
+    /// <summary>Whether a finger is down.</summary>
     TouchPressed,
+    /// <summary>Where a finger is.</summary>
     TouchPosition,
+    /// <summary>A finger's movement this tick.</summary>
     TouchDrag,
+    /// <summary>Scrolling this tick.</summary>
     MouseWheel,
+    /// <summary>A gesture's amount this tick.</summary>
     Gesture,
+    /// <summary>Pen pressure.</summary>
     PenPressure,
+    /// <summary>Pen tilt.</summary>
     PenTilt,
+    /// <summary>Pen eraser end in use.</summary>
     PenEraser,
+    /// <summary>A motion sensor.</summary>
     Motion,
+    /// <summary>A control of a backend device.</summary>
     DeviceControl,
 }
 
@@ -41,6 +60,7 @@ public readonly record struct SourceKey(RawKind Kind, long Code, int Device, str
     /// <summary>Device value for the handheld device itself (phone or tablet sensors).</summary>
     public const int Handheld = -2;
 
+    /// <summary>The channel of a key.</summary>
     public static SourceKey ForKey(Key key, KeyMatch match = KeyMatch.Physical) => match switch
     {
         KeyMatch.Logical => new SourceKey(RawKind.LogicalKey, (long)key, AnyDevice, null),
@@ -48,18 +68,28 @@ public readonly record struct SourceKey(RawKind Kind, long Code, int Device, str
         _ => new SourceKey(RawKind.PhysicalKey, (long)key, AnyDevice, null),
     };
 
+    /// <summary>The channel of a mouse button.</summary>
     public static SourceKey ForMouseButton(MouseButton button) => new(RawKind.MouseButton, (long)button, AnyDevice, null);
+    /// <summary>The mouse motion channel.</summary>
     public static SourceKey MouseMotion => new(RawKind.MouseMotion, 0, AnyDevice, null);
+    /// <summary>The mouse position channel.</summary>
     public static SourceKey MousePosition => new(RawKind.MousePosition, 0, AnyDevice, null);
+    /// <summary>The channel of a joypad button.</summary>
     public static SourceKey ForJoyButton(JoyButton button, int device = AnyDevice) => new(RawKind.JoyButton, (long)button, device, null);
+    /// <summary>The channel of a joypad axis.</summary>
     public static SourceKey ForJoyAxis(JoyAxis axis, int device = AnyDevice) => new(RawKind.JoyAxis, (long)axis, device, null);
+    /// <summary>The channel of an InputMap action.</summary>
     public static SourceKey ForInputMapAction(string action) => new(RawKind.InputMapAction, 0, AnyDevice, action ?? string.Empty);
+    /// <summary>The channel of a virtual control.</summary>
     public static SourceKey ForVirtual(string name) => new(RawKind.Virtual, 0, AnyDevice, name ?? string.Empty);
 
+    /// <summary>The scrolling channel.</summary>
     public static SourceKey MouseWheel => new(RawKind.MouseWheel, 0, AnyDevice, null);
 
+    /// <summary>The channel of a gesture.</summary>
     public static SourceKey ForGesture(GestureChannel channel) => new(RawKind.Gesture, (long)channel, AnyDevice, null);
 
+    /// <summary>The channel of a pen reading.</summary>
     public static SourceKey ForPen(PenChannel channel) => channel switch
     {
         PenChannel.Tilt => new(RawKind.PenTilt, 0, AnyDevice, null),
@@ -94,6 +124,7 @@ public readonly record struct SourceKey(RawKind Kind, long Code, int Device, str
     /// <summary>The same channel with the device cleared, as used for consumption between contexts.</summary>
     public SourceKey WithoutDevice() => Device == AnyDevice ? this : this with { Device = AnyDevice };
 
+    /// <inheritdoc/>
     public override string ToString() => Kind switch
     {
         RawKind.PhysicalKey or RawKind.LogicalKey or RawKind.KeyLabel => $"{Kind}:{(Key)Code}",

@@ -9,9 +9,13 @@ namespace GodotEnhancedInput;
 /// </summary>
 public interface IHapticsOutput
 {
+    /// <summary>Runs a pad's weak and strong motors (0…1) for a time.</summary>
     void StartJoypad(int device, float weak, float strong, float seconds);
+    /// <summary>Stops a pad's motors.</summary>
     void StopJoypad(int device);
+    /// <summary>Colours a pad's light.</summary>
     void SetJoypadLight(int device, Color color);
+    /// <summary>Vibrates the handheld device (amplitude −1: the platform default).</summary>
     void VibrateHandheld(int milliseconds, float amplitude);
 
     /// <summary>Trigger motors (impulse triggers). Godot's joypad API has none, so the default does nothing.</summary>
@@ -22,7 +26,9 @@ public interface IHapticsOutput
 /// <summary>Which trigger.</summary>
 public enum TriggerSide
 {
+    /// <summary>The left trigger.</summary>
     Left,
+    /// <summary>The right trigger.</summary>
     Right,
 }
 
@@ -42,16 +48,24 @@ public enum TriggerResistanceMode
 /// <summary>An adaptive trigger's resistance (positions and strength 0…1).</summary>
 public struct TriggerResistance
 {
+    /// <summary>How the trigger resists.</summary>
     public TriggerResistanceMode Mode;
+    /// <summary>Where the effect starts along the trigger's travel (0…1).</summary>
     public float Start;
+    /// <summary>Where it ends (0…1).</summary>
     public float End;
+    /// <summary>How strong it is (0…1).</summary>
     public float Strength;
     /// <summary>For <see cref="TriggerResistanceMode.Vibration"/>, in Hz.</summary>
     public float Frequency;
 
+    /// <summary>No resistance.</summary>
     public static TriggerResistance Off => default;
+    /// <summary>Steady resistance from <paramref name="start"/> on.</summary>
     public static TriggerResistance Feedback(float start, float strength) => new() { Mode = TriggerResistanceMode.Feedback, Start = start, End = 1f, Strength = strength };
+    /// <summary>Resistance between two points that gives way with a click.</summary>
     public static TriggerResistance Weapon(float start, float end, float strength) => new() { Mode = TriggerResistanceMode.Weapon, Start = start, End = end, Strength = strength };
+    /// <summary>The trigger vibrates from <paramref name="start"/> on.</summary>
     public static TriggerResistance Vibration(float start, float strength, float frequency) => new() { Mode = TriggerResistanceMode.Vibration, Start = start, End = 1f, Strength = strength, Frequency = frequency };
 
     /// <summary>The same resistance with its strength scaled (0 turns it off).</summary>
@@ -67,18 +81,24 @@ public struct TriggerResistance
 /// <summary>Optional extra for an <see cref="IHapticsOutput"/> that can drive adaptive triggers (no Godot API exists).</summary>
 public interface IAdaptiveTriggerOutput
 {
+    /// <summary>Sets one adaptive trigger's resistance.</summary>
     void SetTriggerResistance(int device, TriggerSide side, TriggerResistance resistance);
 }
 
+/// <summary>Sends haptics to Godot's <c>Input</c> (the default output).</summary>
 public sealed class GodotHapticsOutput : IHapticsOutput
 {
+    /// <inheritdoc/>
     public void StartJoypad(int device, float weak, float strong, float seconds) => Input.StartJoyVibration(device, weak, strong, seconds);
+    /// <inheritdoc/>
     public void StopJoypad(int device) => Input.StopJoyVibration(device);
+    /// <inheritdoc/>
     public void SetJoypadLight(int device, Color color) => Input.SetJoyLight(device, color);
+    /// <inheritdoc/>
     public void VibrateHandheld(int milliseconds, float amplitude) => Input.VibrateHandheld(milliseconds, amplitude);
 }
 
-/// <summary>A playing <see cref="HapticEffect"/>; stop it with <see cref="InputPlayer.StopHaptic"/>.</summary>
+/// <summary>A playing <see cref="HapticEffect"/>; stop it with <see cref="InputPlayer.StopHaptic(HapticHandle)"/>.</summary>
 public sealed class HapticHandle
 {
     private HashSet<int> _excludedPads;
@@ -98,6 +118,7 @@ public sealed class HapticHandle
         Loop = loop;
     }
 
+    /// <summary>The effect playing.</summary>
     public HapticEffect Effect { get; }
 
     /// <summary>The joypad it plays on, or −1 for all of the player's devices.</summary>

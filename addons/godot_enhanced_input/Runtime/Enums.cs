@@ -39,6 +39,7 @@ public enum TriggerPhase
 [Flags]
 public enum ActionEvents
 {
+    /// <summary>No events.</summary>
     None = 0,
     /// <summary>The action left <see cref="TriggerPhase.Idle"/>.</summary>
     Started = 1 << 0,
@@ -50,6 +51,7 @@ public enum ActionEvents
     Completed = 1 << 3,
     /// <summary>The action went from ongoing back to idle without triggering.</summary>
     Canceled = 1 << 4,
+    /// <summary>Every event.</summary>
     All = Started | Ongoing | Triggered | Completed | Canceled,
 }
 
@@ -195,7 +197,7 @@ public enum TouchChannel
 /// <summary>How joypads that nobody owns become a player's.</summary>
 public enum JoinMode
 {
-    /// <summary>Only <see cref="EnhancedInput.AssignJoypad"/> assigns joypads.</summary>
+    /// <summary>Only <see cref="EnhancedInput.AssignJoypad(InputPlayer, int)"/> assigns joypads.</summary>
     Manual,
     /// <summary>A button press on an unowned joypad assigns it (creating a player if needed).</summary>
     OnButtonPress,
@@ -222,11 +224,17 @@ public enum InputDeviceKind
 [Flags]
 public enum DeviceKinds
 {
+    /// <summary>No device kinds.</summary>
     None = 0,
+    /// <summary>Keyboard and mouse.</summary>
     KeyboardMouse = 1 << 0,
+    /// <summary>Joypads.</summary>
     Joypad = 1 << 1,
+    /// <summary>The touchscreen.</summary>
     Touch = 1 << 2,
+    /// <summary>Pens.</summary>
     Pen = 1 << 3,
+    /// <summary>Backend devices.</summary>
     Custom = 1 << 4,
 }
 
@@ -286,7 +294,9 @@ public enum KeyMatch
 /// <summary>Which stick of a joypad.</summary>
 public enum JoyStickSide
 {
+    /// <summary>The left stick.</summary>
     Left,
+    /// <summary>The right stick.</summary>
     Right,
 }
 
@@ -382,4 +392,37 @@ public enum ReconnectPolicy
     /// Pads with serial numbers still return on their own.
     /// </summary>
     Ask,
+}
+
+/// <summary>Why held input ended without being released by the player.</summary>
+public enum InputEndReason
+{
+    /// <summary>A genuine release (or the action simply stopped firing).</summary>
+    Released,
+    /// <summary>The device the input came from disconnected.</summary>
+    DeviceDisconnected,
+    /// <summary>The window or application lost focus.</summary>
+    FocusLost,
+    /// <summary>The application was suspended (mobile).</summary>
+    ApplicationSuspended,
+    /// <summary>The context that bound the input was removed.</summary>
+    ContextRemoved,
+    /// <summary>The device went to another player.</summary>
+    DeviceReassigned,
+    /// <summary>The binding was rebound or its modifiers or triggers changed.</summary>
+    BindingChanged,
+    /// <summary>The player's input mode changed and the binding's group is no longer active.</summary>
+    ModeChanged,
+    /// <summary>Blocked by a higher context, consumed, or ignored until released.</summary>
+    Blocked,
+    /// <summary>The scene tree was paused and the action does not run while paused.</summary>
+    Paused,
+    /// <summary>Raw input was cleared by code (<see cref="InputPlayer.ClearRawInput"/>).</summary>
+    Cleared,
+    /// <summary>A replay started or stopped.</summary>
+    Replay,
+    /// <summary>A tracked pose, gaze or position stopped being tracked (XR, eye trackers).</summary>
+    TrackingLost,
+    /// <summary>The operating system took the input away (a touch canceled by a system gesture).</summary>
+    SystemCanceled,
 }

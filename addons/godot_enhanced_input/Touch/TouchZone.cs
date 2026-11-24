@@ -22,11 +22,13 @@ public partial class TouchZone : TouchControl
     /// <summary>Draw the zone's outline in game (for layout work).</summary>
     [Export] public bool ShowOutline { get; set; }
 
+    /// <summary>Creates a touch zone.</summary>
     public TouchZone()
     {
         ControlName = "touch_look";
     }
 
+    /// <inheritdoc/>
     protected override bool OnPointerDown(int pointer, Vector2 localPosition)
     {
         if (_pointer != int.MinValue) return false;
@@ -35,11 +37,13 @@ public partial class TouchZone : TouchControl
         return true;
     }
 
+    /// <inheritdoc/>
     protected override void OnPointerMove(int pointer, Vector2 localPosition, Vector2 relative)
     {
         if (pointer == _pointer) Player?.AddToVirtualControl(ControlName, relative * Sensitivity);
     }
 
+    /// <inheritdoc/>
     protected override void OnPointerUp(int pointer)
     {
         if (pointer != _pointer) return;
@@ -47,6 +51,7 @@ public partial class TouchZone : TouchControl
         if (!string.IsNullOrEmpty(PressedControlName)) Player?.SetVirtualControl(PressedControlName, 0f);
     }
 
+    /// <inheritdoc/>
     public override void _Draw()
     {
         if (ShowOutline || Engine.IsEditorHint()) DrawRect(new Rect2(Vector2.Zero, Size), new Color(1f, 1f, 1f, 0.25f), filled: false, width: 2f);

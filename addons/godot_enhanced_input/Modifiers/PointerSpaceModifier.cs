@@ -27,6 +27,7 @@ public partial class PointerSpaceModifier : InputModifier
 {
     private PointerSpace _space = PointerSpace.ViewportNormalized;
 
+    /// <summary>The coordinate space to convert to.</summary>
     [Export]
     public PointerSpace Space
     {
@@ -37,6 +38,7 @@ public partial class PointerSpaceModifier : InputModifier
     /// <summary>The rect for <see cref="PointerSpace.RectNormalized"/>, in viewport pixels.</summary>
     [Export] public Rect2 Rect { get; set; } = new(0, 0, 640, 360);
 
+    /// <inheritdoc/>
     public override Vector3 Apply(Vector3 value, in ModifierContext context)
     {
         var position = new Vector2(value.X, value.Y);
@@ -63,6 +65,7 @@ public partial class PointerSpaceModifier : InputModifier
     private static Vector2 Normalize(Vector2 position, Vector2 size)
         => new(size.X != 0f ? position.X / size.X : 0f, size.Y != 0f ? position.Y / size.Y : 0f);
 
+    /// <inheritdoc/>
     public override void _ValidateProperty(Godot.Collections.Dictionary property)
     {
         if (property["name"].AsString() == nameof(Rect) && _space != PointerSpace.RectNormalized)

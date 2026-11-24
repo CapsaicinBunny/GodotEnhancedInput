@@ -14,6 +14,7 @@ public partial class FovScaleModifier : InputModifier
     /// <summary>The vertical field of view, in degrees, at which the scale is 1.</summary>
     [Export(PropertyHint.Range, "1,179,0.1")] public float ReferenceFov { get; set; } = 75f;
 
+    /// <inheritdoc/>
     public override Vector3 Apply(Vector3 value, in ModifierContext context)
     {
         var fov = context.Player?.GetViewFov();

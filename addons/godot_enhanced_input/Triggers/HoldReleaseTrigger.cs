@@ -13,6 +13,7 @@ public partial class HoldReleaseTrigger : InputTrigger
     /// <summary>The minimum time the value must be held before releasing counts.</summary>
     [Export(PropertyHint.Range, "0,10,0.01,or_greater,suffix:s")] public float HoldSeconds { get; set; } = 0.5f;
 
+    /// <inheritdoc/>
     protected override TriggerPhase Update(in TriggerContext context, bool actuated, bool wasActuated)
     {
         var memory = context.Memory;

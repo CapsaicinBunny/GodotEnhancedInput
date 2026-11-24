@@ -67,5 +67,6 @@ public partial class GameAction : Resource
         return string.Empty;
     }
 
+    /// <inheritdoc/>
     public override string ToString() => string.IsNullOrEmpty(Name) ? $"GameAction#{GetInstanceId()}" : Name;
 }

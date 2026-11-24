@@ -69,6 +69,7 @@ public partial class BindingContext : Resource
         return binding;
     }
 
+    /// <inheritdoc/>
     public override string ToString() => string.IsNullOrEmpty(Name) ? $"BindingContext#{GetInstanceId()}" : Name;
 }
 

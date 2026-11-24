@@ -10,8 +10,10 @@ namespace GodotEnhancedInput;
 [GlobalClass]
 public partial class HysteresisModifier : InputModifier
 {
+    /// <summary>How far the input must move before the output follows.</summary>
     [Export(PropertyHint.Range, "0,0.5,0.001")] public float Band { get; set; } = 0.02f;
 
+    /// <inheritdoc/>
     public override Vector3 Apply(Vector3 value, in ModifierContext context)
     {
         var m = context.Memory;

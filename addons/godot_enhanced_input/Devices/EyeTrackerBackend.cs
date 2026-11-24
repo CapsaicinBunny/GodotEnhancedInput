@@ -36,23 +36,27 @@ public interface IEyeTracker
 /// </summary>
 public sealed class EyeTrackerBackend : InputBackend
 {
+    /// <summary>Device type of eye trackers ("eye"), as in the source path <c>@eye:gaze</c>.</summary>
     public const string DeviceType = "eye";
 
     private readonly IEyeTracker _tracker;
     private readonly int _index;
     private bool _added;
 
+    /// <summary>Wraps a tracker as device number <paramref name="index"/> of type "eye".</summary>
     public EyeTrackerBackend(IEyeTracker tracker, int index = 0)
     {
         _tracker = tracker;
         _index = index;
     }
 
+    /// <inheritdoc/>
     public override string Name => "Eye tracker";
 
     /// <summary>The viewport whose size "gaze_pixels" uses (the main window's when null).</summary>
     public Viewport Viewport { get; set; }
 
+    /// <inheritdoc/>
     public override void Poll(double delta)
     {
         bool available = _tracker != null && _tracker.IsAvailable;
@@ -97,6 +101,7 @@ public sealed class EyeTrackerBackend : InputBackend
         }
     }
 
+    /// <inheritdoc/>
     public override void Detached()
     {
         if (_added) RemoveDevice(DeviceType, _index);
@@ -110,10 +115,14 @@ public sealed class EyeTrackerBackend : InputBackend
 /// </summary>
 public sealed class MouseGazeSimulator : IEyeTracker
 {
+    /// <inheritdoc/>
     public string Name => "Mouse (gaze simulator)";
+    /// <inheritdoc/>
     public bool IsAvailable => Engine.GetMainLoop() is SceneTree;
+    /// <inheritdoc/>
     public bool IsUserPresent => true;
 
+    /// <inheritdoc/>
     public bool TryGetGaze(out Vector2 screen)
     {
         screen = Vector2.Zero;
@@ -124,6 +133,7 @@ public sealed class MouseGazeSimulator : IEyeTracker
         return true;
     }
 
+    /// <inheritdoc/>
     public bool TryGetHead(out Vector3 position, out Quaternion rotation)
     {
         position = Vector3.Zero;

@@ -22,13 +22,16 @@ public enum CrossingDirection
 [GlobalClass]
 public partial class ThresholdTrigger : InputTrigger
 {
+    /// <summary>The magnitude to cross.</summary>
     [Export(PropertyHint.Range, "0,1,0.01,or_greater")] public float Threshold { get; set; } = 0.5f;
 
     /// <summary>Width of the dead band around the threshold.</summary>
     [Export(PropertyHint.Range, "0,0.5,0.01")] public float Band { get; set; } = 0.05f;
 
+    /// <summary>Which way the crossing counts.</summary>
     [Export] public CrossingDirection Direction { get; set; } = CrossingDirection.Rising;
 
+    /// <inheritdoc/>
     protected override TriggerPhase Update(in TriggerContext context, bool actuated, bool wasActuated)
     {
         var m = context.Memory;   // Flag: currently above

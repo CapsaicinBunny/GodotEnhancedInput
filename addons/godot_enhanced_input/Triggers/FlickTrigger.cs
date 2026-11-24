@@ -20,6 +20,7 @@ public partial class FlickTrigger : InputTrigger
     /// <summary>The longest time from leaving rest to reaching <see cref="FlickRadius"/>.</summary>
     [Export(PropertyHint.Range, "0.01,1,0.01,suffix:s")] public float MaxSeconds { get; set; } = 0.12f;
 
+    /// <inheritdoc/>
     protected override TriggerPhase Update(in TriggerContext context, bool actuated, bool wasActuated)
     {
         var m = context.Memory;   // Flag: armed (left rest, not yet fired) · Count: 1 once fired until rest · Timer

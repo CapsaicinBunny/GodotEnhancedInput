@@ -10,13 +10,16 @@ namespace GodotEnhancedInput;
 [GlobalClass]
 public partial class ChordTrigger : InputTrigger
 {
+    /// <inheritdoc/>
     public override bool ReadsOtherActions => true;
 
     /// <summary>The action that must be triggered at the same time.</summary>
     [Export] public GameAction ChordAction { get; set; }
 
+    /// <inheritdoc/>
     public override TriggerRole Role => TriggerRole.Implicit;
 
+    /// <inheritdoc/>
     protected override TriggerPhase Update(in TriggerContext context, bool actuated, bool wasActuated)
     {
         if (ChordAction == null || context.Player == null) return TriggerPhase.Idle;

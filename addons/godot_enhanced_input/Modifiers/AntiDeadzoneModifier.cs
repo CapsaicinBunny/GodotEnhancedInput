@@ -11,9 +11,12 @@ namespace GodotEnhancedInput;
 [GlobalClass]
 public partial class AntiDeadzoneModifier : InputModifier
 {
+    /// <summary>Per component (axial) or on the vector's length (radial).</summary>
     [Export] public DeadzoneShape Shape { get; set; } = DeadzoneShape.Radial;
+    /// <summary>The smallest non-zero output.</summary>
     [Export(PropertyHint.Range, "0,1,0.01")] public float Minimum { get; set; } = 0.2f;
 
+    /// <inheritdoc/>
     public override Vector3 Apply(Vector3 value, in ModifierContext context)
     {
         if (Shape == DeadzoneShape.Axial) return new Vector3(Lift(value.X), Lift(value.Y), Lift(value.Z));

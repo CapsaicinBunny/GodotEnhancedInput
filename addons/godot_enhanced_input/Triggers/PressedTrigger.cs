@@ -7,6 +7,7 @@ namespace GodotEnhancedInput;
 [GlobalClass]
 public partial class PressedTrigger : InputTrigger
 {
+    /// <inheritdoc/>
     protected override TriggerPhase Update(in TriggerContext context, bool actuated, bool wasActuated)
         => actuated && !wasActuated ? TriggerPhase.Triggered : TriggerPhase.Idle;
 }
