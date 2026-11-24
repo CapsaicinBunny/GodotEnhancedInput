@@ -84,9 +84,10 @@ requirement IDs link the [design](design.md) to those tests).
 | Text dump and F3 debug overlay | ✅ | DBG-* |
 | Recording and deterministic replay (events, controls, sensors, cut-offs, arrival moments) | ✅ | REC-1…2 |
 | Binding validator | ✅ | EDT-1 |
-| Editor dock: edit mappings, drag to reorder or move them between mapping contexts, every action file, config filter, double-click to reveal, problems, live device inspector, input log | ✅ / 🔌 | Reveal, move, reorder, undo and file drops checked in a headless Godot 4.8 editor; dragging not yet checked by hand |
-| Left / right Shift, Ctrl, Alt and Meta (`key:left_shift`) | ✅ | Tests |
-| Three creatable assets (action, mapping context, config); Inspector *Add …* menus and typed input paths for everything inside them | ✅ / 🔌 | Godot 4.8 lists only the three; menus not yet checked by hand |
+| Editor dock: edit mappings, drag to reorder or move them between mapping contexts, every action file, config filter, double-click to reveal, problems, live device inspector, input log | ✅ | Checked by hand in the Godot 4.8 editor (grouped mappings, dragging, creating actions, a DualShock 4 in the Devices tab) and headless (reveal, moves, undo, file drops) |
+| Left / right Shift, Ctrl, Alt and Meta (`key:left_shift`) | ✅ | Tests; listening checked by hand |
+| Three creatable assets (action, mapping context, config); Inspector *Add …* menus and typed input paths for everything inside them | ✅ | The grouped *Create New Resource* entry checked by hand in Godot 4.8; the Inspector menus checked in a headless editor |
+| Installing the addon into another project | ✅ | Checked by hand in the Godot 4.8 editor |
 
 ## Platforms
 
