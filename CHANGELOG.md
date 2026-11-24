@@ -15,6 +15,9 @@ history up to 0.2.3 is in its repository.
   control schemes, haptic effects and touch layouts are created inside them from Inspector *Add …*
   menus (undoable), and a mapping's input can be typed as a source path. The three share the abstract
   base `EnhancedInputResource`, which groups them in the dialog.
+- `PushContext` handles are counted: a context pushed by several scopes stays active until the last
+  handle is disposed (and while `AddContext` holds it); `RemoveContext`, `DeactivateContext` and
+  `SwitchContext` still remove it at once, and that activation's handles go inactive.
 - Left and right Shift, Ctrl, Alt and Meta: `InputSource.KeySide` (`key:left_shift`, `key:right_ctrl`;
   `key:shift` is either). Listening and capture record the side pressed; prompts say "Left Shift".
 - Editor dock: mappings grouped by action (one row per action, its inputs under it; drag inputs between

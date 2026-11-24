@@ -126,6 +126,12 @@ public partial class InputPlayer : Node, ISourceReader
         public ContextOptions Options;
         public int Rank;
         public readonly HashSet<SourceKey> Ignored = new();
+
+        // Who holds the activation: handles from PushContext, and AddContext called directly. The
+        // context stays active while any holder remains; Removed ends the activation for every holder.
+        public int Handles;
+        public bool Direct;
+        public bool Removed;
         public BindingMemory[] Memories = System.Array.Empty<BindingMemory>();
 
         // What the compiled plan saw of the context.
@@ -309,11 +315,16 @@ public partial class InputPlayer : Node, ISourceReader
 
     /// <summary>
     /// Activates a context with a priority (higher is evaluated first; ties go to the most recently
-    /// added). Adding a context that is already active updates its priority and options.
+    /// added). Adding a context that is already active updates its priority and options. A context
+    /// added this way stays active until <see cref="RemoveContext"/>, even when handles from
+    /// <see cref="PushContext"/> that share it are disposed.
     /// </summary>
     public void AddContext(EnhancedInputMappingContext context, int priority = 0, ContextOptions options = default)
+        => AddContextCore(context, priority, options, direct: true);
+
+    private ContextEntry AddContextCore(EnhancedInputMappingContext context, int priority, ContextOptions options, bool direct)
     {
-        if (context == null) return;
+        if (context == null) return null;
 
         var entry = FindEntry(context);
         if (entry == null)
@@ -329,6 +340,7 @@ public partial class InputPlayer : Node, ISourceReader
         entry.Priority = priority;
         entry.Options = options;
         entry.Sequence = ++_sequence;
+        if (direct) entry.Direct = true;
 
         if (options.IgnoreHeldSourcesUntilReleased)
         {
@@ -350,13 +362,19 @@ public partial class InputPlayer : Node, ISourceReader
         _planChangeReason = InputEndReason.ContextRemoved;
         RebuildNameIndex();
         EmitSignal(SignalName.ContextAdded, context, priority);
+        return entry;
     }
 
-    /// <summary>Deactivates a context. Its actions finish normally on the next tick. Returns false if it was not active.</summary>
+    /// <summary>
+    /// Deactivates a context, whoever activated it: handles from <see cref="PushContext"/> that held it
+    /// become inactive (disposing them later does nothing). Its actions finish normally on the next
+    /// tick. Returns false if it was not active.
+    /// </summary>
     public bool RemoveContext(EnhancedInputMappingContext context)
     {
         var entry = FindEntry(context);
         if (entry == null) return false;
+        entry.Removed = true;
         _entries.Remove(entry);
         _planDirty = true;
         _planChangeReason = InputEndReason.ContextRemoved;

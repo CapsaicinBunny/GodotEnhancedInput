@@ -33,7 +33,7 @@ public partial class InputPlayer
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Adds a context and returns a handle that removes it when disposed — for a vehicle, a menu, a
+    /// Activates a context and returns a handle that releases it when disposed — for a vehicle, a menu, a
     /// cutscene. Context changes take effect together at the next tick (or the next step, when made from a
     /// callback), so swapping several contexts never leaves a frame with a half-switched set.
     /// <code>
@@ -41,14 +41,34 @@ public partial class InputPlayer
     /// …
     /// _driving.Dispose();   // back on foot
     /// </code>
+    /// Handles are counted: when several scopes push the same context, it stays active until the last
+    /// handle is disposed (and while <see cref="AddContext"/> also holds it). Pushing a context that is
+    /// already active shares it and keeps its priority and options. <see cref="RemoveContext"/>,
+    /// <see cref="SwitchContext"/> and <see cref="ClearContexts"/> still remove it at once, for every holder.
     /// </summary>
     public ContextHandle PushContext(EnhancedInputMappingContext context, int priority = 0, ContextOptions options = default)
     {
-        AddContext(context, priority, options);
-        return new ContextHandle(this, context);
+        var entry = FindEntry(context) ?? AddContextCore(context, priority, options, direct: false);
+        if (entry == null) return new ContextHandle(this, context, null);
+        entry.Handles++;
+        return new ContextHandle(this, context, entry);
     }
 
-    /// <summary>Replaces one active context by another in a single change (no frame with both or neither).</summary>
+    /// <summary>Whether a handle's activation is still in place (its context was not removed another way).</summary>
+    internal static bool IsHeld(object activation) => activation is ContextEntry { Removed: false };
+
+    /// <summary>Releases one handle's hold; the context is removed when nothing holds it any more.</summary>
+    internal void ReleaseHandle(object activation)
+    {
+        if (activation is not ContextEntry entry || entry.Removed) return;
+        if (--entry.Handles > 0 || entry.Direct) return;
+        RemoveContext(entry.Context);
+    }
+
+    /// <summary>
+    /// Replaces one active context by another in a single change (no frame with both or neither).
+    /// <paramref name="from"/> is removed whoever holds it, like <see cref="RemoveContext"/>.
+    /// </summary>
     public void SwitchContext(EnhancedInputMappingContext from, EnhancedInputMappingContext to, int priority = 0, ContextOptions options = default)
     {
         if (from != null) RemoveContext(from);
@@ -89,13 +109,20 @@ public partial class InputPlayer
     private bool IsDisabled(EnhancedInputAction action) => _disabled.Count > 0 && _disabled.Contains(action);
 }
 
-/// <summary>An active context that is removed when disposed (see <see cref="InputPlayer.PushContext"/>).</summary>
+/// <summary>
+/// A hold on an active context, released when disposed (see <see cref="InputPlayer.PushContext"/>). The
+/// context is removed when its last hold is released.
+/// </summary>
 public sealed class ContextHandle : IDisposable
 {
-    internal ContextHandle(InputPlayer player, EnhancedInputMappingContext context)
+    private readonly object _activation;
+    private bool _disposed;
+
+    internal ContextHandle(InputPlayer player, EnhancedInputMappingContext context, object activation)
     {
         Player = player;
         Context = context;
+        _activation = activation;
     }
 
     /// <summary>The player the context is active on.</summary>
@@ -104,15 +131,19 @@ public sealed class ContextHandle : IDisposable
     /// <summary>The context.</summary>
     public EnhancedInputMappingContext Context { get; }
 
-    /// <summary>False once disposed.</summary>
-    public bool IsActive { get; private set; } = true;
+    /// <summary>
+    /// True while this handle holds the context: false once disposed, or once the context was removed
+    /// another way (<see cref="InputPlayer.RemoveContext"/>, <see cref="InputPlayer.SwitchContext"/>,
+    /// <see cref="InputPlayer.ClearContexts"/>).
+    /// </summary>
+    public bool IsActive => !_disposed && InputPlayer.IsHeld(_activation);
 
-    /// <summary>Removes the context (once).</summary>
+    /// <summary>Releases this hold (once); the context is removed if nothing else holds it.</summary>
     public void Dispose()
     {
-        if (!IsActive) return;
-        IsActive = false;
-        if (GodotObject.IsInstanceValid(Player)) Player.RemoveContext(Context);
+        if (_disposed) return;
+        _disposed = true;
+        if (GodotObject.IsInstanceValid(Player)) Player.ReleaseHandle(_activation);
     }
 }
 

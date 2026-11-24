@@ -137,8 +137,13 @@ simply continue, and one-shots do not fire — closing a menu with Esc does not 
 
 ## Scopes and lifetimes
 
-`player.PushContext(context, priority)` adds a context and returns a handle; disposing it removes the
-context (a vehicle, a menu, a cutscene). `SwitchContext(from, to)` swaps one for another. Context changes
+`player.PushContext(context, priority)` activates a context and returns a handle; disposing it releases
+the context (a vehicle, a menu, a cutscene). Handles are counted: if two scopes push the same context, it
+stays active until both handles are disposed, and a context also added with `AddContext` stays until
+`RemoveContext`. Pushing a context that is already active shares it and keeps its priority.
+`RemoveContext`, `DeactivateContext` and `SwitchContext` remove a context at once whoever holds it; the
+handles of that activation then report `IsActive == false` and disposing them does nothing.
+`SwitchContext(from, to)` swaps one for another. Context changes
 take effect together at the next tick (or the next step, when made from a callback), so there is never
 a frame with a half-switched set.
 
