@@ -7,11 +7,13 @@ action gets a typed value and a phase, and raises events your code can subscribe
 > C# · Godot 4.7+ · configured in the Inspector or in code · works with the InputMap, physical
 > keys and GUI focus · testable headless
 
-Status: **0.1.0** — all six stages of [the plan](docs/design.md#6-staged-plan) are done: the core,
-rebinding, local players and touch, prompts and debugging, the extended feature set (more sources
-and devices, modes and accessibility, recording, editor tools), and rotations, device handling and
-correctness (quaternions, XR hands and eyes, eye trackers, haptic effects, reconnection, ordered
-input within a frame). Not yet released.
+Status: **0.1.0**, feature-complete for the release and in stabilization. All seven stages of
+[the plan](docs/design.md#6-staged-plan) are done: the core, rebinding, local players and touch,
+prompts and debugging, the extended feature set (more sources and devices, modes and accessibility,
+recording, editor tools), rotations and device handling (quaternions, XR hands and eyes, eye
+trackers, haptic effects, reconnection), and stabilization (event-accurate timing, cut-off input,
+tracked values, ownership by device identity). What is tested and what still needs real hardware:
+[supported features](docs/features.md). Not yet released.
 
 ## What it does
 
@@ -155,9 +157,10 @@ touch controls (F2 on desktop). Open `demo.tscn` and press F6.
 
 | Guide | Covers |
 |---|---|
+| [Supported features](docs/features.md) | everything the plugin does, what is tested, what needs hardware or a platform plug-in |
 | [Getting started](docs/getting-started.md) | install, first actions and context, using them, a menu on top |
-| [Concepts](docs/concepts.md) | actions and values, sources, contexts, the tick, phases and events, injected input |
-| [Sources and devices](docs/sources-and-devices.md) | every source kind and its text form, composites, the device registry, device profiles, backends, XR, rumble |
+| [Concepts](docs/concepts.md) | actions and values (incl. rotations), sources, contexts, the tick and event timing, phases and events, cut-off input, injected input |
+| [Sources and devices](docs/sources-and-devices.md) | every source kind and its text form, composites, the device registry, identity and reconnection, controller families, device profiles, backends, XR, eye trackers, tracked values, haptics, force feedback |
 | [Modifiers](docs/modifiers.md) | every modifier, recipes, writing your own |
 | [Triggers](docs/triggers.md) | every trigger, roles, chords, combos, tap versus hold, writing your own |
 | [Rebinding](docs/rebinding.md) | rebindable bindings, slots, conflicts, capture, composite parts, named profiles and presets |
@@ -166,7 +169,7 @@ touch controls (F2 on desktop). Open `demo.tscn` and press F6.
 | [Prompts and debugging](docs/prompts-and-debugging.md) | button prompts, joypad styles, icon sets, text dump, F3 overlay |
 | [Recording, tools and performance](docs/recording-and-tools.md) | recording and replay, the editor dock, validation, performance and safety notes |
 | [Platforms and hardware](docs/platforms-and-hardware.md) | platform support table and a hardware test checklist |
-| [Godot integration](docs/godot-integration.md) | ticking, InputMap and `InputEventAction`, physical keys, GUI focus, signals, headless tests |
+| [Godot integration](docs/godot-integration.md) | ticking, event times, stuck input, InputMap and `InputEventAction`, focus loss, physical keys, GUI focus, signals, headless tests |
 | [Design and requirements](docs/design.md) | requirements with their tests, architecture, the staged plan |
 | [Migrating from InputForge](docs/migration.md) | old names to new, behaviour that changed |
 
@@ -185,7 +188,7 @@ touch controls (F2 on desktop). Open `demo.tscn` and press F6.
 dotnet run --project GodotEnhancedInput.Tests/GodotEnhancedInput.Tests.csproj -c Debug
 ```
 
-366 tests run against a real headless Godot through [2dog](https://github.com/outfox/2dog), one or
+447 tests run against a real headless Godot through [2dog](https://github.com/outfox/2dog), one or
 more per requirement in the [design](docs/design.md); see [the test README](GodotEnhancedInput.Tests/README.md).
 The same suite runs in CI on Windows, Linux and macOS. Real hardware is covered by the
 [checklist](docs/platforms-and-hardware.md#hardware-checklist).

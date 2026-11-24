@@ -62,8 +62,8 @@ history up to 0.2.3 is in its repository.
   release / tap / hold-release triggers work; consumption and rebind conflicts keep device and
   finger identity, and logical/label keys consume as their physical key; sticks read one pad;
   only player 0 polls the InputMap or takes unowned pads by default; pad identity checked on
-  reconnect (`JoypadUnassigned`); stable `ProfileId`; focus loss releases input and on-screen
-  controls; stick reversals are read before the GUI.
+  reconnect (`JoypadUnassigned`); stable `ProfileId`; focus loss cuts off input and on-screen
+  controls; a stick reversal releases before the GUI and presses only if the GUI lets it through.
 - `ChangedTrigger` and `PointerSpaceModifier` (back from InputForge, reworked).
 - Sources: mouse wheel axis (with trackpad pans), pen pressure / tilt / eraser, pad and handheld
   motion sensors, joypad buttons and axes by raw index, backend device controls, gestures (pinch,
@@ -84,9 +84,45 @@ history up to 0.2.3 is in its repository.
 - Recording and deterministic replay (`StartRecording`, `StartReplay`, `InputRecording` JSON).
 - Performance: compiled bindings (`RefreshBindings`, `BindingContext.NotifyBindingsChanged`),
   allocation-free steady-state ticks, `EmitActionSignals`; nested `Tick` calls are ignored.
-- Editor dock (bindings, problems, listen-to-assign, devices) and `BindingValidator`.
-- CI on Windows, Linux and macOS; platform table and hardware checklist.
-- 366 headless tests.
+- Editor dock and `BindingValidator`; the dock edits bindings in place (action or a new one, input
+  path checked as typed or by listening, groups, rebind id, modifier and trigger stacks, with undo),
+  lists actions and problems, and inspects connected pads live with an input log.
+- CI on Windows, Linux and macOS; platform table, hardware checklist and a supported-features matrix
+  (`docs/features.md`).
+- Values: `Axis4D`, `Quaternion` and `Euler` actions (rotation-aware accumulation, deadzone, scale,
+  negate, normalize); `ActionState.InputValue`; `RotationConvertModifier`, `RotationOffsetModifier`,
+  `RotationSmoothingModifier`.
+- Haptics: `HapticEffect` resources (envelope, repeats, loop, frequency, trigger motors, priority,
+  blend) mixed per device, effect handles, `BindHaptic`; adaptive trigger resistance
+  (`SetTriggerResistance`, `IAdaptiveTriggerOutput`) kept apart from trigger rumble; wheel force
+  feedback (`SetForceFeedback`).
+- Devices: controller families and features (`ControllerDetection`); persistent identity across
+  reconnects (serial number, else model — cable and Bluetooth count as the same pad); ownership kept
+  by identity (`InputDeviceInfo.Owner`, `GetOwnedDevices`, `OwnedDeviceIds`); doubtful returns of
+  identical serial-less pads (`ReconnectPolicy`, `JoypadReconnectAmbiguous`,
+  `ResolveJoypadReconnect`); `CurrentDevice`, `DeviceSwitched`, fallback and
+  `PlayerDeviceLost` / `PlayerDeviceRegained`; modes requiring roles and features; backend devices
+  with persistent ids, namespaces and replacement.
+- XR hands (joints, pinch, grab), face (eye gaze, blinks, jaw) and pose orientation as quaternions;
+  desktop eye trackers (`EyeTrackerBackend`, `IEyeTracker`, `MouseGazeSimulator`); `DwellTrigger`.
+- Tracked values: tracked controls are input while present, even at identity or origin;
+  `ActionState.IsTracked`, `InputSample` / `GetSample`; `InputEndReason.TrackingLost`.
+- `TickMode.Auto` (default): one tick per frame, before physics and process; `ReleaseStuckInput`.
+- 447 headless tests, including a worst-case benchmark (many events per frame).
+
+### Changed (during review)
+- Evaluation: a tick evaluates every input event since the last one in arrival order, letting time
+  pass up to each event for the actions it touches; changes are placed by arrival time when ticking
+  in real time (`UseEventTimes`, `Clock`). Held actions raise steady events once per frame; one-shots
+  stay triggered to the frame's end. (Previously each tick observed one change per channel.)
+- Input that is cut off — focus loss, suspension, a lost or reassigned device, a removed context, a
+  mode or binding change, pausing, lost tracking, a system-canceled touch, cleared injections — ends
+  actions as `Canceled` with `ActionState.EndReason`, never as a release.
+- A key held while its binding was hidden counts as held when it comes back: no fresh press.
+- Recordings store cut-offs, sensor samples in the frame they belong to, tracked device controls
+  and each input's moment within its tick; replays ignore live cut-offs and release what they held
+  when they end.
+- Haptics follow device ownership; a transfer stops the old owner's motors first.
 
 ### Removed
 - InputForge's `EnhancedInputSystem`, `InputAction`, `InputMappingContext`, `InputMapping`, `InputKey`,

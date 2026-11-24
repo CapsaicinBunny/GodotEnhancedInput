@@ -15,7 +15,10 @@ devices exist, which sensors and lights it can reach, how touch and gestures arr
 | iOS | Expected to work | None | As Android. C# on iOS depends on your Godot version's support for it. |
 | Web | Depends on Godot | None | Only if your Godot version can export C# projects to the web. Pads use the browser's gamepad API (no rumble, sensors or GUIDs in most browsers). |
 | Consoles | Through a porting partner | None | Nothing platform-specific in the plugin; device identity, rumble and lights depend on the port's input layer. |
-| XR | Supported (backend) | Unit tests with simulated trackers | `XRInputBackend` turns tracker poses and inputs into device controls. |
+| XR | Supported (backend) | Unit tests with simulated trackers | `XRInputBackend` turns controller, head, hand and face trackers into device controls (poses as tracked values). |
+| Desktop eye trackers | Through an adapter | Unit tests with a fake tracker | `EyeTrackerBackend` over an `IEyeTracker` you write around the vendor SDK. |
+
+The full list of features, with what is tested and what needs hardware, is in [supported features](features.md).
 
 "Automated tests" means the full suite runs on that OS against a real headless Godot (see
 `.github/workflows/tests.yml`). Headless runs cannot see real devices; the checklist below covers
@@ -33,7 +36,7 @@ debug overlay (`InputDebugOverlay`) open. Tick a box only after seeing the behav
 - [ ] **Nintendo-style pad / single Joy-Con**: face buttons by *position* (south/east/west/north) vs by label; prompts; sideways Joy-Con layout.
 - [ ] **Generic / older pad**: unknown GUID falls back to a sensible layout; raw button and axis indices (`pad:button12`, `pad:axis7+`) bind and prompt by number.
 - [ ] **Rumble**: weak/strong motors, duration, stop, and the `vibration_strength` setting scaling it down to zero.
-- [ ] **Hot-plug**: unplug and replug during play — the same player gets the pad back (GUID match); a *different* pad on the same index does not inherit the assignment; held buttons release when the pad disappears.
+- [ ] **Hot-plug**: unplug and replug during play — the same player gets the pad back (serial number, else model), also under another index; a *different* pad on the same index does not inherit the assignment; held buttons end canceled (not released) when the pad disappears.
 - [ ] **Two or more pads**: join flow, each player hears only its own pad, reassigning a pad mid-hold releases for the old owner.
 - [ ] **Steam Input / remappers**: with Steam Input on, the pad may appear as a virtual Xbox pad; check prompts and GUIDs with it on and off.
 
