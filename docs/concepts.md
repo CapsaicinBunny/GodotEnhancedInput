@@ -34,6 +34,19 @@ A `GameAction` is a resource describing something the player wants to do. Its **
 Other action settings: **Consume input** (see contexts below), **Trigger when paused**, and
 action-level **modifiers** and **triggers**, which apply to the combined value.
 
+## Ids and configurations
+
+Actions, contexts, bindings, modes and configurations have a stable **`Id`** (empty: the name). Saved
+settings, recordings and tools refer to ids, so renaming or moving a resource breaks nothing;
+`FormerIds` keeps old ids working. `player.FindAction(idOrName)` and `FindContext(idOrName)` look them up.
+
+An **`InputConfiguration`** groups a game's input in one resource: actions, contexts, the contexts
+active from the start, control schemes (`InputMode`s) with the default one, default settings, haptic
+effects, touch layouts, prompt icons and profile presets. `player.LoadConfiguration(config)` (or the
+autoload's `Configuration`, for every player) sets a player up; `ActivateContext("vehicle")`,
+`DeactivateContext` and `PushContext("vehicle")` switch contexts by id or name, at each context's
+`DefaultPriority`. It is optional — loose resources and code work the same.
+
 ## Sources
 
 An `InputSource` says what to read. Kinds: `Key`, `KeyAxis1D` (two keys), `KeyAxis2D` (four keys),
@@ -100,11 +113,39 @@ triggered until the frame ends, so `IsTriggered` sees it; it ends on the next fr
 (`WasTriggered`, `WasCompleted`, `GetEvents`) sees every event of the frame and the frame's final
 value and phase.
 
+**How an action reports while held** is its `Evaluation`:
+
+| `ActionEvaluation` | Reports |
+|---|---|
+| `Continuous` (default) | `Triggered` every frame while held — movement, looking, steering |
+| `OnChange` | `Triggered` only on frames where the value changed |
+| `EventDriven` | only presses, releases and phase changes — buttons |
+| `PassThrough` | every input event on any of its bindings on its own, with that binding's value and source — drawing, multi-touch, rhythm |
+| `Tracked` | triggered exactly while tracked, whatever the value — poses |
+
+**Where an event came from.** Callbacks get `e.Binding` (the binding the input came from: the
+strongest that fired), `e.Source` (the exact channel, with its device or finger), `e.Device` (the pad,
+keyboard and mouse, touchscreen or backend device), `e.Timestamp` and, for completed and canceled
+events, `e.EndReason` — for prompts that follow the device in use, haptics on the pad that pressed,
+analytics and debugging. Read them during the callback.
+
 Bindings are **suppressed** — not evaluated at all — while their context is blocked, all their
 sources are consumed or ignored, or the tree is paused (for actions that do not run while paused).
 A suppressed binding's triggers and modifiers start over, so a menu opening never looks like a
 release. When it comes back with its key still held, the key counts as held all along: held actions
 simply continue, and one-shots do not fire — closing a menu with Esc does not also press "pause".
+
+## Scopes and lifetimes
+
+`player.PushContext(context, priority)` adds a context and returns a handle; disposing it removes the
+context (a vehicle, a menu, a cutscene). `SwitchContext(from, to)` swaps one for another. Context changes
+take effect together at the next tick (or the next step, when made from a callback), so there is never
+a frame with a half-switched set.
+
+`player.CreateScope(node)` collects subscriptions and contexts — `scope.OnTriggered(jump, Jump)`,
+`scope.PushContext(onFoot)` — and releases them all when the node leaves the tree, so changing scenes
+or characters leaves nothing behind. `player.SetActionEnabled(action, false)` turns one action off
+without touching contexts (held input ends canceled with `Blocked`).
 
 ## Phases and events
 

@@ -68,6 +68,23 @@ device that reconnects through a replacement backend is taken over by it.
 `GetJoypadDevice(index)` and `GetDevice(id)` look one up; `AssignDevice(player, device)` and
 `GetDeviceOwner(device)` work for any device, not only joypads.
 
+### Device layouts
+
+`device.Layout` lists the controls a device offers as `InputControlDescriptor`s: the source path that
+reads each (`CreateSource()`), its value kind, range, nature and unit, and hints for tools —
+rebindable, noisy (sticks at rest, sensors), tracked (poses, gaze). Built in: gamepads (with what the
+family adds: touchpad, back buttons, motion sensors), the keyboard and mouse, touch and pens.
+Backends describe their devices by overriding `InputBackend.DescribeDevice` (the XR and eye-tracker
+backends do), so tools and rebinding menus can list controls of hardware they have never heard of.
+
+### Analog sampling
+
+Between ticks, analog channels (axes, pressure, backend and virtual controls) keep their **turning
+points**: a trigger squeezed from 0.2 to 0.9 and back to 0.2 within one frame is seen at 0.9, so a 0.5
+threshold fires. `player.AnalogSampling` chooses `Extremes` (default), `Latest` (only crossings of zero;
+cheapest) or `All` (every sample its own step); `Raw.AnalogBand` (0.02) keeps resting noise from making
+steps. Positions, motion sensors and tracked poses always keep their latest value.
+
 ### Identity and reconnection
 
 A device's `Id` stays the same when it reconnects, even under another joypad index. A returning pad

@@ -264,6 +264,23 @@ changed, so the designer's defaults stay intact and one profile can be reset at 
 | BKD-1 | Backend devices have persistent ids separate from runtime indices; two backends with the same type and index stay apart; a replacement backend takes a device over. | `ReviewThreeTests.TwoBackends_*`, `ReviewThreeTests.AReplacementBackend_*` |
 | PRF-3 | The worst case — many events per frame over 1000 bindings — stays within a frame budget; intake cost per event is measured. | `StressTests.WorstCase_*` |
 
+### 3.15 Fourth review and the public API (stage 8)
+
+| ID | Requirement | Test |
+|---|---|---|
+| ANA-1 | Analog channels keep their turning points within a frame (`AnalogSampling`: `Latest`, `Extremes`, `All`), so a threshold crossed and recrossed within one frame is seen; resting noise within `AnalogBand` makes no steps. | `ReviewFourTests.ATriggerSqueezed*`, `ReviewFourTests.AnalogSampling_*`, `ReviewFourTests.RestingNoise_*` |
+| TRK-2 | Tracking gained and lost are queued changes, also at the origin, evaluated and recorded in order. | `ReviewFourTests.APositionAtTheOrigin_*` |
+| HAP-3 | Adaptive trigger resistance and force feedback are released on transfer, player removal, focus loss and suspension, and follow the strength settings at once. | `ReviewFourTests.ResistanceAndForces_*`, `ReviewFourTests.RemovingAPlayer_*` |
+| DEV-10 | Assigning a backend device cuts it off for every other player, including implicit recipients. | `ReviewFourTests.AssigningAnUnownedDevice_*` |
+| BKD-2 | Backend ids stay unique for any number of backends in one namespace; input from removed or superseded devices is ignored. | `ReviewFourTests.ThreeBackendsInOneNamespace_*` |
+| API-1 | **Shortcuts**: actions answer for themselves on the default player (or a given one); short factories; contexts bind from text paths; binding helpers for common triggers and modifiers. | `ApiTests.ActionsAnswerForThemselves_*` |
+| API-2 | **Stable ids** on actions, contexts, bindings, modes and configurations, with former ids; lookups and recordings use them. | `ApiTests.Ids_*` |
+| API-3 | **Input configurations** set a player (or every player) up and switch contexts by id. | `ApiTests.AConfiguration_*`, `ApiTests.TheAutoloadsConfiguration_*` |
+| API-4 | **Provenance**: events carry the binding, exact channel, device, timestamp and end reason. | `ApiTests.Events_SayWhich*` |
+| API-5 | **Evaluation policies**: continuous, on change, event-driven, pass-through, tracked. | `ApiTests.Policies_*`, `ApiTests.PassThrough_*`, `ApiTests.Tracked_*` |
+| API-6 | **Lifetimes**: context handles, scopes tied to a node, per-action enable. | `ApiTests.ScopesAndHandles_*`, `ApiTests.ASingleAction_*` |
+| API-7 | **Device layouts**: control descriptors for gamepads (by family), keyboard and mouse, touch, pens and backend devices; every path binds. | `ApiTests.Layouts_*` |
+
 ## 4. Architecture
 
 ```
@@ -341,7 +358,7 @@ player.Tick(1.0 / 60.0);
 
 ## 6. Staged plan
 
-All seven stages are done.
+All eight stages are done; the API is frozen for 0.1.0.
 
 | Stage | Content | Done when |
 |---|---|---|
@@ -352,3 +369,4 @@ All seven stages are done.
 | **5 — Extended** | More sources and composites, text paths, value natures; device registry, profiles, backends, XR, haptics; more triggers and modifiers; input modes, player settings, accessibility; composite-part rebinding, capture options, named profiles; gestures, safe area, touch layouts; recording and replay; compiled bindings and allocation-free ticks; validation and the editor dock; CI on three platforms and a hardware checklist. | SRC-*, DEV-*, TRG-1, MOD-1, MDE-*, MAP-8…10, GST-*, REC-1, PRF-*, EDT-1 tests pass. |
 | **6 — Rotations, devices, correctness** | Four-component, quaternion and Euler values and rotation modifiers; ordered evaluation of every change within a frame; cut-off input with end reasons; stuck-input release; Auto ticking; isolation fixes; haptic effects and force feedback; controller families; device identity, reconnection, switching and fallback; XR hands, face and eyes; desktop eye trackers and dwell; editing in the editor dock. | VAL-*, CUT-*, ISO-1, MDE-3, HAP-1, FFB-1, FAM-1, DEV-5…8, XR-1, EYE-1, EDT-2 tests pass. |
 | **7 — Stabilization** | Event-accurate time and once-per-frame steady events; cut-offs everywhere; recording alignment; tracked values; haptics ownership and trigger kinds; backend device identity; worst-case benchmark. | EVT-*, CUT-3, REC-2, TRK-1, HAP-2, DEV-9, BKD-1, PRF-3 tests pass. |
+| **8 — API and review four** | Analog turning points, queued tracking changes, persistent outputs on transfer, implicit device recipients, backend id uniqueness; shortcuts, stable ids, input configurations, provenance, evaluation policies, scopes, device layouts. | ANA-1, TRK-2, HAP-3, DEV-10, BKD-2, API-* tests pass. |

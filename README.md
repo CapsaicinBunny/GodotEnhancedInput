@@ -91,14 +91,19 @@ tracked values, ownership by device identity). What is tested and what still nee
 
 | You want | Use |
 |---|---|
-| a stick, mouse look or movement vector | `player.GetValue(move).AsVector2()` |
-| a trigger or throttle amount | `player.GetValue(throttle).AsFloat()` |
-| "pressed this frame" | `player.WasTriggered(jump)` on an action with a `PressedTrigger` |
-| "held" | `player.IsTriggered(sprint)` on an action with no trigger (or a `DownTrigger`) |
-| "released this frame" | `player.WasCompleted(sprint)` |
-| hold for N seconds, tap, double-press, pulse while held | `HoldTrigger`, `TapTrigger`, `ComboTrigger`, `PulseTrigger` |
-| a callback instead of polling | `player.Bind(jump, ActionEvents.Triggered, e => …)` |
+| a stick, mouse look or movement vector | `move.ReadVector2()` |
+| a trigger or throttle amount | `throttle.ReadFloat()` |
+| "pressed this frame" | `jump.WasPressed()` |
+| "held" | `sprint.IsTriggered()` |
+| "released this frame" | `sprint.WasReleased()` |
+| hold for N seconds, tap, double-press, pulse while held | `.Hold(0.5f)`, `.Tap()`, `MultiTapTrigger`, `PulseTrigger` |
+| a callback instead of polling | `jump.OnTriggered(Jump)` |
+| which device or binding did it | `e.Device`, `e.Binding`, `e.Source` in the callback |
+| a context for as long as something lasts | `using var _ = player.PushContext(vehicle)` |
 | a prompt such as "Press Space" | `player.GetPromptText(jump)` |
+
+These read the default player (player 0). For local multiplayer, pass the player:
+`move.ReadVector2(player2)`, or use the same methods on `InputPlayer`.
 
 ## Quick start
 
@@ -121,33 +126,35 @@ public partial class Hero : CharacterBody3D
     [Export] public GameAction Jump { get; set; }
     [Export] public GameAction Move { get; set; }
 
-    private InputPlayer _input;
-
     public override void _Ready()
     {
-        _input = EnhancedInput.DefaultPlayer;
-        _input.AddContext(Gameplay, priority: 0);
-        _input.Bind(Jump, ActionEvents.Triggered, _ => Velocity += Vector3.Up * 6f);
+        var input = EnhancedInput.DefaultPlayer.CreateScope(this);   // released when this node leaves the tree
+        input.PushContext(Gameplay);
+        input.OnTriggered(Jump, () => Velocity += Vector3.Up * 6f);
     }
 
     public override void _PhysicsProcess(double delta)
     {
-        Vector2 move = _input.GetValue(Move).AsVector2();   // polling works too
+        Vector2 move = Move.ReadVector2();   // polling works too
         // ...
     }
-
-    public override void _ExitTree() => _input.RemoveContext(Gameplay);
 }
 ```
 
-Everything can also be built in code:
+Everything can also be built in code, from short text paths:
 
 ```csharp
-var jump = GameAction.Create("jump");
-var gameplay = BindingContext.Create("gameplay");
-gameplay.Add(jump, InputSource.ForKey(Key.Space), new PressedTrigger());
-gameplay.Add(jump, InputSource.ForJoyButton(JoyButton.A), new PressedTrigger());
+var jump = GameAction.Button("jump");
+var move = GameAction.Axis2D("move");
+var gameplay = BindingContext.Create("gameplay")
+    .Bind(move, "wasd", "pad:left_stick")
+    .Bind(jump, "key:space", "pad:a");
+gameplay.Add(jump, "pad:rt").Hold(0.4f);
 ```
+
+Or put the whole game's input in one `InputConfiguration` resource — actions, contexts, control
+schemes, default settings — set it on the autoload, and switch contexts by id:
+`player.ActivateContext("vehicle")`.
 
 The demo in `addons/godot_enhanced_input_demo` shows chords, tap-versus-hold on one key, a combo,
 pulses, a blocking pause menu with a rebinding panel, joining with a second joypad and on-screen
@@ -188,7 +195,7 @@ touch controls (F2 on desktop). Open `demo.tscn` and press F6.
 dotnet run --project GodotEnhancedInput.Tests/GodotEnhancedInput.Tests.csproj -c Debug
 ```
 
-447 tests run against a real headless Godot through [2dog](https://github.com/outfox/2dog), one or
+466 tests run against a real headless Godot through [2dog](https://github.com/outfox/2dog), one or
 more per requirement in the [design](docs/design.md); see [the test README](GodotEnhancedInput.Tests/README.md).
 The same suite runs in CI on Windows, Linux and macOS. Real hardware is covered by the
 [checklist](docs/platforms-and-hardware.md#hardware-checklist).

@@ -24,6 +24,12 @@ requirement IDs link the [design](design.md) to those tests).
 | Phases and events (started, ongoing, triggered, completed, canceled) with timings | ✅ | |
 | Every input event evaluated in order within its frame; time split at each change | ✅ | EVT-1, EVT-3 |
 | Held actions fire once per frame; one-shots stay triggered to the frame's end | ✅ | EVT-2 |
+| Evaluation policies: continuous, on change, event-driven, pass-through, tracked | ✅ | API-5 |
+| Analog turning points within a frame (thresholds crossed and recrossed) | ✅ | ANA-1 |
+| Events carry binding, exact channel, device, timestamp, end reason | ✅ | API-4 |
+| Shortcuts on actions, text-path bindings, binding helpers | ✅ | API-1 |
+| Stable ids with former ids; input configurations; contexts by id | ✅ | API-2, API-3 |
+| Context handles, scopes tied to nodes, per-action enable | ✅ | API-6 |
 | Arrival times within a frame | ✅ / 🔌 | Godot gives events no timestamps; times are arrival times, as fine as Godot delivers events (agile event flushing helps) |
 | Cut-off input ends canceled with a reason (focus, suspend, disconnect, reassign, context, mode, rebind, pause, tracking, system) | ✅ | CUT-1…3 |
 | Stuck keys released when Godot no longer holds them | ✅ | CUT-2 |
@@ -45,7 +51,8 @@ requirement IDs link the [design](design.md) to those tests).
 | Doubtful returns of identical serial-less pads: automatic or ask | ✅ | DEV-8 |
 | Device switching with fallback; lost/regained signals | ✅ | DEV-6 |
 | Controller families (Xbox, Elite, DualShock, DualSense, Edge, Switch Pro, Joy-Con, Steam Deck, Steam Input) | ✅ / 🔌 | FAM-1; detection by name and USB ids |
-| Backend devices with persistent ids, namespaces, replacement | ✅ | BKD-1 |
+| Backend devices with persistent ids, namespaces, replacement | ✅ | BKD-1, BKD-2 |
+| Device layouts: control descriptors (path, kind, range, nature, unit, noisy, tracked) | ✅ | API-7 |
 | Wheels, pedals, flight sticks, throttles (through profiles or backends) | ✅ / 🔌 | |
 | XR controllers and head: poses as position, quaternion, Euler, velocities | ✅ / 🔌 | Simulated trackers in tests |
 | XR hand tracking (joints, pinch, grab) and face (eye gaze, blinks, jaw) | ✅ / 🔌 | |
@@ -57,7 +64,7 @@ requirement IDs link the [design](design.md) to those tests).
 | Feature | Status | Notes |
 |---|---|---|
 | Rumble, haptic effects (envelopes, repeats, loops), mixing and priorities | ✅ / 🔌 | HAP-1…2 |
-| Haptics follow ownership; transfers stop the old owner first | ✅ | HAP-2 |
+| Haptics follow ownership; transfers stop the old owner first; resistance and forces released too | ✅ | HAP-2, HAP-3 |
 | Joypad lights (capable pads only) | ✅ / 🔌 | |
 | Handheld (phone) vibration | ✅ / 🔌 | One buzz per finite effect, not part of the motor mix |
 | XR per-hand vibration with frequency | ✅ / 🔌 | |

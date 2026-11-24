@@ -45,46 +45,72 @@ public partial class Player : CharacterBody3D
     [Export] public GameAction Move { get; set; }
     [Export] public GameAction Look { get; set; }
 
-    private InputPlayer _input;
-    private InputPlayer.ActionSubscription _jumpHandle;
-
     public override void _Ready()
     {
-        _input = EnhancedInput.DefaultPlayer;
-        _input.AddContext(Gameplay);
-        _jumpHandle = _input.Bind(Jump, ActionEvents.Triggered, _ => DoJump());
+        // Everything added to the scope is released when this node leaves the tree.
+        var input = EnhancedInput.DefaultPlayer.CreateScope(this);
+        input.PushContext(Gameplay);
+        input.OnTriggered(Jump, DoJump);
     }
 
     public override void _PhysicsProcess(double delta)
     {
-        Vector2 move = _input.GetValue(Move).AsVector2();   // up is −Y, like Input.GetVector
-        Vector2 look = _input.GetValue(Look).AsVector2();
-        // …
-    }
-
-    public override void _ExitTree()
-    {
-        _jumpHandle.Dispose();
-        _input.RemoveContext(Gameplay);
+        Vector2 move = Move.ReadVector2();   // up is −Y, like Input.GetVector
+        Vector2 look = Look.ReadVector2();
+        if (Jump.WasPressed()) { /* … polling works too */ }
     }
 
     private void DoJump() { /* … */ }
 }
 ```
 
-If you read input in `_PhysicsProcess`, set the autoload's `TickMode` to `Physics`.
+Actions answer for themselves on the default player (player 0); pass a player for local
+multiplayer: `Move.ReadVector2(player2)`. The autoload ticks once per frame before physics and
+process, so both see the same input.
+
+### Or all in code
+
+```csharp
+var jump = GameAction.Button("jump");
+var move = GameAction.Axis2D("move");
+var fire = GameAction.Button("fire");
+
+var gameplay = BindingContext.Create("gameplay")
+    .Bind(move, "wasd", "pad:left_stick")
+    .Bind(jump, "key:space", "pad:a");
+gameplay.Add(fire, "mouse:left").Pressed();
+gameplay.Add(fire, "pad:rt").Hold(0.4f);
+
+EnhancedInput.DefaultPlayer.AddContext(gameplay);
+```
+
+Source paths are listed in [sources and devices](sources-and-devices.md).
+
+### Or one configuration for the whole game
+
+*New Resource…* → `InputConfiguration` (`game_input.tres`): list the actions, the contexts, the
+contexts active from the start, the control schemes (`InputMode`s), default settings, haptic effects
+and touch layouts. Set it on the autoload's *Configuration* and every player is set up with it; switch
+contexts by id or name:
+
+```csharp
+EnhancedInput.DefaultPlayer.ActivateContext("vehicle");
+```
 
 ## 5. Add a menu on top
 
 Make `menu.tres` with *Block Lower Priority* on and bind `close_menu` to Escape with a
-`PressedTrigger`. Open it with:
+`PressedTrigger`. Open it for as long as the menu is up:
 
 ```csharp
-_input.AddContext(Menu, priority: 100, new ContextOptions { IgnoreHeldSourcesUntilReleased = true });
+_menuInput = EnhancedInput.DefaultPlayer.PushContext(Menu, priority: 100,
+    new ContextOptions { IgnoreHeldSourcesUntilReleased = true });
+// …
+_menuInput.Dispose();   // back to gameplay
 ```
 
 While it is active, gameplay reads nothing; the Escape press that opened the menu is ignored until
-released. `RemoveContext(Menu)` returns control.
+released, and a key held through the menu does not count as a new press when it closes.
 
 ## 6. Show prompts, let players rebind
 
@@ -99,7 +125,8 @@ what every action is doing.
 
 ## Next
 
-- [Concepts](concepts.md) — how contexts, the tick, phases and events fit together
+- [Concepts](concepts.md) — how contexts, the tick, phases and events fit together; ids,
+  configurations, evaluation policies, where events came from, scopes
 - [Triggers](triggers.md) and [modifiers](modifiers.md) — the full sets
 - [Rebinding](rebinding.md), [players and touch](players-and-touch.md),
   [prompts and debugging](prompts-and-debugging.md)

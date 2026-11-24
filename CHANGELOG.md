@@ -108,7 +108,16 @@ history up to 0.2.3 is in its repository.
 - Tracked values: tracked controls are input while present, even at identity or origin;
   `ActionState.IsTracked`, `InputSample` / `GetSample`; `InputEndReason.TrackingLost`.
 - `TickMode.Auto` (default): one tick per frame, before physics and process; `ReleaseStuckInput`.
-- 447 headless tests, including a worst-case benchmark (many events per frame).
+- Public API: shortcuts on actions (`WasPressed`, `IsTriggered`, `ReadVector2`, `OnTriggered`…) and
+  short factories (`GameAction.Button`, `Axis2D`…); contexts bound from text paths
+  (`Bind(jump, "key:space", "pad:a")`, `wasd`, `arrows`) with binding helpers (`Pressed`, `Hold`, `Tap`,
+  `Deadzone`, `Scale`, `Negate`); stable `Id` and `FormerIds` on actions, contexts, bindings, modes and
+  configurations; `InputConfiguration` with `LoadConfiguration`, `ActivateContext` and
+  `EnhancedInput.Configuration`; event provenance (`Binding`, `Source`, `Device`, `Timestamp`,
+  `EndReason`); `ActionEvaluation` policies; `PushContext` handles, `SwitchContext`, `InputScope`,
+  `SetActionEnabled`; `InputDeviceLayout` and `InputControlDescriptor` (backends describe theirs).
+- `AnalogSampling` and `AnalogBand`: analog turning points within a frame.
+- 466 headless tests, including a worst-case benchmark (many events per frame).
 
 ### Changed (during review)
 - Evaluation: a tick evaluates every input event since the last one in arrival order, letting time
@@ -122,7 +131,10 @@ history up to 0.2.3 is in its repository.
 - Recordings store cut-offs, sensor samples in the frame they belong to, tracked device controls
   and each input's moment within its tick; replays ignore live cut-offs and release what they held
   when they end.
-- Haptics follow device ownership; a transfer stops the old owner's motors first.
+- Haptics follow device ownership; a transfer stops the old owner's motors first, and releases
+  trigger resistance and force feedback; so do player removal, focus loss and suspension.
+- Tracking gained and lost are queued changes (also at the origin); a backend device assigned to a
+  player is cut off for everyone else; input from removed backend devices is ignored.
 
 ### Removed
 - InputForge's `EnhancedInputSystem`, `InputAction`, `InputMappingContext`, `InputMapping`, `InputKey`,
