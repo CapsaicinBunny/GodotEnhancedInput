@@ -41,7 +41,7 @@ public partial class InputPlayer
 
         ulong now = Raw.Clock();
         if (_lastFrameUsec == 0 || now < _lastFrameUsec) _lastFrameUsec = now;
-        if (_replay == null) PollSensorsForTick();   // before the recorded frame closes, so replays see them in the same frame
+        if (_replay == null) PollSensorsForTick(delta);   // before the recorded frame closes, so replays see them in the same frame
         delta = BeginTickRecording(delta, now);
         _tick++;
         double frameDelta = Math.Max(0.0, delta);
@@ -110,6 +110,7 @@ public partial class InputPlayer
             _ticking = false;
         }
         _delta = frameDelta;
+        _inputTime += frameDelta;
 
         EndTick();
         EndTickRecording();
@@ -141,6 +142,16 @@ public partial class InputPlayer
 
     private ulong _lastFrameUsec;
     private double _frameStartSeconds, _frameSeconds, _frameDelta;
+    private double _inputTime;
+
+    /// <summary>
+    /// The player's input time in seconds: the sum of the deltas of every tick so far (during a tick, up to
+    /// the moment being evaluated). It follows the deltas the player is ticked with, so it pauses with the
+    /// game and replays exactly; input buffers and <see cref="ActionState.LastTriggeredTime"/> use it.
+    /// </summary>
+    public double InputTime => _ticking ? StepInputTime : _inputTime;
+
+    private double StepInputTime => _inputTime + _frameTime;
     private double _frameTime;   // seconds into the tick of the step being evaluated
     private bool _finalStep;
     private bool _eventPhase;   // evaluating an input event with its changes applied
@@ -179,12 +190,14 @@ public partial class InputPlayer
         if (PlanIsStale()) PrepareTick();
     }
 
-    private void PollSensorsForTick()
+    private void PollSensorsForTick(double delta)
     {
         if (PlanIsStale()) CompilePlan();
         _polledSensors.Clear();
+        _fusionWanted.Clear();
         for (int p = 0; p < _plan.Count; p++)
             if (_plan[p].PollsSensors) PollSensors(_plan[p].Source);
+        if (_fusionWanted.Count > 0) FuseOrientations(delta);
     }
 
     /// <summary>

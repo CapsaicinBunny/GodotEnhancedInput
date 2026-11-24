@@ -48,6 +48,16 @@ public partial class EnhancedInputAction
     /// <summary>True on the frame the action ended without firing, or was cut off (see <see cref="ActionState.EndReason"/>).</summary>
     public bool WasCanceled(InputPlayer player = null) => PlayerOr(player)?.WasCanceled(this) ?? false;
 
+    /// <summary>
+    /// Input buffering: true once per activation, if the action became triggered within the last
+    /// <paramref name="withinSeconds"/> (or is triggered now) — <c>if (IsOnFloor() &amp;&amp; jump.ConsumeTriggered(0.15)) Jump();</c>
+    /// See <see cref="InputPlayer.ConsumeTriggered"/>.
+    /// </summary>
+    public bool ConsumeTriggered(double withinSeconds = 0.0, InputPlayer player = null) => PlayerOr(player)?.ConsumeTriggered(this, withinSeconds) ?? false;
+
+    /// <summary>Whether the action became triggered within the last <paramref name="withinSeconds"/> and was not consumed (see <see cref="ConsumeTriggered"/>).</summary>
+    public bool WasTriggeredWithin(double withinSeconds, InputPlayer player = null) => PlayerOr(player)?.WasTriggeredWithin(this, withinSeconds) ?? false;
+
     /// <summary>The action's value.</summary>
     public ActionValue Read(InputPlayer player = null) => PlayerOr(player)?.GetValue(this) ?? ActionValue.Zero(ValueKind);
 

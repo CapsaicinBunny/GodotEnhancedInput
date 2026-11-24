@@ -135,6 +135,7 @@ public sealed partial class RawInputState
     public void Set(in SourceKey key, Vector4 value)
     {
         var before = GetCurrent(key);
+        if (before == Vector4.Zero && value != Vector4.Zero) _pressOrder[key] = ++_pressCounter;
         bool presentBefore = _present.Contains(key);
         bool crossing = (before != Vector4.Zero) != (value != Vector4.Zero);
         _pending.TryGetValue(key, out var queue);
@@ -240,6 +241,23 @@ public sealed partial class RawInputState
     {
         _touchDrag[finger] = (_touchDrag.TryGetValue(finger, out var sum) ? sum : Vector2.Zero) + relative;
         _fingers.Add(finger);
+    }
+
+    private readonly Dictionary<SourceKey, ulong> _pressOrder = new();
+    private ulong _pressCounter;
+
+    /// <summary>
+    /// When a channel last went from zero to non-zero, as an ever-increasing count (larger = later; 0 = never).
+    /// For "any device" channels, the latest of the devices.
+    /// </summary>
+    public ulong PressOrder(in SourceKey key)
+    {
+        if (_pressOrder.TryGetValue(key, out var order)) return order;
+        if (!key.IsPerDevice || key.Device != SourceKey.AnyDevice) return 0;
+        ulong latest = 0;
+        foreach (int device in DevicesOf(key.Kind))
+            if (_pressOrder.TryGetValue(key with { Device = device }, out var o) && o > latest) latest = o;
+        return latest;
     }
 
     /// <summary>The value last written to a channel, ignoring changes not yet observed by a tick.</summary>

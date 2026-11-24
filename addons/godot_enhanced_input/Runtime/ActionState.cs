@@ -110,6 +110,21 @@ public sealed class ActionState
 
     /// <summary>When the action's value last changed, in seconds on the player's clock.</summary>
     public double LastChangeTime { get; internal set; }
+
+    /// <summary>
+    /// How many times the action has become triggered (entered <see cref="TriggerPhase.Triggered"/> from
+    /// another phase). Each is one activation; <see cref="InputPlayer.ConsumeTriggered"/> uses each once.
+    /// </summary>
+    public ulong TriggerCount { get; internal set; }
+
+    /// <summary>
+    /// When the action last became triggered, in the player's input time (<see cref="InputPlayer.InputTime"/>);
+    /// negative infinity if it never was.
+    /// </summary>
+    public double LastTriggeredTime { get; internal set; } = double.NegativeInfinity;
+
+    // The activation (TriggerCount) last used by ConsumeTriggered.
+    internal ulong ConsumedActivation;
     internal bool ToggleOn;
     internal bool TogglePressed;
     internal Vector4 ToggleValue;
@@ -191,6 +206,7 @@ public sealed class ActionState
         TriggeredSeconds = 0;
         Value = ActionValue.Zero(Action?.ValueKind ?? ActionValueKind.Digital);
         RawValue = Value;
+        ConsumedActivation = TriggerCount;   // nothing from before the reset can be consumed
         ResetMemories();
     }
 

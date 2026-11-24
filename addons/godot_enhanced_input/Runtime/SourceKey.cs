@@ -167,4 +167,10 @@ public interface ISourceReader
 
     /// <summary>Both axes of a stick from one device (for any device: the one pushed furthest).</summary>
     Vector2 ReadStick(JoyAxis x, JoyAxis y, int device);
+
+    /// <summary>
+    /// When the channel last went from zero to non-zero, as an ever-increasing count (larger = later; 0 =
+    /// never). Opposing-input rules (<see cref="OpposingInputs"/>) use it to tell which side came last.
+    /// </summary>
+    ulong PressOrder(in SourceKey key) => 0;
 }

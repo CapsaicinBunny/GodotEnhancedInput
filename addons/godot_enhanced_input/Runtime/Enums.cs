@@ -153,6 +153,30 @@ public enum MotionSensor
     Gravity,
     /// <summary>Magnetic field (handheld only).</summary>
     Magnetometer,
+    /// <summary>
+    /// Orientation as a quaternion, fused by the player from the gyroscope and the accelerometer (pads) or
+    /// gravity sensor (handheld): the gyroscope turns it, gravity keeps its tilt from drifting. Heading
+    /// (yaw) has no reference and drifts slowly; <see cref="InputPlayer.ResetOrientation"/> recentres it.
+    /// </summary>
+    Orientation,
+}
+
+/// <summary>
+/// What an axis made of two opposing inputs reads when both are held (left and right together) — the
+/// "simultaneous opposing cardinal directions" rule of arcade sticks and hitboxes.
+/// </summary>
+public enum OpposingInputs
+{
+    /// <summary>They cancel out: 0 (the default).</summary>
+    Neutral,
+    /// <summary>The one pressed last wins (smooth strafing: hold A, tap D to switch).</summary>
+    LastWins,
+    /// <summary>The one pressed first wins; the other is ignored until it is released.</summary>
+    FirstWins,
+    /// <summary>The negative side wins (left; on a 2D axis's vertical, up — Godot's up is −Y).</summary>
+    NegativeWins,
+    /// <summary>The positive side wins (right; on a 2D axis's vertical, down).</summary>
+    PositiveWins,
 }
 
 /// <summary>How a <see cref="SourceKind.Composite"/> source combines its parts.</summary>

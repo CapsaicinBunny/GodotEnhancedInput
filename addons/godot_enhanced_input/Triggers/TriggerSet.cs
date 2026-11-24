@@ -31,6 +31,17 @@ public static class TriggerSet
         ActionValueKind kind,
         double delta,
         InputPlayer player)
+        => Evaluate(triggers, memories, value, kind, delta, player, null);
+
+    /// <summary>Evaluates a set for a known action (triggers can then look at the action's state).</summary>
+    public static TriggerPhase Evaluate(
+        IReadOnlyList<InputTrigger> triggers,
+        IReadOnlyList<TriggerMemory> memories,
+        Vector4 value,
+        ActionValueKind kind,
+        double delta,
+        InputPlayer player,
+        EnhancedInputAction action)
     {
         bool nonZero = !ActionValue.IsZeroOf(kind, value);
         int count = triggers?.Count ?? 0;
@@ -45,7 +56,7 @@ public static class TriggerSet
             if (trigger == null) continue;
             any = true;
 
-            var phase = trigger.Evaluate(new TriggerContext(value, kind, delta, player, memories[i]));
+            var phase = trigger.Evaluate(new TriggerContext(value, kind, delta, player, memories[i], action));
             switch (trigger.Role)
             {
                 case TriggerRole.Explicit:

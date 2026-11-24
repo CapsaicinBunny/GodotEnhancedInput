@@ -88,6 +88,7 @@ public static class InputPrompts
                     MotionSensor.Gyroscope => source.MotionOfHandheld ? "Tilt Device" : "Gyro",
                     MotionSensor.Accelerometer => "Shake",
                     MotionSensor.Gravity => source.MotionOfHandheld ? "Tilt Device" : "Tilt Controller",
+            MotionSensor.Orientation => source.MotionOfHandheld ? "Turn Device" : "Turn Controller",
                     _ => "Compass",
                 };
             case SourceKind.DeviceControl:
