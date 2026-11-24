@@ -58,6 +58,12 @@ Rebinding can replace a single part (`RebindPart`, see [rebinding](rebinding.md#
 
 `EnhancedInput.Devices` lists every device the system knows about as `InputDeviceInfo`: keyboard and
 mouse, each joypad (name, GUID, guessed role), touch, pen, and devices added by backends.
+Backend devices are known by a persistent id — "type:guid" when the backend gives the hardware's
+identity, else "type:index" — separate from the runtime index that bindings and channels use
+(`GetCustomDevice(type, index)`). Two backends that use the same type and index are kept apart (the
+second gets "type:namespace:index" and another runtime index, `InputBackend.Namespace`), and a
+device that reconnects through a replacement backend is taken over by it.
+
 `DeviceConnected` and `DeviceDisconnected` (and the `DeviceConnectionChanged` signal) report changes;
 `GetJoypadDevice(index)` and `GetDevice(id)` look one up; `AssignDevice(player, device)` and
 `GetDeviceOwner(device)` work for any device, not only joypads.
@@ -72,7 +78,7 @@ PlayStation and Switch pads usually have one, Xbox pads often do not), and other
 from Bluetooth to a cable — which changes its GUID, and for some Xbox pads its product id — is still
 the same pad. Identical pads without serials get ids ending in `#2`, `#3`…
 
-Ownership follows the pad, not the index: a pad that comes back returns to the player that had it
+Ownership is kept by identity: each record's `Owner` is the player it belongs to, connected or missing, and `player.GetOwnedDevices()` / `OwnedDeviceIds` list a player's devices by persistent id; `JoypadDevices` holds the indices its connected pads' input is routed by. Ownership follows the pad, not the index: a pad that comes back returns to the player that had it
 when it disconnected, under whatever index it gets (`PreviousIndex` shows where it was), and
 `PlayerDeviceRegained` fires. A pad of another model that receives a freed index never inherits the
 assignment (`JoypadUnassigned` tells the old owner its claim on that index is gone), but the missing
@@ -177,6 +183,20 @@ similar) implement `IEyeTracker` (`IsAvailable`, `TryGetGaze`, `IsUserPresent`, 
 `MouseGazeSimulator` follows the mouse, for building gaze features without the hardware. Pair
 `@eye:gaze` with a [`DwellTrigger`](triggers.md) for look-to-select.
 
+### Tracked values
+
+Poses, tracked positions and gaze are **tracked** controls: while they have a value they are input,
+even at the origin or the identity rotation, and when tracking is lost they have no value at all
+rather than "zero". Backends set them with `SetTrackedControl` and remove them with `ClearControl`
+(the XR and eye-tracker backends do both). An action reading one is triggered while it is tracked
+(`ActionState.IsTracked`), ends canceled with `InputEndReason.TrackingLost` when tracking is lost,
+and `player.GetSample(action)` gives its value with `IsTracked`, `IsValid` and when it last changed:
+
+```csharp
+var sample = player.GetSample(aim);
+if (sample.IsValid) hand.Quaternion = sample.Value.AsQuaternion();   // identity is a real reading
+```
+
 ### Haptics and lights
 
 ```csharp
@@ -204,6 +224,22 @@ effects only ever reach devices the player owns or may use.
 Everything scales by the player's `vibration_strength` setting, running effects included (0 turns
 haptics off; see [modes and accessibility](modes-and-accessibility.md)). Backends receive rumble for
 their devices. Swap `HapticsOutput` for a test double or another output.
+
+Haptics follow ownership: an effect aimed at a device stops when the device goes to another player,
+and the old owner stops its motors at the moment of the transfer (before the new owner commands
+them) and never commands them again. `StopRumble(device)` stops what is aimed at one pad and leaves
+it out of effects playing on all the player's pads; `StopRumbleOn(deviceId)` does the same for a
+backend device. Motor commands are repeated every `HapticRefreshSeconds`, each lasting a little
+longer, so motors stop on their own if the game stalls; small changes are sent once they add up.
+Lights only go to connected pads that have one. Handheld (phone) vibration is a one-off buzz per
+effect of finite length, not part of the per-motor mix.
+
+**Trigger rumble and adaptive triggers are different things.** `HapticEffect.TriggerLeft/Right` drive
+trigger motors (Xbox impulse triggers) and go only to pads whose hardware has
+`ControllerFeatures.TriggerRumble`. `player.SetTriggerResistance(side, TriggerResistance.Weapon(…))`
+sets adaptive trigger resistance (DualSense: steady, weapon-click or vibrating) on pads with
+`ControllerFeatures.AdaptiveTriggers`, through an output that implements `IAdaptiveTriggerOutput`
+(Godot has no API for either; plug in the platform's).
 
 ### Force feedback
 

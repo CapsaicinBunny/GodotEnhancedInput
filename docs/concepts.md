@@ -75,28 +75,36 @@ player.RemoveContext(menu);
 ## The tick
 
 Events only record raw input. Once per frame, right after Godot delivers the frame's input (see
-[ticking](godot-integration.md#the-autoload-and-ticking)), each player:
+[ticking](godot-integration.md#the-autoload-and-ticking)), each player orders its contexts and works
+out which sources each one consumes or blocks, then evaluates:
 
-1. orders its contexts and works out which sources each one consumes or blocks;
-2. evaluates each action: reads its bindings' sources, applies **binding modifiers** then
-   **binding triggers**, combines the bindings, applies the action's **modifiers** then its
-   **triggers**;
-3. moves the action's phase and records events and timings;
-4. calls callbacks and emits signals;
-5. forgets per-tick data (mouse motion, scrolling, one-tick injections).
+1. **each input event since the last tick, one at a time, in the order they arrived.** First time
+   passes up to the moment the event arrived for the actions it touches, under the input as it was;
+   then the event is applied and those actions are evaluated again — read their bindings' sources,
+   apply **binding modifiers** then **binding triggers**, combine the bindings, apply the action's
+   **modifiers** then its **triggers**, move the phase. Phase changes (started, triggered, completed,
+   canceled) are raised at once, in order. Actions whose triggers read other actions (chords, combos,
+   blockers, code) are evaluated at every event, so they see the others' changes in order.
+2. **the frame:** every action once more, with the frame's per-frame amounts (mouse motion,
+   scrolling, drags, gestures, injections). Held actions raise their steady events here — `Triggered`
+   again, still `Ongoing` — **at most once per frame**, however many other events arrived.
 
-**No press is lost or delayed.** Every on/off change of a channel is queued in the order it arrived,
-and one tick evaluates all of them in steps: each step takes the longest run of changes in which no
-channel changes twice. A press and release within one frame are both seen in that frame — a tap
-fires `Started`, `Triggered` and `Completed` on the same tick, in that order — and changes on
-different keys keep their order, so a chord pressed in order works even at 4 fps. Callbacks run per
-step; polling (`WasTriggered`, `WasCompleted`, `GetEvents`) sees every event of the frame and the
-frame's final value and phase. Mouse motion and other per-frame amounts belong to the last step.
+**No press is lost or delayed, and time is real.** Each action's time advances by exactly the frame's
+delta over the tick, split at the moments its input changed: a key pressed 50 ms into a slow frame
+and released 400 ms later was held 0.4 s, so it is not a tap and a 0.3 s hold completes. Changes are
+placed by when they reached the player (see [event times](godot-integration.md#event-times)). A press
+and release within one frame are both seen in that frame — a tap fires `Started`, `Triggered` and
+`Completed` on the same tick, in that order — and a chord or combo pressed in order works at any
+frame rate. A one-shot that fired at an event (pressed, released, tap, a combo's last step) stays
+triggered until the frame ends, so `IsTriggered` sees it; it ends on the next frame. Polling
+(`WasTriggered`, `WasCompleted`, `GetEvents`) sees every event of the frame and the frame's final
+value and phase.
 
 Bindings are **suppressed** — not evaluated at all — while their context is blocked, all their
 sources are consumed or ignored, or the tree is paused (for actions that do not run while paused).
 A suppressed binding's triggers and modifiers start over, so a menu opening never looks like a
-release.
+release. When it comes back with its key still held, the key counts as held all along: held actions
+simply continue, and one-shots do not fire — closing a menu with Esc does not also press "pause".
 
 ## Phases and events
 

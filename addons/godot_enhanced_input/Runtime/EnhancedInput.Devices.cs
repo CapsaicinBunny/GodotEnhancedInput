@@ -181,7 +181,7 @@ public partial class EnhancedInput
             {
                 var back = a.Entries.Find(x => x.Identity == current);
                 current.Index = back.OldIndex;
-                current.LastOwner = back.Owner;
+                current.Owner = back.Owner;
                 current.LostOrder = ++_lostCounter;
                 if (back.Owner != null)
                 {
@@ -191,16 +191,16 @@ public partial class EnhancedInput
             }
             DeviceDisconnected?.Invoke(current);
             EmitSignal(SignalName.DeviceConnectionChanged, current.Id, false);
-            if (current.LastOwner != null && IsPlayer(current.LastOwner))
+            if (current.Owner != null && IsPlayer(current.Owner))
             {
-                current.LastOwner.OnDeviceLost(current);
-                EmitSignal(SignalName.PlayerDeviceLost, current.LastOwner, current.Id);
+                current.Owner.OnDeviceLost(current);
+                EmitSignal(SignalName.PlayerDeviceLost, current.Owner, current.Id);
             }
         }
 
         var identity = target.Identity;
         ActivateJoypad(identity, device, reading);
-        identity.LastOwner = null;
+        identity.Owner = player;
         GiveJoypadIndex(player, target.OldIndex, device);
         EmitSignal(SignalName.PlayerDeviceRegained, player, identity.Id);
         return true;
@@ -208,7 +208,7 @@ public partial class EnhancedInput
 
     private bool IsPlayer(InputPlayer player) => player != null && _players.Contains(player) && GodotObject.IsInstanceValid(player);
 
-    private InputPlayer AliveOwner(InputDeviceInfo device) => IsPlayer(device.LastOwner) ? device.LastOwner : null;
+    private InputPlayer AliveOwner(InputDeviceInfo device) => IsPlayer(device.Owner) ? device.Owner : null;
 
     private InputDeviceInfo ConnectedJoypadAt(int index)
     {
@@ -346,7 +346,7 @@ public partial class EnhancedInput
     {
         var gone = ConnectedJoypadAt(index);
         if (gone == null) return null;
-        gone.LastOwner = GetJoypadOwner(index);
+        gone.Owner = GetJoypadOwner(index) ?? gone.Owner;
         gone.LostOrder = ++_lostCounter;
         gone.IsConnected = false;
         DeviceDisconnected?.Invoke(gone);
@@ -360,6 +360,8 @@ public partial class EnhancedInput
     /// </summary>
     private void GiveJoypadIndex(InputPlayer player, int oldIndex, int index)
     {
+        var record = ConnectedJoypadAt(index);
+        if (record != null) record.Owner = player;
         foreach (var other in _players)
             if (other != player) other.JoypadDevices.Remove(index);
         int at = oldIndex != index && ConnectedJoypadAt(oldIndex) == null ? player.JoypadDevices.IndexOf(oldIndex) : -1;
@@ -380,7 +382,7 @@ public partial class EnhancedInput
     private bool IsStaleClaim(InputPlayer player, int index, InputDeviceInfo arriving)
     {
         foreach (var d in _devices)
-            if (d != arriving && d.Kind == InputDeviceKind.Joypad && !d.IsConnected && d.Index == index && d.LastOwner == player) return true;
+            if (d != arriving && d.Kind == InputDeviceKind.Joypad && !d.IsConnected && d.Index == index && d.Owner == player) return true;
         return false;
     }
 
@@ -463,6 +465,7 @@ public partial class EnhancedInput
                         p.Raw.ClearCustomDevice(device.DeviceType, device.Index, InputEndReason.DeviceReassigned);
                     }
                 player.OwnedCustomDevices.Add(device.Id);
+                device.Owner = player;
                 break;
         }
     }

@@ -662,12 +662,17 @@ public partial class InputPlayer : Node, ISourceReader
         return GetPhase(action);
     }
 
-    /// <summary>Like <see cref="GetPhaseThisTick"/>, for the events the other action raises this tick.</summary>
+    /// <summary>
+    /// Like <see cref="GetPhaseThisTick"/>, for the events the other action raises. During a tick these are
+    /// the events of the step being evaluated (so a combo sees its steps in the order they happened, even
+    /// within one frame); outside a tick, the last tick's.
+    /// </summary>
     public ActionEvents GetEventsThisTick(GameAction action)
     {
         if (action == null) return ActionEvents.None;
-        if (_ticking) Resolve(action);
-        return GetEvents(action);
+        if (!_ticking) return GetEvents(action);
+        Resolve(action);
+        return _states.TryGetValue(action, out var state) && state.StepId == _step ? state.StepEvents : ActionEvents.None;
     }
 
     private ActionState GetOrCreateState(GameAction action)

@@ -198,6 +198,29 @@ public class ReconnectTests
     }
 
     [Fact]
+    public void Ownership_IsKeptByIdentity_IndicesOnlyRoute()
+    {
+        using var s = new Setup();
+        s.System.NotifyJoypadConnection(0, true, DualSenseUsb, "SN-9", "DualSense");
+        var pad = s.System.GetJoypadDevice(0);
+        s.System.AssignJoypad(s.P1, 0);
+        pad.Owner.Should().Be(s.P1);
+        s.P1.OwnedDeviceIds.Should().Equal(pad.Id);
+
+        s.System.NotifyJoypadConnection(0, false);
+        pad.Owner.Should().Be(s.P1, "a missing pad keeps its owner");
+        s.P1.OwnedDeviceIds.Should().Equal(pad.Id);
+
+        s.System.NotifyJoypadConnection(7, true, DualSenseBluetooth, "SN-9", "DualSense");
+        s.P1.OwnedDeviceIds.Should().Equal(pad.Id);
+        s.P1.JoypadDevices.Should().Equal(new[] { 7 }, "the index is only how its input is routed now");
+
+        s.System.UnassignJoypad(7);
+        pad.Owner.Should().BeNull();
+        s.P1.OwnedDeviceIds.Should().BeEmpty();
+    }
+
+    [Fact]
     public void BeingToldTwice_IsNotAReconnection()
     {
         using var s = new Setup();

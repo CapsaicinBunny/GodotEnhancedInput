@@ -694,7 +694,7 @@ public sealed class RawInputState
         if (Frozen) return;
         _scratch.Clear();
         foreach (var key in _current.Keys)
-            if (key.IsTouch) _scratch.Add(key);
+            if (key.IsTouch || (key.Kind == RawKind.Motion && key.Device == SourceKey.Handheld)) _scratch.Add(key);   // the handheld's sensors go with the touchscreen
         foreach (var key in _scratch) Cancel(key, reason);
         _touchDrag.Clear();
         _gestureFingers.Clear();

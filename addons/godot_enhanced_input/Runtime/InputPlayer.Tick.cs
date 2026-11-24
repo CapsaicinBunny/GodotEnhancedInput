@@ -540,14 +540,17 @@ public partial class InputPlayer : IChannelMask
                 }
                 // A one-shot that fired at an input event this frame (pressed, released, tap, combo…) stays
                 // triggered until the frame ends, as frame-based code expects; it ends on the next frame.
+                bool latched = false;
                 if (_finalStep && evaluatedThisFrame && state.Phase == TriggerPhase.Triggered && finalPhase != TriggerPhase.Triggered && !cut.HasValue)
                 {
                     finalPhase = TriggerPhase.Triggered;
                     value = state.Value.Raw;
+                    latched = true;
                 }
                 state.InputValue = new ActionValue(kind, Trim(kind, input));
                 if (state.Value.Raw != value) state.LastChangeTime = StepClock;
                 state.Advance(finalPhase, new ActionValue(kind, value), _delta, new ActionValue(kind, Trim(kind, raw)), _tick, cut);
+                if (latched) state.HoldOver();   // carried to the frame's end: nothing new happened
             }
 
             state.LastTick = _tick;

@@ -207,7 +207,7 @@ public partial class InputPlayer
             for (int i = _hapticPads.Count - 1; i >= 0; i--)
             {
                 var info = system.GetJoypadDevice(_hapticPads[i]);
-                if (info != null && (!info.IsConnected || !info.CanVibrate)) _hapticPads.RemoveAt(i);
+                if (info != null && (!info.IsConnected || !(info.CanVibrate || (info.HardwareFeatures & ControllerFeatures.Rumble) != 0))) _hapticPads.RemoveAt(i);
             }
         return _hapticPads;
     }

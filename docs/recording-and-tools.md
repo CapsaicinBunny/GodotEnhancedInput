@@ -18,12 +18,19 @@ player.ReplayFinished += () => GD.Print("done");
 ```
 
 - During a replay the recorded time step replaces the one the player is ticked with, and live
-  input (events, on-screen controls, injections from code) is ignored.
-- Raw input is cleared when a replay starts. For an exact match, start recording while nothing is
-  held (a level start, a menu) and replay into a player with the same contexts, mode, profile and
-  settings.
-- Values the player polls itself — motion sensors and Godot's InputMap state — are not recorded and
-  are not polled during a replay.
+  input (events, on-screen controls, injections from code, backend devices, and live cut-offs such
+  as focus loss or an unplugged pad) is ignored.
+- Everything goes through one ordered stream: events, virtual controls, injections, backend device
+  controls (with whether they are tracked), motion sensor samples (polled before the frame is
+  closed, so they replay in the same frame), and cut-offs with their reasons (focus lost, device
+  lost, tracking lost, `ClearRawInput`). Each input also keeps the moment within its tick it arrived
+  (`At`), so time-based triggers replay the same.
+- Raw input is cleared when a replay starts, and whatever the replay still holds is released (as
+  `InputEndReason.Replay`) when it ends or is stopped. For an exact match, start recording while
+  nothing is held (a level start, a menu) and replay into a player with the same contexts, mode,
+  profile and settings. Context and mode changes made by game code are not recorded.
+- Godot's InputMap state, which the player polls itself, is not recorded and not polled during a
+  replay.
 - `recording.ReplayInto(player)` plays a whole recording at once (tests).
 - `StopReplay()` ends early. `IsRecording`, `IsReplaying` and `ReplayPosition` report progress.
 
@@ -76,8 +83,13 @@ Assert.DoesNotContain(BindingValidator.Validate(contexts), i => i.Severity == Is
   (its source, modifiers, triggers or groups), call `context.NotifyBindingsChanged()` or
   `player.RefreshBindings()`.
 - **No garbage per tick.** Steady-state ticks allocate nothing, including while actions fire their
-  events. The test suite checks this with 1000 bindings over 500 actions (well under a millisecond
-  per tick in a debug build on a desktop machine).
+  events. The test suite checks this with 1000 bindings over 500 actions (about 0.5 ms per tick in a
+  debug build on a desktop machine).
+- **Busy frames.** Each input event re-evaluates only the actions that read its channels (plus those
+  whose triggers read other actions). The worst-case benchmark — 32 key events and mouse motion in
+  every frame over the same 1000 bindings — runs at about 2 ms per frame, with intake under 1 µs
+  per event (debug build). A tick evaluates at most `MaxStepsPerTick` (128) events one by one; more
+  wait for the next tick.
 - **Signals.** Each action event is also emitted as a Godot signal. If you only use `Bind` and
   `ActionEventRaised`, set `EmitActionSignals` off to skip that work.
 

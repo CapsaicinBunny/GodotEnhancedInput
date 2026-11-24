@@ -166,6 +166,9 @@ public sealed class ActionState
         else Events |= events;
     }
 
+    /// <summary>This evaluation only carried an earlier state to the frame's end: it raises no new events.</summary>
+    internal void HoldOver() => StepEvents = ActionEvents.None;
+
     /// <summary>Back to idle without raising anything (used when a player is reset).</summary>
     internal void Reset()
     {

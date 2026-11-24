@@ -52,6 +52,7 @@ debug overlay (`InputDebugOverlay`) open. Tick a box only after seeing the behav
 - [ ] **Focus loss**: alt-tab while holding a key — the action is canceled (a release-to-throw does not throw), nothing stays stuck.
 - [ ] **Stuck keys**: hold a key, click another window, release, come back — `ReleaseStuckInput` lets go of it within a frame.
 - [ ] **Low frame rate**: at 5–10 fps, quick taps, double taps and chords pressed in order still register in the frame they happened.
+- [ ] **Event times**: with agile event flushing on and off, note how finely key presses are placed within a slow frame (a long press in one 2 fps frame should not count as a tap when arrival times differ).
 
 ### Pen and touch
 
@@ -73,6 +74,8 @@ debug overlay (`InputDebugOverlay`) open. Tick a box only after seeing the behav
 - [ ] **Hand tracking**: `hand/pinch` and `hand/grab` reach 1 for a real pinch and fist and fall back to 0; `PinchRange` / `GrabRange` suit adult and child hands.
 - [ ] **Face and eye tracking** (headsets that have it): `eyes/gaze` follows the eyes; blinks reach `eyes/closed_*`.
 - [ ] **Per-hand haptics**: an effect played on the left controller buzzes only the left one, at the effect's frequency.
+- [ ] **Tracking loss**: cover a controller's sensors or leave the play area: its pose actions end canceled (`TrackingLost`) and `GetSample` reports no reading; they come back when tracked again.
+- [ ] **Adaptive triggers / impulse triggers**: with platform outputs plugged in, DualSense resistance and Xbox trigger rumble each reach only their own pads.
 
 ### Eye trackers (desktop)
 

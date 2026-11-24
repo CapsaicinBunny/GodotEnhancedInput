@@ -67,6 +67,25 @@ public partial class InputPlayer
     }
 
     /// <summary>
+    /// The devices this player owns, connected or missing, by identity — a missing pad is listed and comes
+    /// back to this player when it reconnects. (Joypad indices in <see cref="JoypadDevices"/> are only how
+    /// connected pads' input is routed.)
+    /// </summary>
+    public List<InputDeviceInfo> GetOwnedDevices()
+    {
+        var list = new List<InputDeviceInfo>();
+        if (GetParent() is not EnhancedInput system) return list;
+        foreach (var device in system.Devices)
+            if (device.Owner == this || (device.Kind == InputDeviceKind.Joypad && device.IsConnected && JoypadDevices.Contains(device.Index))
+                || (device.Kind == InputDeviceKind.Custom && OwnedCustomDevices.Contains(device.Id)))
+                list.Add(device);
+        return list;
+    }
+
+    /// <summary>The persistent ids of the devices this player owns (see <see cref="GetOwnedDevices"/>).</summary>
+    public List<string> OwnedDeviceIds => GetOwnedDevices().ConvertAll(d => d.Id);
+
+    /// <summary>
     /// The connected devices this player can use now: the keyboard and mouse if it listens to them, the
     /// touchscreen if one exists and it listens to touch, its joypads (or unowned ones it takes), and the
     /// backend devices it owns (or unowned ones it takes).

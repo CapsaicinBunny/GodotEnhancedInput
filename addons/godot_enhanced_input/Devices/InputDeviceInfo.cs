@@ -73,8 +73,14 @@ public sealed class InputDeviceInfo
     /// </summary>
     public string ModelKey { get; internal set; } = string.Empty;
 
-    /// <summary>The player that owned the pad when it disconnected (it gets the pad back when it returns).</summary>
-    internal InputPlayer LastOwner;
+    /// <summary>
+    /// The player this device belongs to — the record of ownership, kept by the device's persistent
+    /// identity: it stays while the device is missing (the device returns to this player wherever it
+    /// reconnects), and numeric joypad indices are only how its input is routed while connected. Null
+    /// when nobody owns it. Change it with <see cref="EnhancedInput.AssignJoypad(InputPlayer, int)"/>,
+    /// <see cref="EnhancedInput.AssignDevice"/> or <see cref="EnhancedInput.UnassignJoypad"/>.
+    /// </summary>
+    public InputPlayer Owner { get; internal set; }
 
     /// <summary>Order of disconnection (lower: lost earlier).</summary>
     internal long LostOrder;

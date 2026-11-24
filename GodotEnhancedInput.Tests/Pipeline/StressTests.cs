@@ -200,4 +200,58 @@ public class StressTests
         msPerTick.Should().BeLessThan(5.0, "a generous ceiling for slow CI machines");
         (allocated / ticks).Should().BeLessThan(256, "steady-state ticks do not allocate");
     }
+
+    [Fact]
+    public void WorstCase_ManyEventsInOneFrame_StaysCheap()
+    {
+        // The same 1000 bindings; every frame 16 keys go down and up (32 events, each evaluated on its own)
+        // while mouse motion and a held key keep the frame step busy.
+        var actions = new GameAction[500];
+        for (int i = 0; i < actions.Length; i++) actions[i] = Make.Action($"a{i}");
+        using var rig = new Rig();
+        var keys = new[] { Key.A, Key.B, Key.C, Key.D, Key.E, Key.F, Key.G, Key.H, Key.I, Key.J, Key.K, Key.L, Key.M, Key.N, Key.O, Key.P };
+        for (int c = 0; c < 20; c++)
+        {
+            var context = BindingContext.Create($"c{c}");
+            for (int b = 0; b < 50; b++)
+            {
+                var binding = context.Add(actions[(c * 50 + b) % actions.Length], InputSource.ForKey(keys[(c + b) % keys.Length]));
+                if (b % 3 == 0) binding.Triggers.Add(new PressedTrigger());
+                if (b % 4 == 0) binding.Triggers.Add(new HoldTrigger { HoldSeconds = 0.2f });
+            }
+            rig.Add(context, c);
+        }
+        var events = new InputEventKey[keys.Length * 2];
+        for (int k = 0; k < keys.Length; k++)
+        {
+            events[k * 2] = Rig.KeyEvent(keys[k], true);
+            events[k * 2 + 1] = Rig.KeyEvent(keys[k], false);
+        }
+        var motion = new InputEventMouseMotion { Relative = new Vector2(3, 1) };
+        void Frame()
+        {
+            foreach (var e in events) rig.Player.FeedEvent(e);
+            rig.Player.FeedEvent(motion);
+            rig.Player.Tick(Rig.Dt);
+        }
+        for (int i = 0; i < 20; i++) Frame();   // warm up
+
+        const int frames = 100;
+        var intake = new Stopwatch();
+        var watch = Stopwatch.StartNew();
+        for (int i = 0; i < frames; i++)
+        {
+            intake.Start();
+            foreach (var e in events) rig.Player.FeedEvent(e);
+            rig.Player.FeedEvent(motion);
+            intake.Stop();
+            rig.Player.Tick(Rig.Dt);
+        }
+        watch.Stop();
+        double msPerFrame = watch.Elapsed.TotalMilliseconds / frames;
+        double usPerEvent = intake.Elapsed.TotalMilliseconds * 1000.0 / (frames * (events.Length + 1));
+        Console.WriteLine($"worst case, 33 events per frame over 1000 bindings: {msPerFrame:F3} ms per frame, intake {usPerEvent:F2} us per event, {rig.Player.LastTickSteps} steps");
+        rig.Player.LastTickSteps.Should().Be(events.Length + 1);
+        msPerFrame.Should().BeLessThan(16.0, "a generous ceiling for slow CI machines");
+    }
 }

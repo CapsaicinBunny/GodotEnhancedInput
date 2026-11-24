@@ -12,6 +12,17 @@ Enabling the plugin adds the `EnhancedInput` autoload. It processes while the tr
 | `Physics` | in every `_PhysicsProcess` step |
 | `Manual` | only when you call `EnhancedInput.Tick(delta)` or `InputPlayer.Tick(delta)` |
 
+### Event times
+
+Godot does not give input events timestamps, so a player stamps each change when it reaches it
+(`InputPlayer.Clock`, Godot's monotonic clock) and places it within the frame by that time
+(`UseEventTimes`, on for players ticked by the autoload in real time, off with `TickMode.Manual`,
+where the deltas passed in are not wall-clock time; off, every change counts as arriving at the start
+of its frame). Godot usually delivers the input of a frame in one burst before the frame, so arrival
+times are only as fine as that: turn on **Project Settings → Input Devices → Buffering → Agile Event
+Flushing** for finer times on platforms that support it. Backends and replays can place changes
+exactly.
+
 `ReleaseStuckInput` (on by default) compares held keys and buttons with Godot's own state each
 tick and releases any whose release never arrived (it went to another window, or an overlay ate
 it). It never presses anything, and leaves replays alone.

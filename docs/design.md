@@ -248,6 +248,22 @@ changed, so the designer's defaults stay intact and one profile can be reset at 
 | DEV-6 | **Device switching**: each player tracks the device it is using (pads, keyboard and mouse, touch, backend devices); losing it falls back to another usable device; `PlayerDeviceLost` and `PlayerDeviceRegained` report it. | `DeviceRuntimeTests.Switching_*`, `DeviceRuntimeTests.LosingTheCurrentPad_*`, `DeviceRuntimeTests.Reconnecting_*` |
 | XR-1 | **XR**: controller and head poses as position, orientation (quaternion), Euler rotation and velocities; hands (joints, pinch, grab, tracked); face (eye gaze, blinks, jaw); per-hand vibration at the effect's frequency. | `XRAndEyeTests.XRPose_*`, `XRAndEyeTests.XRHand_*`, `XRAndEyeTests.XRFace_*`, `DeviceTests.XRBackend_*` |
 | EYE-1 | **Desktop eye trackers** through a small adapter (`IEyeTracker`): gaze (screen, pixels, centred), validity, presence and head pose as device controls; the device disconnects when the tracker is gone; a mouse-driven simulator for development. `DwellTrigger` selects by looking. | `XRAndEyeTests.EyeTracker_*`, `XRAndEyeTests.Dwell_*` |
+### 3.14 Stabilization (third review)
+
+| ID | Requirement | Test |
+|---|---|---|
+| EVT-1 | **Event-accurate time.** A tick evaluates input events one at a time; before each, time passes for the actions it touches under the input as it was; each action's time adds up to the frame's delta. Changes are placed by arrival time when ticking in real time. A long press within one slow frame is not a tap. | `ReviewThreeTests.ALongPressWithinOneSlowFrame_*`, `ReviewThreeTests.WithoutArrivalTimes_*` |
+| EVT-2 | **Once per frame.** Held actions raise steady events at most once per frame whatever else happens; one-shots stay triggered to the frame's end. | `ReviewThreeTests.AHeldAction_FiresOncePerFrame_*`, `EventTests.Poll_ReflectsLastTick` |
+| EVT-3 | **Order across channels.** Each input event is its own step, and actions that read other actions see only the current step's events, so combos keep their order within a frame. | `ReviewThreeTests.ACombo_SeesItsStepsInOrder_*`, `CorrectnessTests.ChordPressedInOrder_*` |
+| EVT-4 | **Held through hiding.** A binding that returns from being hidden with its key held counts it as held all along (no fresh press); callbacks that change contexts mid-tick take effect for the rest of the tick. | `ReviewThreeTests.AKeyHeldThroughAMenu_*`, `DemoTests.DemoScene_Runs_AndOpensTheMenu` |
+| CUT-3 | Cut-offs are queued changes with reasons; injected input and touches the system canceled are cut off too. | `ReviewThreeTests.InjectedInput_*`, `ReviewThreeTests.ATouchTheSystemCanceled_*` |
+| REC-2 | Recordings carry cut-offs, sensor samples in the right frame, tracked device controls and each input's moment within its tick; live cut-offs do not reach a replay; a replay releases what it held when it ends. | `ReviewThreeTests.CutOffsAndArrivalMoments_*`, `ReviewThreeTests.AReplayThatEndsWithAKeyDown_*`, `CorrectnessTests.DeviceControls_*` |
+| TRK-1 | **Tracked values**: tracked controls are input while present, even at identity or origin; losing tracking cancels with `TrackingLost`; `GetSample` reports value, tracking, validity and change time. | `ReviewThreeTests.ATrackedIdentity_*` |
+| HAP-2 | Haptics follow ownership (transfers stop the old owner first, effects on a lost device end), per-device stops leave wildcard effects off that pad, slow changes are sent, lights and trigger motors only reach capable pads, adaptive trigger resistance is separate. | `ReviewThreeTests.GivingAPadAway_*`, `ReviewThreeTests.StoppingOnePad_*`, `ReviewThreeTests.ASlowRamp_*`, `ReviewThreeTests.LightsTriggerMotorsAndResistance_*` |
+| DEV-9 | **Ownership by identity**: a device's owner is kept on its registry record (`InputDeviceInfo.Owner`), connected or missing; players list their devices by persistent id (`GetOwnedDevices`, `OwnedDeviceIds`); joypad indices only route input. | `ReconnectTests.Ownership_*` |
+| BKD-1 | Backend devices have persistent ids separate from runtime indices; two backends with the same type and index stay apart; a replacement backend takes a device over. | `ReviewThreeTests.TwoBackends_*`, `ReviewThreeTests.AReplacementBackend_*` |
+| PRF-3 | The worst case — many events per frame over 1000 bindings — stays within a frame budget; intake cost per event is measured. | `StressTests.WorstCase_*` |
+
 ## 4. Architecture
 
 ```
@@ -325,7 +341,7 @@ player.Tick(1.0 / 60.0);
 
 ## 6. Staged plan
 
-All six stages are done.
+All seven stages are done.
 
 | Stage | Content | Done when |
 |---|---|---|
@@ -335,3 +351,4 @@ All six stages are done.
 | **4 — Prompts and debug** | Prompt names, joypad styles, last used device, action prompts, icon sets; debug text dump and overlay. | PRM-* and DBG-* tests pass. |
 | **5 — Extended** | More sources and composites, text paths, value natures; device registry, profiles, backends, XR, haptics; more triggers and modifiers; input modes, player settings, accessibility; composite-part rebinding, capture options, named profiles; gestures, safe area, touch layouts; recording and replay; compiled bindings and allocation-free ticks; validation and the editor dock; CI on three platforms and a hardware checklist. | SRC-*, DEV-*, TRG-1, MOD-1, MDE-*, MAP-8…10, GST-*, REC-1, PRF-*, EDT-1 tests pass. |
 | **6 — Rotations, devices, correctness** | Four-component, quaternion and Euler values and rotation modifiers; ordered evaluation of every change within a frame; cut-off input with end reasons; stuck-input release; Auto ticking; isolation fixes; haptic effects and force feedback; controller families; device identity, reconnection, switching and fallback; XR hands, face and eyes; desktop eye trackers and dwell; editing in the editor dock. | VAL-*, CUT-*, ISO-1, MDE-3, HAP-1, FFB-1, FAM-1, DEV-5…8, XR-1, EYE-1, EDT-2 tests pass. |
+| **7 — Stabilization** | Event-accurate time and once-per-frame steady events; cut-offs everywhere; recording alignment; tracked values; haptics ownership and trigger kinds; backend device identity; worst-case benchmark. | EVT-*, CUT-3, REC-2, TRK-1, HAP-2, DEV-9, BKD-1, PRF-3 tests pass. |

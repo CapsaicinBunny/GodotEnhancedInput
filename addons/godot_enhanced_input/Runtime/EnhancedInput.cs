@@ -131,6 +131,8 @@ public partial class EnhancedInput : Node
     {
         if (player == null || _players.IndexOf(player) <= 0) return false;
         _players.Remove(player);
+        foreach (var d in _devices)
+            if (d.Owner == player) d.Owner = null;
         for (int i = 0; i < _players.Count; i++)
         {
             _players[i].PlayerIndex = i;
@@ -201,7 +203,7 @@ public partial class EnhancedInput : Node
             _ambiguous.Remove(device);
         }
         var record = GetJoypadDevice(device);
-        if (record != null && !record.IsConnected) record.LastOwner = player;   // a missing pad: it comes back to this player
+        if (record != null) record.Owner = player;   // ownership is kept by the pad's identity
         foreach (var other in _players)
             if (other != player && (other.JoypadDevices.Remove(device) || other.MayUseJoypad(device, this))) other.ReleaseHapticDevice(device);
         if (!player.JoypadDevices.Contains(device)) player.JoypadDevices.Add(device);
@@ -219,7 +221,7 @@ public partial class EnhancedInput : Node
         _joypadGuids.Remove(device);
         _ambiguous.Remove(device);
         var record = GetJoypadDevice(device);
-        if (record != null && !record.IsConnected) record.LastOwner = null;   // a missing pad no longer returns to anyone
+        if (record != null) record.Owner = null;   // a missing pad no longer returns to anyone either
         foreach (var player in _players)
             if (player.JoypadDevices.Remove(device))
             {
@@ -298,7 +300,7 @@ public partial class EnhancedInput : Node
             {
                 var owner = returning ? AliveOwner(info) : null;
                 int oldIndex = info.PreviousIndex >= 0 ? info.PreviousIndex : device;
-                info.LastOwner = null;
+                info.Owner = owner;
                 bool ambiguous = !bySerial && (_owned.Count >= 2 || (ReconnectWithoutSerial == ReconnectPolicy.Ask && _owned.Count >= 1));
                 var candidates = ambiguous ? new List<(InputDeviceInfo, InputPlayer, int)>(_owned) : null;
 
