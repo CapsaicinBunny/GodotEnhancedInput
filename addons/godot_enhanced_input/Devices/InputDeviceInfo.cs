@@ -57,14 +57,27 @@ public sealed class InputDeviceInfo
         Name = name;
     }
 
-    /// <summary>A stable identifier: "keyboard_mouse", "touch", "pen", "joypad:&lt;guid or index&gt;", "&lt;type&gt;:&lt;index&gt;".</summary>
+    /// <summary>The hardware serial number, when the platform reports one (tells identical pads apart).</summary>
+    public string Serial { get; internal set; } = string.Empty;
+
+    /// <summary>The index the device had before its last disconnect (−1 if it never moved).</summary>
+    public int PreviousIndex { get; internal set; } = -1;
+
+    /// <summary>How many times the device has (re)connected.</summary>
+    public int ConnectionCount { get; internal set; }
+
+    /// <summary>
+    /// A stable identifier that survives reconnecting, also under another index: "keyboard_mouse",
+    /// "touch", "pen", "joypad:&lt;guid&gt;:&lt;serial&gt;" (or "joypad:&lt;guid&gt;#n" for identical pads without
+    /// serials), "&lt;type&gt;:&lt;index&gt;" for backend devices.
+    /// </summary>
     public string Id { get; }
 
     /// <summary>The device family (for prompts and players' device filters).</summary>
     public InputDeviceKind Kind { get; }
 
-    /// <summary>The joypad index or custom device index (−1 for keyboard, touch and pen).</summary>
-    public int Index { get; }
+    /// <summary>The current joypad index or custom device index (−1 for keyboard, touch and pen). A pad can come back under another index.</summary>
+    public int Index { get; internal set; }
 
     /// <summary>The device's name.</summary>
     public string Name { get; internal set; }

@@ -48,6 +48,9 @@ public partial class EnhancedInput : Node
     /// <summary>How many stuck keys or buttons <see cref="ReleaseStuckInput"/> has released (diagnostics).</summary>
     public int StuckInputReleased { get; private set; }
 
+    /// <summary>How often the device registry is checked against Godot's list of connected pads (seconds).</summary>
+    [Export] public double DeviceCheckSeconds { get; set; } = 2.0;
+
     private bool _tickedThisFrame;
     private ulong _lastTickUsec;
 
@@ -234,20 +237,63 @@ public partial class EnhancedInput : Node
     /// whose remembered identity differs (<paramref name="guid"/>), the old assignment is dropped instead
     /// of being inherited by the new pad.
     /// </summary>
-    public void NotifyJoypadConnection(int device, bool connected, string guid = null)
+    public void NotifyJoypadConnection(int device, bool connected, string guid = null) => NotifyJoypadConnection(device, connected, guid, null, null);
+
+    /// <summary>
+    /// Handles a joypad connecting or disconnecting, with its serial number and name when known (tests and
+    /// backends can pass them). A pad that comes back — matched by serial, else identity — keeps its
+    /// owner even under a different device index; a player whose current device disconnects falls back
+    /// to another one it can use, and <see cref="PlayerDeviceLost"/> tells the game when none is left.
+    /// </summary>
+    public void NotifyJoypadConnection(int device, bool connected, string guid, string serial, string name)
     {
         _connectedJoypadsValid = false;
         EnsureBuiltinDevices();
         if (!connected)
         {
             foreach (var player in _players) player.Raw.ClearDevice(device);
+            var gone = UpdateJoypadDevice(device, false, guid);
+            if (gone != null)
+                foreach (var player in _players)
+                {
+                    bool owned = player.JoypadDevices.Contains(device);
+                    bool current = player.CurrentDevice == gone;
+                    if (!owned && !current) continue;
+                    player.OnDeviceLost(gone);
+                    if (owned && !player.HasOtherJoypad(device)) EmitSignal(SignalName.PlayerDeviceLost, player, gone.Id);
+                }
         }
-        else if (!string.IsNullOrEmpty(guid) && _joypadGuids.TryGetValue(device, out var known) && known != guid)
+        else
         {
-            UnassignJoypad(device);
+            var info = UpdateJoypadDevice(device, true, guid, serial, name);
+            int previous = info.PreviousIndex;
+            if (previous >= 0 && previous != device && !ConnectedJoypadsContains(previous))
+            {
+                // The same pad came back under another index: its owner keeps it.
+                foreach (var player in _players)
+                {
+                    int at = player.JoypadDevices.IndexOf(previous);
+                    if (at < 0) continue;
+                    foreach (var other in _players) other.JoypadDevices.Remove(device);
+                    player.JoypadDevices[at] = device;
+                    if (_joypadGuids.Remove(previous, out var g)) _joypadGuids[device] = g;
+                }
+            }
+            else if (!string.IsNullOrEmpty(guid) && _joypadGuids.TryGetValue(device, out var known) && known != guid)
+            {
+                UnassignJoypad(device);
+            }
+            var owner = GetJoypadOwner(device);
+            if (owner != null && info.ConnectionCount > 1) EmitSignal(SignalName.PlayerDeviceRegained, owner, info.Id);
         }
-        UpdateJoypadDevice(device, connected, guid);
         EmitSignal(SignalName.JoypadConnectionChanged, device, connected);
+    }
+
+    private bool ConnectedJoypadsContains(int index)
+    {
+        foreach (var d in _devices)
+            if (d.Kind == InputDeviceKind.Joypad && d.IsConnected && d.Index == index) return true;
+        return false;
     }
 
     /// <summary>When on (default), losing window or application focus releases all held input of every player.</summary>
@@ -361,7 +407,13 @@ public partial class EnhancedInput : Node
     {
         EnsureDefaultPlayer();
         PollBackends(delta);
-        bool live = ReleaseStuckInput && IsInsideTree() && !Engine.IsEditorHint();
+        bool live = IsInsideTree() && !Engine.IsEditorHint();
+        if (live)
+        {
+            _joypadCheckTimer += delta;
+            if (_joypadCheckTimer >= DeviceCheckSeconds) { _joypadCheckTimer = 0; VerifyConnectedDevices(); }
+        }
+        live &= ReleaseStuckInput;
         for (int i = 0; i < _players.Count; i++)
         {
             var player = _players[i];

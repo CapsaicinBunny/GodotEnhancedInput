@@ -85,6 +85,7 @@ public partial class InputPlayer
         if (LiveInputBlocked) return;
         if (_recording != null) _recordingPending.Inputs.Add(new RecordedInput { Kind = RecordedInputKind.DeviceControl, Name = key.Name, Device = key.Device, Value = value });
         Raw.Set(key, value);
+        TrackCustomDevice(key, value);
     }
 
     /// <summary>A polled sensor value (recorded while recording; replays play it back instead of polling).</summary>

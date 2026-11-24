@@ -12,6 +12,18 @@ public partial class EnhancedInput
     /// <summary>Raised when a device disconnects.</summary>
     public event Action<InputDeviceInfo> DeviceDisconnected;
 
+    /// <summary>Raised when a device connects or disconnects (device id, connected).</summary>
+    [Signal] public delegate void DeviceConnectionChangedEventHandler(string deviceId, bool connected);
+
+    /// <summary>
+    /// Raised when a player loses the device it was using (its pad disconnected) and has no other device
+    /// of that kind — the moment to pause and show "reconnect your controller".
+    /// </summary>
+    [Signal] public delegate void PlayerDeviceLostEventHandler(InputPlayer player, string deviceId);
+
+    /// <summary>Raised when a player's lost device comes back (also under another index).</summary>
+    [Signal] public delegate void PlayerDeviceRegainedEventHandler(InputPlayer player, string deviceId);
+
     /// <summary>Profiles for wheels, pedals, flight sticks and other devices (first match wins).</summary>
     [Export] public Godot.Collections.Array<DeviceProfile> DeviceProfiles { get; set; } = new();
 
@@ -87,7 +99,7 @@ public partial class EnhancedInput
         return null;
     }
 
-    private void UpdateJoypadDevice(int index, bool connected, string guid)
+    private InputDeviceInfo UpdateJoypadDevice(int index, bool connected, string guid, string serial = null, string name = null)
     {
         if (!connected)
         {
@@ -96,32 +108,103 @@ public partial class EnhancedInput
             {
                 gone.IsConnected = false;
                 DeviceDisconnected?.Invoke(gone);
+                EmitSignal(SignalName.DeviceConnectionChanged, gone.Id, false);
             }
-            return;
+            return gone;
         }
 
         bool known = Input.GetConnectedJoypads().Contains(index);
-        string name = known ? Input.GetJoyName(index) : $"Joypad {index}";
-        string id = !string.IsNullOrEmpty(guid) ? $"joypad:{guid}:{index}" : $"joypad:{index}";
-        InputDeviceInfo device = null;
-        foreach (var d in _devices)
-            if (d.Id == id) { device = d; break; }
+        name ??= known ? Input.GetJoyName(index) : $"Joypad {index}";
+        guid ??= string.Empty;
+        if (serial == null && known)
+        {
+            var info = Input.GetJoyInfo(index);
+            serial = info.TryGetValue("serial_number", out var s) ? s.AsString() : string.Empty;
+        }
+        serial ??= string.Empty;
+
+        var device = FindReturningJoypad(index, guid, serial);
         if (device == null)
         {
-            device = new InputDeviceInfo(id, InputDeviceKind.Joypad, index, name) { Guid = guid ?? string.Empty };
+            device = new InputDeviceInfo(NewJoypadId(index, guid, serial), InputDeviceKind.Joypad, index, name) { Guid = guid, Serial = serial };
             _devices.Add(device);
         }
+        device.PreviousIndex = device.Index != index ? device.Index : -1;
+        device.Index = index;
         device.Name = name;
         device.IsConnected = true;
+        device.ConnectionCount++;
+        device.ConnectedAtMs = Time.GetTicksMsec();
         device.Profile = FindProfile(name, guid);
         device.Role = device.Profile?.Role ?? InputDeviceInfo.GuessJoypadRole(name);
         if (known)
         {
+            var (vendor, product) = ControllerDetection.ReadIds(index);
+            device.VendorId = vendor;
+            device.ProductId = product;
+            device.Family = ControllerDetection.Detect(index);
             device.CanVibrate = Input.HasJoyVibration(index);
             device.HasMotionSensors = Input.HasJoyMotionSensors(index);
             device.HasLight = Input.HasJoyLight(index);
+            device.Features = ControllerDetection.AvailableFeatures(index, device.Family);
         }
+        else
+        {
+            device.Family = ControllerDetection.Detect(name);
+            device.Features = ControllerDetection.HardwareFeatures(device.Family) & (ControllerFeatures.Touchpad | ControllerFeatures.BackButtons | ControllerFeatures.ShareButton);
+        }
+        device.HardwareFeatures = ControllerDetection.HardwareFeatures(device.Family);
         DeviceConnected?.Invoke(device);
+        EmitSignal(SignalName.DeviceConnectionChanged, device.Id, true);
+        return device;
+    }
+
+    /// <summary>
+    /// A disconnected pad that is this one coming back: same serial number if known; otherwise the same
+    /// identity (GUID), preferring the one last seen at this index.
+    /// </summary>
+    private InputDeviceInfo FindReturningJoypad(int index, string guid, string serial)
+    {
+        InputDeviceInfo sameGuid = null;
+        foreach (var d in _devices)
+        {
+            if (d.Kind != InputDeviceKind.Joypad || d.IsConnected) continue;
+            if (!string.IsNullOrEmpty(serial) && d.Serial == serial && d.Guid == guid) return d;
+            if (!string.IsNullOrEmpty(serial) && !string.IsNullOrEmpty(d.Serial)) continue;   // both have serials and they differ
+            if (string.IsNullOrEmpty(guid) ? d.Guid.Length == 0 && d.Index == index : d.Guid == guid)
+                if (sameGuid == null || d.Index == index) sameGuid = d;
+        }
+        return sameGuid;
+    }
+
+    private string NewJoypadId(int index, string guid, string serial)
+    {
+        if (string.IsNullOrEmpty(guid)) return $"joypad:index{index}";
+        string baseId = string.IsNullOrEmpty(serial) ? $"joypad:{guid}" : $"joypad:{guid}:{serial}";
+        string id = baseId;
+        for (int n = 2; GetDevice(id) != null; n++) id = $"{baseId}#{n}";
+        return id;
+    }
+
+    /// <summary>
+    /// Compares the registry with the joypads Godot reports and fixes any connection change that was
+    /// missed (live only; done every few seconds while ticking).
+    /// </summary>
+    public void VerifyConnectedDevices()
+    {
+        EnsureBuiltinDevices();
+        var connected = Input.GetConnectedJoypads();
+        foreach (var index in connected)
+        {
+            var device = GetJoypadDevice(index);
+            if (device == null || !device.IsConnected) NotifyJoypadConnection(index, true, Input.GetJoyGuid(index));
+        }
+        foreach (var device in _devices.ToArray())
+            if (device.Kind == InputDeviceKind.Joypad && device.IsConnected && !connected.Contains(device.Index))
+                NotifyJoypadConnection(device.Index, false);
+        var touch = GetDevice("touch");
+        if (touch != null) touch.IsConnected = DisplayServer.IsTouchscreenAvailable();
+        _connectedJoypadsValid = false;
     }
 
     // ------------------------------------------------------------------

@@ -20,6 +20,86 @@ public partial class InputPlayer
     /// <summary>The joypad last used, or −1.</summary>
     public int LastJoypad { get; private set; } = -1;
 
+    /// <summary>The device the player is using now (the one it last gave deliberate input with), when known.</summary>
+    public InputDeviceInfo CurrentDevice { get; private set; }
+
+    /// <summary>Raised when the player switches to another device (previous, current; either may be null).</summary>
+    public event System.Action<InputDeviceInfo, InputDeviceInfo> DeviceSwitched;
+
+    private void SetCurrentDevice(InputDeviceInfo device)
+    {
+        if (device == CurrentDevice) return;
+        var previous = CurrentDevice;
+        CurrentDevice = device;
+        DeviceSwitched?.Invoke(previous, device);
+    }
+
+    private InputDeviceInfo DeviceFor(InputDeviceKind kind, int joypad)
+    {
+        if (GetParent() is not EnhancedInput system) return null;
+        return kind switch
+        {
+            InputDeviceKind.Joypad => system.GetJoypadDevice(joypad),
+            InputDeviceKind.KeyboardMouse => system.GetDevice("keyboard_mouse"),
+            InputDeviceKind.Touch => system.GetDevice("touch"),
+            InputDeviceKind.Pen => system.GetDevice("pen"),
+            _ => null,
+        };
+    }
+
+    /// <summary>Whether the player owns or reads a connected joypad other than <paramref name="except"/>.</summary>
+    public bool HasOtherJoypad(int except)
+    {
+        foreach (var d in JoypadsToRead(SourceKey.AnyDevice))
+            if (d != except) return true;
+        return false;
+    }
+
+    /// <summary>
+    /// Called when a device this player used disconnects: if it was the current device, switch to another
+    /// one the player can use (another pad, else the keyboard and mouse, else touch), updating prompts and
+    /// the input mode.
+    /// </summary>
+    internal void OnDeviceLost(InputDeviceInfo device)
+    {
+        if (CurrentDevice != device && !(LastDeviceKind == InputDeviceKind.Joypad && LastJoypad == device.Index)) return;
+        InputDeviceKind kind = LastDeviceKind;
+        int joypad = -1;
+        foreach (var d in JoypadsToRead(SourceKey.AnyDevice))
+            if (d != device.Index) { joypad = d; break; }
+        if (joypad >= 0) kind = InputDeviceKind.Joypad;
+        else if (AcceptKeyboardMouse) kind = InputDeviceKind.KeyboardMouse;
+        else if (AcceptTouch && DisplayServer.IsTouchscreenAvailable()) kind = InputDeviceKind.Touch;
+        else
+        {
+            LastJoypad = -1;
+            SetCurrentDevice(null);
+            return;
+        }
+        bool kindChanged = kind != LastDeviceKind;
+        LastDeviceKind = kind;
+        LastJoypad = joypad;
+        SetCurrentDevice(DeviceFor(kind, joypad));
+        EmitSignal(SignalName.InputDeviceChanged, Variant.From(kind), joypad);
+        if (kindChanged) SwitchModeFor(kind);
+    }
+
+    /// <summary>Records deliberate input from a backend device (buttons and axes pushed past halfway, not poses or sensors).</summary>
+    internal void TrackCustomDevice(in SourceKey key, Vector4 value)
+    {
+        if (key.Name == null || value.W != 0f || value.Y != 0f || value.Z != 0f || Mathf.Abs(value.X) < JoyAxisThreshold) return;
+        int slash = key.Name.IndexOf('/');
+        if (slash < 0 || key.Name.IndexOf('/', slash + 1) >= 0) return;   // "type/control" only, not "type/pose/position"
+        if (GetParent() is not EnhancedInput system) return;
+        var device = system.GetDevice($"{key.Name.Substring(0, slash)}:{key.Device}");
+        if (device == null || device == CurrentDevice) return;
+        bool kindChanged = LastDeviceKind != InputDeviceKind.Custom;
+        LastDeviceKind = InputDeviceKind.Custom;
+        SetCurrentDevice(device);
+        EmitSignal(SignalName.InputDeviceChanged, Variant.From(InputDeviceKind.Custom), -1);
+        if (kindChanged) SwitchModeFor(InputDeviceKind.Custom);
+    }
+
     /// <summary>The style of the joypad the player uses: the last one used, else its first owned one, else generic.</summary>
     public JoypadStyle JoypadStyle
     {
@@ -27,6 +107,9 @@ public partial class InputPlayer
         {
             if (JoypadStyleOverride.HasValue) return JoypadStyleOverride.Value;
             int device = LastJoypad >= 0 ? LastJoypad : JoypadDevices.Count > 0 ? JoypadDevices[0] : -1;
+            if (device >= 0 && GetParent() is EnhancedInput system && system.GetJoypadDevice(device) is { } info
+                && info.Family is not (ControllerFamily.Unknown or ControllerFamily.Generic))
+                return info.Style;
             return InputPrompts.DetectStyle(device);
         }
     }
@@ -63,10 +146,13 @@ public partial class InputPlayer
                 return;
         }
 
-        if (kind == LastDeviceKind && joypad == LastJoypad) return;
+        if (kind == LastDeviceKind && joypad == LastJoypad && CurrentDevice != null) return;
         bool kindChanged = kind != LastDeviceKind;
+        bool changed = kindChanged || joypad != LastJoypad;
         LastDeviceKind = kind;
         LastJoypad = joypad;
+        SetCurrentDevice(DeviceFor(kind, joypad));
+        if (!changed) return;
         EmitSignal(SignalName.InputDeviceChanged, Variant.From(kind), joypad);
         if (kindChanged) SwitchModeFor(kind);
     }
