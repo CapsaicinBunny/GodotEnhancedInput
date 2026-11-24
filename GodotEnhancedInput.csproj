@@ -1,0 +1,20 @@
+<Project Sdk="Godot.NET.Sdk/4.7.1">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <RootNamespace>GodotEnhancedInput</RootNamespace>
+  </PropertyGroup>
+
+  <!-- The test project builds separately and references this one. -->
+  <ItemGroup>
+    <Compile Remove="GodotEnhancedInput.Tests\**" />
+    <Content Remove="GodotEnhancedInput.Tests\**" />
+    <EmbeddedResource Remove="GodotEnhancedInput.Tests\**" />
+    <None Remove="GodotEnhancedInput.Tests\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Lets the test assembly reach internal hooks. -->
+    <InternalsVisibleTo Include="GodotEnhancedInput.Tests" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="EnhancedInputAction" format=3 uid="uid://hjf0f7uptywd"]
+
+[ext_resource type="Script" uid="uid://bd47mq6r5wa3m" path="res://addons/godot_enhanced_input/Modifiers/InputModifier.cs" id="1"]
+[ext_resource type="Script" uid="uid://bqayc8j5ubd3o" path="res://addons/godot_enhanced_input/Triggers/InputTrigger.cs" id="2"]
+[ext_resource type="Script" uid="uid://cii7yxmlttapg" path="res://addons/godot_enhanced_input/Resources/EnhancedInputAction.cs" id="3"]
+
+[resource]
+script = ExtResource("3")
+Name = "charge"
+Id = "charge"
+DisplayName = "Charge"
+Description = "Hold E (or X) for 0.6 s. Watch the bar: it follows the action's elapsed time."

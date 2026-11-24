@@ -1,0 +1,652 @@
+using System.Collections.Generic;
+using Godot;
+
+namespace GodotEnhancedInput;
+
+/// <summary>
+/// One physical or virtual input that can drive a game action: a key, a key composite, a mouse
+/// button or the mouse itself, a joypad button, axis or stick, a Godot InputMap action, or a named
+/// virtual control. A source only describes what to read; it holds no runtime state, so one
+/// resource can be shared by many bindings and players.
+/// </summary>
+[Tool]
+[Icon("res://addons/godot_enhanced_input/Icons/InputSource.svg")]
+public partial class InputSource : Resource
+{
+    private SourceKind _kind = SourceKind.Key;
+    private string _inputMapAction = string.Empty;
+    private StringName _inputMapActionName;
+
+    /// <summary>What this source reads. The Inspector only shows the fields that apply.</summary>
+    [Export]
+    public SourceKind Kind
+    {
+        get => _kind;
+        set { _kind = value; NotifyPropertyListChanged(); }
+    }
+
+    /// <summary>How keys are matched: by position (default), by key code, or by printed label.</summary>
+    [Export] public KeyMatch KeyMatch { get; set; } = KeyMatch.Physical;
+
+    private Key _key = Key.None;
+
+    /// <summary>The key for <see cref="SourceKind.Key"/>.</summary>
+    [Export]
+    public Key Key
+    {
+        get => _key;
+        set
+        {
+            bool sidedChanged = IsSidedKey(_key) != IsSidedKey(value);
+            _key = value;
+            if (sidedChanged) NotifyPropertyListChanged();
+        }
+    }
+
+    /// <summary>True for the keys that come in a left and a right one: Shift, Ctrl, Alt and Meta.</summary>
+    public static bool IsSidedKey(Key key) => key is Key.Shift or Key.Ctrl or Key.Alt or Key.Meta;
+
+    /// <summary>
+    /// For Shift, Ctrl, Alt and Meta: only the left or the right one. <see cref="KeyLocation.Unspecified"/>
+    /// (the default) reads either.
+    /// </summary>
+    [Export] public KeyLocation KeySide { get; set; } = KeyLocation.Unspecified;
+
+    /// <summary>Key giving +1 for <see cref="SourceKind.KeyAxis1D"/>, or +X for <see cref="SourceKind.KeyAxis2D"/>.</summary>
+    [Export] public Key PositiveKey { get; set; } = Key.D;
+
+    /// <summary>Key giving −1 for <see cref="SourceKind.KeyAxis1D"/>, or −X for <see cref="SourceKind.KeyAxis2D"/>.</summary>
+    [Export] public Key NegativeKey { get; set; } = Key.A;
+
+    /// <summary>Key giving −Y (up, as in Godot's screen convention) for <see cref="SourceKind.KeyAxis2D"/>.</summary>
+    [Export] public Key UpKey { get; set; } = Key.W;
+
+    /// <summary>Key giving +Y (down) for <see cref="SourceKind.KeyAxis2D"/>.</summary>
+    [Export] public Key DownKey { get; set; } = Key.S;
+
+    /// <summary>The mouse button (including wheel directions) for <see cref="SourceKind.MouseButton"/>.</summary>
+    [Export] public MouseButton MouseButton { get; set; } = MouseButton.Left;
+
+    /// <summary>The joypad button for <see cref="SourceKind.JoyButton"/>.</summary>
+    [Export] public JoyButton JoyButton { get; set; } = JoyButton.A;
+
+    /// <summary>The joypad axis for <see cref="SourceKind.JoyAxis"/>.</summary>
+    [Export] public JoyAxis JoyAxis { get; set; } = JoyAxis.LeftX;
+
+    /// <summary>Which part of the axis <see cref="SourceKind.JoyAxis"/> reads: all of it, or one half as 0…1.</summary>
+    [Export] public JoyAxisRange AxisRange { get; set; } = JoyAxisRange.Full;
+
+    /// <summary>The stick for <see cref="SourceKind.JoyStick"/>.</summary>
+    [Export] public JoyStickSide JoyStick { get; set; } = JoyStickSide.Left;
+
+    /// <summary>Joypad device index, or −1 for any joypad the player owns.</summary>
+    [Export(PropertyHint.Range, "-1,15,1")] public int Device { get; set; } = SourceKey.AnyDevice;
+
+    /// <summary>The InputMap action name for <see cref="SourceKind.InputMapAction"/>.</summary>
+    [Export]
+    public string InputMapAction
+    {
+        get => _inputMapAction;
+        set { _inputMapAction = value ?? string.Empty; _inputMapActionName = null; }
+    }
+
+    /// <summary>The control name for <see cref="SourceKind.Virtual"/>.</summary>
+    [Export] public string VirtualName { get; set; } = string.Empty;
+
+    /// <summary>What a <see cref="SourceKind.Touch"/> source reads.</summary>
+    [Export] public TouchChannel TouchChannel { get; set; } = TouchChannel.Pressed;
+
+    /// <summary>The finger index for <see cref="SourceKind.Touch"/>, or −1 for any finger.</summary>
+    [Export(PropertyHint.Range, "-1,9,1")] public int TouchIndex { get; set; } = SourceKey.AnyDevice;
+
+    /// <summary>
+    /// Joypad button or axis by number (0…127 buttons, 0…9 axes) instead of by name, for wheels, pedals,
+    /// flight sticks and other pads whose controls have no standard name. −1: use the named one.
+    /// </summary>
+    [Export(PropertyHint.Range, "-1,127,1")] public int RawIndex { get; set; } = -1;
+
+    /// <summary>What a <see cref="SourceKind.Pen"/> source reads.</summary>
+    [Export] public PenChannel PenChannel { get; set; } = PenChannel.Pressure;
+
+    /// <summary>Which sensor a <see cref="SourceKind.Motion"/> source reads.</summary>
+    [Export] public MotionSensor MotionSensor { get; set; } = MotionSensor.Gyroscope;
+
+    /// <summary>Read the handheld device's own sensor (phone, tablet) instead of a joypad's.</summary>
+    [Export] public bool MotionOfHandheld { get; set; } = true;
+
+    /// <summary>How a <see cref="SourceKind.Composite"/> source combines <see cref="Parts"/>.</summary>
+    [Export] public CompositeMode CompositeMode { get; set; } = CompositeMode.WithModifiers;
+
+    /// <summary>The parts of a <see cref="SourceKind.Composite"/> source, in the order the mode describes.</summary>
+    [Export] public Godot.Collections.Array<InputSource> Parts { get; set; } = new();
+
+    /// <summary>The device type of a <see cref="SourceKind.DeviceControl"/> source, as its backend registers it (e.g. "wheel", "xr").</summary>
+    [Export] public string DeviceType { get; set; } = string.Empty;
+
+    /// <summary>What a <see cref="SourceKind.Gesture"/> source reads.</summary>
+    [Export] public GestureChannel GestureChannel { get; set; } = GestureChannel.Pinch;
+
+    /// <summary>The control name of a <see cref="SourceKind.DeviceControl"/> source (e.g. "steering", "left_hand/trigger").</summary>
+    [Export] public string ControlName { get; set; } = string.Empty;
+
+    /// <summary>The joypad button read, honouring <see cref="RawIndex"/>.</summary>
+    public JoyButton EffectiveJoyButton => RawIndex >= 0 ? (JoyButton)RawIndex : JoyButton;
+
+    /// <summary>The joypad axis read, honouring <see cref="RawIndex"/>.</summary>
+    public JoyAxis EffectiveJoyAxis => RawIndex >= 0 ? (JoyAxis)RawIndex : JoyAxis;
+
+    private int MotionDevice => MotionOfHandheld ? SourceKey.Handheld : Device;
+
+    internal StringName InputMapActionName => _inputMapActionName ??= new StringName(_inputMapAction);
+
+    // ------------------------------------------------------------------
+    //  Factories for code-built bindings
+    // ------------------------------------------------------------------
+
+    /// <summary>A key (its physical position by default, like WASD on any layout).</summary>
+    public static InputSource ForKey(Key key, KeyMatch match = KeyMatch.Physical)
+        => new() { Kind = SourceKind.Key, Key = key, KeyMatch = match };
+
+    /// <summary>One side's Shift, Ctrl, Alt or Meta (<c>ForKey(Key.Shift, KeyLocation.Left)</c>).</summary>
+    public static InputSource ForKey(Key key, KeyLocation side, KeyMatch match = KeyMatch.Physical)
+        => new() { Kind = SourceKind.Key, Key = key, KeySide = side, KeyMatch = match };
+
+    /// <summary>Two keys as one axis: positive minus negative.</summary>
+    public static InputSource ForKeyAxis1D(Key positive, Key negative, KeyMatch match = KeyMatch.Physical)
+        => new() { Kind = SourceKind.KeyAxis1D, PositiveKey = positive, NegativeKey = negative, KeyMatch = match };
+
+    /// <summary>Four keys as a 2D axis (up is −Y, like sticks).</summary>
+    public static InputSource ForKeyAxis2D(Key up, Key down, Key left, Key right, KeyMatch match = KeyMatch.Physical)
+        => new() { Kind = SourceKind.KeyAxis2D, UpKey = up, DownKey = down, NegativeKey = left, PositiveKey = right, KeyMatch = match };
+
+    /// <summary>A mouse button (wheel directions included).</summary>
+    public static InputSource ForMouseButton(MouseButton button) => new() { Kind = SourceKind.MouseButton, MouseButton = button };
+    /// <summary>Mouse movement in pixels, summed over the tick.</summary>
+    public static InputSource ForMouseMotion() => new() { Kind = SourceKind.MouseMotion };
+    /// <summary>The mouse position in viewport pixels.</summary>
+    public static InputSource ForMousePosition() => new() { Kind = SourceKind.MousePosition };
+
+    /// <summary>A joypad button (any pad the player uses, or one).</summary>
+    public static InputSource ForJoyButton(JoyButton button, int device = SourceKey.AnyDevice)
+        => new() { Kind = SourceKind.JoyButton, JoyButton = button, Device = device };
+
+    /// <summary>A joypad axis, or one half of it.</summary>
+    public static InputSource ForJoyAxis(JoyAxis axis, int device = SourceKey.AnyDevice, JoyAxisRange range = JoyAxisRange.Full)
+        => new() { Kind = SourceKind.JoyAxis, JoyAxis = axis, Device = device, AxisRange = range };
+
+    /// <summary>Both axes of a stick, from one pad.</summary>
+    public static InputSource ForJoyStick(JoyStickSide side, int device = SourceKey.AnyDevice)
+        => new() { Kind = SourceKind.JoyStick, JoyStick = side, Device = device };
+
+    /// <summary>A Godot InputMap action, by name.</summary>
+    public static InputSource ForInputMapAction(string action) => new() { Kind = SourceKind.InputMapAction, InputMapAction = action };
+    /// <summary>A named virtual control, set from code or on-screen controls.</summary>
+    public static InputSource ForVirtual(string name) => new() { Kind = SourceKind.Virtual, VirtualName = name };
+    /// <summary>No input (for bindings driven only by triggers, like combos).</summary>
+    public static InputSource Nothing() => new() { Kind = SourceKind.None };
+
+    /// <summary>What kind of quantity this source produces.</summary>
+    public ValueNature Nature => _kind switch
+    {
+        SourceKind.MouseMotion or SourceKind.MouseWheel or SourceKind.Gesture => ValueNature.Delta,
+        SourceKind.Composite => Parts.Count > 0 && Parts[^1] != null ? Parts[^1].Nature : ValueNature.State,
+        SourceKind.MousePosition => ValueNature.Absolute,
+        SourceKind.Touch => TouchChannel switch
+        {
+            TouchChannel.Drag => ValueNature.Delta,
+            TouchChannel.Position => ValueNature.Absolute,
+            _ => ValueNature.State,
+        },
+        _ => ValueNature.State,
+    };
+
+    /// <summary>A touch channel of any finger or one finger.</summary>
+    public static InputSource ForTouch(TouchChannel channel, int finger = SourceKey.AnyDevice)
+        => new() { Kind = SourceKind.Touch, TouchChannel = channel, TouchIndex = finger };
+
+    /// <summary>Scrolling per tick, wheel and trackpad (down and right positive).</summary>
+    public static InputSource ForMouseWheel() => new() { Kind = SourceKind.MouseWheel };
+    /// <summary>A touch or trackpad gesture.</summary>
+    public static InputSource ForGesture(GestureChannel channel) => new() { Kind = SourceKind.Gesture, GestureChannel = channel };
+    /// <summary>A pen channel.</summary>
+    public static InputSource ForPen(PenChannel channel) => new() { Kind = SourceKind.Pen, PenChannel = channel };
+
+    /// <summary>A motion sensor of the handheld device (<paramref name="joypad"/> null) or of a joypad (an index, or −1 for any).</summary>
+    public static InputSource ForMotion(MotionSensor sensor, int? joypad = null)
+        => new() { Kind = SourceKind.Motion, MotionSensor = sensor, MotionOfHandheld = joypad == null, Device = joypad ?? SourceKey.AnyDevice };
+
+    /// <summary>A joypad button by number (any pad, or one).</summary>
+    public static InputSource ForJoyButtonIndex(int index, int device = SourceKey.AnyDevice)
+        => new() { Kind = SourceKind.JoyButton, RawIndex = index, Device = device };
+
+    /// <summary>A joypad axis by number (any pad, or one).</summary>
+    public static InputSource ForJoyAxisIndex(int index, int device = SourceKey.AnyDevice, JoyAxisRange range = JoyAxisRange.Full)
+        => new() { Kind = SourceKind.JoyAxis, RawIndex = index, Device = device, AxisRange = range };
+
+    /// <summary>A named control of a custom device (see <see cref="InputBackend"/>).</summary>
+    public static InputSource ForDeviceControl(string deviceType, string control, int device = SourceKey.AnyDevice)
+        => new() { Kind = SourceKind.DeviceControl, DeviceType = deviceType, ControlName = control, Device = device };
+
+    /// <summary>A composite of other sources.</summary>
+    public static InputSource Composite(CompositeMode mode, params InputSource[] parts)
+    {
+        var source = new InputSource { Kind = SourceKind.Composite, CompositeMode = mode };
+        foreach (var part in parts) source.Parts.Add(part);
+        return source;
+    }
+
+    /// <summary>A key that only counts while modifier keys are held: <c>WithModifiers(Key.S, Key.Ctrl)</c>.</summary>
+    public static InputSource WithModifiers(Key key, params Key[] modifiers)
+    {
+        var parts = new InputSource[modifiers.Length + 1];
+        for (int i = 0; i < modifiers.Length; i++) parts[i] = ForKey(modifiers[i]);
+        parts[^1] = ForKey(key);
+        return Composite(CompositeMode.WithModifiers, parts);
+    }
+
+    // ------------------------------------------------------------------
+    //  Reading
+    // ------------------------------------------------------------------
+
+    /// <summary>Reads this source's value through a reader (normally the player's masked raw state).</summary>
+    private static Vector4 V4(float x, float y, float z) => new(x, y, z, 0f);
+
+    /// <summary>Reads the source's value (up to four components) through a reader.</summary>
+    public Vector4 Read(ISourceReader reader)
+    {
+        switch (_kind)
+        {
+            case SourceKind.Key:
+                return Scalar(reader, SourceKey.ForKey(Key, KeyMatch, KeySide));
+
+            case SourceKind.KeyAxis1D:
+                return V4(
+                    Scalar(reader, SourceKey.ForKey(PositiveKey, KeyMatch)).X - Scalar(reader, SourceKey.ForKey(NegativeKey, KeyMatch)).X,
+                    0f, 0f);
+
+            case SourceKind.KeyAxis2D:
+                return V4(
+                    Scalar(reader, SourceKey.ForKey(PositiveKey, KeyMatch)).X - Scalar(reader, SourceKey.ForKey(NegativeKey, KeyMatch)).X,
+                    Scalar(reader, SourceKey.ForKey(DownKey, KeyMatch)).X - Scalar(reader, SourceKey.ForKey(UpKey, KeyMatch)).X,
+                    0f);
+
+            case SourceKind.MouseButton:
+                return Scalar(reader, SourceKey.ForMouseButton(MouseButton));
+
+            case SourceKind.MouseMotion:
+                return reader.Read(SourceKey.MouseMotion);
+
+            case SourceKind.MousePosition:
+                return reader.Read(SourceKey.MousePosition);
+
+            case SourceKind.JoyButton:
+                return Scalar(reader, SourceKey.ForJoyButton(EffectiveJoyButton, Device));
+
+            case SourceKind.JoyAxis:
+            {
+                float v = reader.Read(SourceKey.ForJoyAxis(EffectiveJoyAxis, Device)).X;
+                return V4(AxisRange switch
+                {
+                    JoyAxisRange.Positive => Mathf.Max(v, 0f),
+                    JoyAxisRange.Negative => Mathf.Max(-v, 0f),
+                    _ => v,
+                }, 0f, 0f);
+            }
+
+            case SourceKind.JoyStick:
+            {
+                // Both axes from the same pad: two pads never combine into a direction neither points.
+                var (x, y) = StickAxes(JoyStick);
+                var stick = reader.ReadStick(x, y, Device);
+                return V4(stick.X, stick.Y, 0f);
+            }
+
+            case SourceKind.InputMapAction:
+                return Scalar(reader, SourceKey.ForInputMapAction(_inputMapAction));
+
+            case SourceKind.Virtual:
+                return reader.Read(SourceKey.ForVirtual(VirtualName));
+
+            case SourceKind.Touch:
+                return reader.Read(SourceKey.ForTouch(TouchChannel, TouchIndex));
+
+            case SourceKind.MouseWheel:
+                return reader.Read(SourceKey.MouseWheel);
+
+            case SourceKind.Gesture:
+                return reader.Read(SourceKey.ForGesture(GestureChannel));
+
+            case SourceKind.Pen:
+                return reader.Read(SourceKey.ForPen(PenChannel));
+
+            case SourceKind.Motion:
+                return reader.Read(SourceKey.ForMotion(MotionSensor, MotionDevice));
+
+            case SourceKind.DeviceControl:
+                return reader.Read(SourceKey.ForDeviceControl(DeviceType, ControlName, Device));
+
+            case SourceKind.Composite:
+                return ReadComposite(reader, 0);
+
+            default:
+                return Vector4.Zero;
+        }
+    }
+
+    /// <summary>Adds every raw channel this source reads to <paramref name="keys"/>.</summary>
+    public void CollectKeys(List<SourceKey> keys)
+    {
+        switch (_kind)
+        {
+            case SourceKind.Key:
+                keys.Add(SourceKey.ForKey(Key, KeyMatch, KeySide));
+                break;
+            case SourceKind.KeyAxis1D:
+                keys.Add(SourceKey.ForKey(PositiveKey, KeyMatch));
+                keys.Add(SourceKey.ForKey(NegativeKey, KeyMatch));
+                break;
+            case SourceKind.KeyAxis2D:
+                keys.Add(SourceKey.ForKey(PositiveKey, KeyMatch));
+                keys.Add(SourceKey.ForKey(NegativeKey, KeyMatch));
+                keys.Add(SourceKey.ForKey(UpKey, KeyMatch));
+                keys.Add(SourceKey.ForKey(DownKey, KeyMatch));
+                break;
+            case SourceKind.MouseButton:
+                keys.Add(SourceKey.ForMouseButton(MouseButton));
+                break;
+            case SourceKind.MouseMotion:
+                keys.Add(SourceKey.MouseMotion);
+                break;
+            case SourceKind.MousePosition:
+                keys.Add(SourceKey.MousePosition);
+                break;
+            case SourceKind.JoyButton:
+                keys.Add(SourceKey.ForJoyButton(EffectiveJoyButton, Device));
+                break;
+            case SourceKind.JoyAxis:
+                keys.Add(SourceKey.ForJoyAxis(EffectiveJoyAxis, Device));
+                break;
+            case SourceKind.MouseWheel:
+                keys.Add(SourceKey.MouseWheel);
+                break;
+            case SourceKind.Gesture:
+                keys.Add(SourceKey.ForGesture(GestureChannel));
+                break;
+            case SourceKind.Pen:
+                keys.Add(SourceKey.ForPen(PenChannel));
+                break;
+            case SourceKind.Motion:
+                keys.Add(SourceKey.ForMotion(MotionSensor, MotionDevice));
+                break;
+            case SourceKind.DeviceControl:
+                keys.Add(SourceKey.ForDeviceControl(DeviceType, ControlName, Device));
+                break;
+            case SourceKind.Composite:
+                foreach (var part in Parts) part?.CollectKeys(keys);
+                break;
+            case SourceKind.JoyStick:
+            {
+                var (x, y) = StickAxes(JoyStick);
+                keys.Add(SourceKey.ForJoyAxis(x, Device));
+                keys.Add(SourceKey.ForJoyAxis(y, Device));
+                break;
+            }
+            case SourceKind.InputMapAction:
+                keys.Add(SourceKey.ForInputMapAction(_inputMapAction));
+                break;
+            case SourceKind.Virtual:
+                keys.Add(SourceKey.ForVirtual(VirtualName));
+                break;
+            case SourceKind.Touch:
+                keys.Add(SourceKey.ForTouch(TouchChannel, TouchIndex));
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Builds a source from a press event, or returns null when the event is not a press this can
+    /// bind: a key (matched as <paramref name="keyMatch"/>), a mouse button or wheel notch, a joypad
+    /// button, or a joypad axis pushed at least <paramref name="axisThreshold"/> (as the half axis in
+    /// the pushed direction). Joypad sources take the event's device unless <paramref name="anyJoypad"/>.
+    /// </summary>
+    public static InputSource FromEvent(InputEvent @event, KeyMatch keyMatch = KeyMatch.Physical, float axisThreshold = 0.5f, bool anyJoypad = true)
+    {
+        int device = anyJoypad ? SourceKey.AnyDevice : @event?.Device ?? SourceKey.AnyDevice;
+        switch (@event)
+        {
+            case InputEventKey key when key.Pressed && !key.Echo:
+            {
+                var code = keyMatch switch
+                {
+                    KeyMatch.Logical => key.Keycode,
+                    KeyMatch.Label => key.KeyLabel,
+                    _ => key.PhysicalKeycode,
+                };
+                if (code != Key.None) return ForKey(code, key.Location, keyMatch);
+                // Hand-made events may only carry the logical code.
+                return key.Keycode != Key.None ? ForKey(key.Keycode, key.Location, KeyMatch.Logical) : null;
+            }
+            case InputEventMouseButton mouse when mouse.Pressed:
+                return ForMouseButton(mouse.ButtonIndex);
+            case InputEventJoypadButton button when button.Pressed:
+                return ForJoyButton(button.ButtonIndex, device);
+            case InputEventJoypadMotion motion when Mathf.Abs(motion.AxisValue) >= Mathf.Max(axisThreshold, 0.01f):
+                return ForJoyAxis(motion.Axis, device, motion.AxisValue > 0f ? JoyAxisRange.Positive : JoyAxisRange.Negative);
+            default:
+                return null;
+        }
+    }
+
+    /// <summary>
+    /// Whether two sources read any of the same input channels on the same device (a source reading
+    /// any device overlaps every device). Opposite halves of one joypad axis do not overlap.
+    /// </summary>
+    public bool Overlaps(InputSource other)
+    {
+        if (other == null) return false;
+        if (_kind == SourceKind.JoyAxis && other._kind == SourceKind.JoyAxis && JoyAxis == other.JoyAxis
+            && AxisRange != JoyAxisRange.Full && other.AxisRange != JoyAxisRange.Full && AxisRange != other.AxisRange)
+            return false;
+
+        var mine = new List<SourceKey>();
+        var theirs = new List<SourceKey>();
+        CollectKeys(mine);
+        other.CollectKeys(theirs);
+        // Same channel on the same device (or finger); "any device" overlaps every device.
+        foreach (var a in mine)
+            foreach (var b in theirs)
+                if (a.WithoutDevice() == b.WithoutDevice()
+                    && (a.Device == SourceKey.AnyDevice || b.Device == SourceKey.AnyDevice || a.Device == b.Device))
+                    return true;
+        return false;
+    }
+
+    /// <summary>
+    /// The parts a player can rebind one by one: the keys of a key composite (negative, positive / up,
+    /// down, left, right), or the parts of a composite. A plain source has itself as its only part.
+    /// </summary>
+    public System.Collections.Generic.List<InputSource> GetParts()
+    {
+        var parts = new System.Collections.Generic.List<InputSource>();
+        switch (_kind)
+        {
+            case SourceKind.KeyAxis1D:
+                parts.Add(ForKey(NegativeKey, KeyMatch));
+                parts.Add(ForKey(PositiveKey, KeyMatch));
+                break;
+            case SourceKind.KeyAxis2D:
+                parts.Add(ForKey(UpKey, KeyMatch));
+                parts.Add(ForKey(DownKey, KeyMatch));
+                parts.Add(ForKey(NegativeKey, KeyMatch));
+                parts.Add(ForKey(PositiveKey, KeyMatch));
+                break;
+            case SourceKind.Composite:
+                foreach (var part in Parts) parts.Add(part);
+                break;
+            default:
+                parts.Add(this);
+                break;
+        }
+        return parts;
+    }
+
+    /// <summary>
+    /// A copy of this source with one part replaced. Key composites stay key composites when the new
+    /// part is a key with the same matching; otherwise they become a composite of sources.
+    /// </summary>
+    public InputSource WithPart(int index, InputSource part)
+    {
+        var parts = GetParts();
+        if (index < 0 || index >= parts.Count) return (InputSource)Duplicate(true);
+        if (_kind is not (SourceKind.KeyAxis1D or SourceKind.KeyAxis2D or SourceKind.Composite)) return part == null ? Nothing() : (InputSource)part.Duplicate(true);
+
+        bool keyStaysKey = part != null && part.Kind == SourceKind.Key && part.KeyMatch == KeyMatch && part.KeySide == KeyLocation.Unspecified;
+        if (keyStaysKey && _kind != SourceKind.Composite)
+        {
+            var copy = (InputSource)Duplicate(true);
+            if (_kind == SourceKind.KeyAxis1D)
+            {
+                if (index == 0) copy.NegativeKey = part.Key; else copy.PositiveKey = part.Key;
+            }
+            else
+            {
+                switch (index)
+                {
+                    case 0: copy.UpKey = part.Key; break;
+                    case 1: copy.DownKey = part.Key; break;
+                    case 2: copy.NegativeKey = part.Key; break;
+                    default: copy.PositiveKey = part.Key; break;
+                }
+            }
+            return copy;
+        }
+
+        var mode = _kind switch
+        {
+            SourceKind.KeyAxis1D => CompositeMode.Axis1D,
+            SourceKind.KeyAxis2D => CompositeMode.Axis2D,
+            _ => CompositeMode,
+        };
+        var result = new InputSource { Kind = SourceKind.Composite, CompositeMode = mode };
+        for (int i = 0; i < parts.Count; i++)
+            result.Parts.Add(i == index ? (part == null ? Nothing() : (InputSource)part.Duplicate(true)) : (InputSource)parts[i].Duplicate(true));
+        return result;
+    }
+
+    /// <summary>A short human-readable description, e.g. "Key Space" or "Joy LeftX".</summary>
+    public string Describe() => _kind switch
+    {
+        SourceKind.None => "None",
+        SourceKind.Key => $"Key {Key}",
+        SourceKind.KeyAxis1D => $"Keys {NegativeKey}/{PositiveKey}",
+        SourceKind.KeyAxis2D => $"Keys {UpKey}/{NegativeKey}/{DownKey}/{PositiveKey}",
+        SourceKind.MouseButton => $"Mouse {MouseButton}",
+        SourceKind.MouseMotion => "Mouse motion",
+        SourceKind.MousePosition => "Mouse position",
+        SourceKind.JoyButton => $"Joy {JoyButton}",
+        SourceKind.JoyAxis => AxisRange switch
+        {
+            JoyAxisRange.Positive => $"Joy {JoyAxis}+",
+            JoyAxisRange.Negative => $"Joy {JoyAxis}-",
+            _ => $"Joy {JoyAxis}",
+        },
+        SourceKind.JoyStick => $"Joy {JoyStick} stick",
+        SourceKind.InputMapAction => $"InputMap {_inputMapAction}",
+        SourceKind.Virtual => $"Virtual {VirtualName}",
+        SourceKind.Touch => TouchIndex < 0 ? $"Touch {TouchChannel}" : $"Touch {TouchIndex} {TouchChannel}",
+        SourceKind.MouseWheel => "Mouse wheel",
+        SourceKind.Gesture => $"Gesture {GestureChannel}",
+        SourceKind.Pen => $"Pen {PenChannel}",
+        SourceKind.Motion => MotionOfHandheld ? $"Device {MotionSensor}" : $"Joy {MotionSensor}",
+        SourceKind.DeviceControl => $"{DeviceType} {ControlName}",
+        SourceKind.Composite => DescribeComposite(),
+        _ => _kind.ToString(),
+    };
+
+    private static Vector4 Scalar(ISourceReader reader, in SourceKey key) => reader.Read(key);
+
+    private Vector4 ReadComposite(ISourceReader reader, int depth)
+    {
+        if (depth > 8 || Parts.Count == 0) return Vector4.Zero;
+        Vector4 Part(int i) => i < Parts.Count && Parts[i] != null
+            ? (Parts[i].Kind == SourceKind.Composite ? Parts[i].ReadComposite(reader, depth + 1) : Parts[i].Read(reader))
+            : Vector4.Zero;
+        float Strength(int i) => Part(i).Length();
+
+        switch (CompositeMode)
+        {
+            case CompositeMode.Axis1D:
+                return V4(Strength(1) - Strength(0), 0f, 0f);
+            case CompositeMode.Axis2D:
+                return V4(Strength(3) - Strength(2), Strength(1) - Strength(0), 0f);
+            case CompositeMode.AnyOf:
+            {
+                var best = Vector4.Zero;
+                for (int i = 0; i < Parts.Count; i++)
+                {
+                    var v = Part(i);
+                    if (v.LengthSquared() > best.LengthSquared()) best = v;
+                }
+                return best;
+            }
+            default:   // WithModifiers
+                for (int i = 0; i < Parts.Count - 1; i++)
+                    if (Part(i) == Vector4.Zero) return Vector4.Zero;
+                return Part(Parts.Count - 1);
+        }
+    }
+
+    private string DescribeComposite()
+    {
+        var names = new System.Collections.Generic.List<string>();
+        foreach (var part in Parts) names.Add(part?.Describe() ?? "None");
+        return CompositeMode switch
+        {
+            CompositeMode.WithModifiers => string.Join(" + ", names),
+            CompositeMode.AnyOf => string.Join(" or ", names),
+            _ => string.Join("/", names),
+        };
+    }
+
+    internal static (JoyAxis X, JoyAxis Y) StickAxes(JoyStickSide side)
+        => side == JoyStickSide.Right ? (JoyAxis.RightX, JoyAxis.RightY) : (JoyAxis.LeftX, JoyAxis.LeftY);
+
+    // ------------------------------------------------------------------
+    //  Inspector
+    // ------------------------------------------------------------------
+
+    /// <inheritdoc/>
+    public override void _ValidateProperty(Godot.Collections.Dictionary property)
+    {
+        string name = property["name"].AsString();
+        bool keys = _kind is SourceKind.Key or SourceKind.KeyAxis1D or SourceKind.KeyAxis2D;
+        bool joy = _kind is SourceKind.JoyButton or SourceKind.JoyAxis or SourceKind.JoyStick or SourceKind.DeviceControl
+                   || _kind == SourceKind.Motion && !MotionOfHandheld;
+
+        bool visible = name switch
+        {
+            nameof(KeyMatch) => keys,
+            nameof(Key) => _kind == SourceKind.Key,
+            nameof(KeySide) => _kind == SourceKind.Key && IsSidedKey(Key),
+            nameof(PositiveKey) or nameof(NegativeKey) => _kind is SourceKind.KeyAxis1D or SourceKind.KeyAxis2D,
+            nameof(UpKey) or nameof(DownKey) => _kind == SourceKind.KeyAxis2D,
+            nameof(MouseButton) => _kind == SourceKind.MouseButton,
+            nameof(JoyButton) => _kind == SourceKind.JoyButton,
+            nameof(JoyAxis) or nameof(AxisRange) => _kind == SourceKind.JoyAxis,
+            nameof(JoyStick) => _kind == SourceKind.JoyStick,
+            nameof(Device) => joy,
+            nameof(InputMapAction) => _kind == SourceKind.InputMapAction,
+            nameof(VirtualName) => _kind == SourceKind.Virtual,
+            nameof(TouchChannel) or nameof(TouchIndex) => _kind == SourceKind.Touch,
+            nameof(RawIndex) => _kind is SourceKind.JoyButton or SourceKind.JoyAxis,
+            nameof(PenChannel) => _kind == SourceKind.Pen,
+            nameof(GestureChannel) => _kind == SourceKind.Gesture,
+            nameof(MotionSensor) or nameof(MotionOfHandheld) => _kind == SourceKind.Motion,
+            nameof(CompositeMode) or nameof(Parts) => _kind == SourceKind.Composite,
+            nameof(DeviceType) or nameof(ControlName) => _kind == SourceKind.DeviceControl,
+            _ => true,
+        };
+
+        if (!visible) property["usage"] = (int)PropertyUsageFlags.NoEditor;
+    }
+}

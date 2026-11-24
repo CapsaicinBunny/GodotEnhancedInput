@@ -21,3 +21,9 @@ coveragereport/
 
 # Rider per-user settings
 *.DotSettings.user
+
+# Godot's backups of the project file when the editor upgrades its SDK
+*.csproj.old*
+
+# Per-user editor settings
+.vscode/

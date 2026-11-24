@@ -1,0 +1,36 @@
+using Godot;
+
+namespace GodotEnhancedInput;
+
+/// <summary>
+/// Scales by a sensitivity the player chose, stored as a setting in their profile
+/// (<see cref="InputProfile.SetSetting"/>), times <see cref="Scale"/>. <see cref="InvertYSetting"/> and
+/// <see cref="InvertXSetting"/> name yes/no settings that flip an axis. Use one setting per group —
+/// "mouse_sensitivity", "stick_sensitivity" — so keyboard/mouse and joypad are tuned separately.
+/// </summary>
+[Tool]
+public partial class SensitivityModifier : InputModifier
+{
+    /// <summary>Setting holding the multiplier (1 when not set).</summary>
+    [Export] public string Setting { get; set; } = "sensitivity";
+
+    /// <summary>Fixed multiplier applied as well.</summary>
+    [Export] public Vector3 Scale { get; set; } = Vector3.One;
+
+    /// <summary>Optional yes/no setting that flips Y (e.g. "invert_look_y").</summary>
+    [Export] public string InvertYSetting { get; set; } = string.Empty;
+
+    /// <summary>Optional yes/no setting that flips X.</summary>
+    [Export] public string InvertXSetting { get; set; } = string.Empty;
+
+    /// <inheritdoc/>
+    public override Vector3 Apply(Vector3 value, in ModifierContext context)
+    {
+        var player = context.Player;
+        float multiplier = (float)(player?.GetSetting(Setting, 1.0) ?? 1.0);
+        var result = value * Scale * multiplier;
+        if (player != null && !string.IsNullOrEmpty(InvertYSetting) && player.GetFlag(InvertYSetting)) result.Y = -result.Y;
+        if (player != null && !string.IsNullOrEmpty(InvertXSetting) && player.GetFlag(InvertXSetting)) result.X = -result.X;
+        return result;
+    }
+}
