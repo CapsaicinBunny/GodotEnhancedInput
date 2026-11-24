@@ -31,6 +31,9 @@ public partial class InputPlayer
     private Viewport GetPointerViewport()
     {
         if (PointerViewport != null && IsInstanceValid(PointerViewport)) return PointerViewport;
+        if (PointerRegion is SubViewportContainer container && IsInstanceValid(container))
+            foreach (var child in container.GetChildren())
+                if (child is SubViewport sub) return sub;
         return IsInsideTree() ? GetViewport() : null;
     }
 

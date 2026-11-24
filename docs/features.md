@@ -93,6 +93,14 @@ requirement IDs link the [design](design.md) to those tests).
 | Opposing inputs (SOCD rules) on key axes and composites | ✅ | Tests |
 | Adaptive deadzone and spring-damper modifiers | ✅ | Tests |
 | Fused orientation (`pad:orientation`, `device:orientation`) | ✅ / 🔌 | The filter and the source are tested with fed sensor values; real pads and phones not yet tried (axis signs) |
+| Loop frame views (physics / process edges without loss or doubling) | ✅ | Tests |
+| Scene-local mapping contexts (`EnhancedInputContextNode`) | ✅ | Tests |
+| InputMap importer and output bridge | ✅ / 🔌 | Tests; the dock's import button not yet tried by hand |
+| Project settings | ✅ / 🔌 | Registered and applied in tests; the Project Settings page not yet checked by hand |
+| Inspector dropdowns for actions, contexts, configs and ids | 🔌 | Editor only; not yet checked by hand |
+| Split-screen pointer routing and window routing | ✅ / 🔌 | Tests with controls and a window; real split-screen and native windows not yet tried |
+| `ToolInputPlayer` for editor plugins and tool scripts | ✅ / 🔌 | Runs on its own in tests; not yet tried inside an editor plugin |
+| GDScript API | ✅ | Called through Godot in tests |
 | Typed C# generated from a config | ✅ / 🔌 | Generator tested; the demo's class compiles and resolves; the editor buttons not yet tried by hand |
 
 ## Platforms

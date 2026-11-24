@@ -14,6 +14,9 @@ namespace GodotEnhancedInput;
 /// <i>Create New Resource</i> dialog; everything that lives inside them (mappings, input sources,
 /// modifiers, triggers, control schemes, haptic effects, touch layouts…) is created here, from an
 /// "Add …" menu above the property that holds it. A mapping's input can also be typed as a source path.
+/// <para>In any object (game scripts included), a property typed as an action, mapping context or config
+/// gets a dropdown of the project's files of that kind, and a string property with an
+/// <see cref="EnhancedInputHints"/> hint becomes a dropdown of action or context ids.</para>
 /// </summary>
 [Tool]
 [ExcludeFromCodeCoverage]
@@ -25,8 +28,12 @@ public partial class EnhancedInputInspector : EditorInspectorPlugin
     public void Setup(EditorPlugin plugin) => _plugin = plugin;
 
     /// <inheritdoc/>
-    public override bool _CanHandle(GodotObject @object)
-        => @object != null && @object.GetType().Namespace == typeof(EnhancedInputAction).Namespace;
+    public override bool _CanHandle(GodotObject @object) => @object != null;
+
+    private static bool IsOwnType(GodotObject @object) => @object.GetType().Namespace == typeof(EnhancedInputAction).Namespace;
+
+    private static bool IsAssetClass(string className)
+        => className is nameof(EnhancedInputAction) or nameof(EnhancedInputMappingContext) or nameof(EnhancedInputConfig);
 
     /// <inheritdoc/>
     public override void _ParseBegin(GodotObject @object)
@@ -78,6 +85,16 @@ public partial class EnhancedInputInspector : EditorInspectorPlugin
     /// <inheritdoc/>
     public override bool _ParseProperty(GodotObject @object, Variant.Type type, string name, PropertyHint hintType, string hintString, PropertyUsageFlags usageFlags, bool wide)
     {
+        // Any object: pick the project's actions, mapping contexts and configs from a list.
+        if (type == Variant.Type.Object && hintType == PropertyHint.ResourceType && IsAssetClass(hintString))
+            AddCustomControl(AssetPicker(@object, name, hintString));
+        if (type == Variant.Type.String && hintString is EnhancedInputHints.ActionId or EnhancedInputHints.ContextId)
+        {
+            AddPropertyEditor(name, new AssetIdProperty(hintString == EnhancedInputHints.ActionId ? nameof(EnhancedInputAction) : nameof(EnhancedInputMappingContext)));
+            return true;
+        }
+        if (!IsOwnType(@object)) return false;
+
         var property = @object.GetType().GetProperty(name, BindingFlags.Public | BindingFlags.Instance);
         if (property == null) return false;
         var propertyType = property.PropertyType;
@@ -209,6 +226,39 @@ public partial class EnhancedInputInspector : EditorInspectorPlugin
         box.AddChild(error);
         return box;
     }
+
+    /// <summary>A dropdown of the project's assets of one class, setting a resource property.</summary>
+    private Control AssetPicker(GodotObject target, string property, string className)
+    {
+        var picker = new OptionButton { FitToLongestItem = false, TooltipText = $"Pick one of the project's {Friendly(className)} files." };
+        picker.AddItem($"Pick {Article(className)} {Friendly(className)}…");
+        var current = (target.Get(property).AsGodotObject() as Resource)?.ResourcePath;
+        var paths = EnhancedInputAssets.Paths(className);
+        for (int i = 0; i < paths.Count; i++)
+        {
+            picker.AddItem(paths[i].GetFile().GetBaseName());
+            picker.SetItemTooltip(i + 1, paths[i]);
+            picker.SetItemMetadata(i + 1, paths[i]);
+            if (paths[i] == current) picker.Selected = i + 1;
+        }
+        if (paths.Count == 0) picker.SetItemText(0, $"No {Friendly(className)} files in the project yet");
+        picker.ItemSelected += index =>
+        {
+            if (index <= 0) return;
+            var resource = ResourceLoader.Load(picker.GetItemMetadata((int)index).AsString());
+            if (resource != null) Change(target, property, resource, $"Set {property}");
+        };
+        return picker;
+    }
+
+    private static string Friendly(string className) => className switch
+    {
+        nameof(EnhancedInputAction) => "action",
+        nameof(EnhancedInputMappingContext) => "mapping context",
+        _ => "input config",
+    };
+
+    private static string Article(string className) => className == nameof(EnhancedInputAction) || className == nameof(EnhancedInputConfig) ? "an" : "a";
 
     // ------------------------------------------------------------------
     //  Edits (undoable)

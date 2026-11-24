@@ -31,6 +31,7 @@ public partial class EnhancedInputPlugin : EditorPlugin
         _dock.AddChild(_content);
         AddDock(_dock);
         EnsureInspector();
+        EnhancedInputSettings.Register();
     }
 
     /// <summary>

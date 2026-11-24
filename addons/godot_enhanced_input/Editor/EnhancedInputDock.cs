@@ -242,6 +242,7 @@ public partial class EnhancedInputDock : VBoxContainer
 
         toolbar.AddChild(ToolButton("Reload", "Rescan the project for actions, mapping contexts and configs.", Refresh));
         toolbar.AddChild(ToolButton("Add", "New input action…", NewAction, "Action"));
+        toolbar.AddChild(ToolButton("Load", "Import the project's Input Map (Project Settings → Input Map) as actions and a mapping context…", ImportInputMap, "Import InputMap"));
         toolbar.AddChild(ToolButton("Add", "New input mapping context…", NewContext, "Mapping Context"));
         _addBinding = ToolButton("Add", "Add a mapping to the selected mapping context.", () => AddBinding(), "Mapping");
         toolbar.AddChild(_addBinding);
@@ -516,10 +517,7 @@ public partial class EnhancedInputDock : VBoxContainer
         _contexts.Clear();
         _actionFiles.Clear();
         _configs.Clear();
-        var files = new List<(string Path, string Class)>();
-        var fs = EditorInterface.Singleton.GetResourceFilesystem();
-        Scan(fs.GetFilesystem(), files);
-        foreach (var (path, _) in files.OrderBy(f => f.Path))
+        foreach (var (path, _) in EnhancedInputAssets.All())
         {
             var resource = ResourceLoader.Load(path);
             if (resource is EnhancedInputMappingContext context) _contexts.Add((path, context));
@@ -650,34 +648,6 @@ public partial class EnhancedInputDock : VBoxContainer
         RebuildBindings();
         RebuildActions();
         RebuildProblems();
-    }
-
-    private static readonly string[] AssetClasses = { nameof(EnhancedInputMappingContext), nameof(EnhancedInputAction), nameof(EnhancedInputConfig) };
-
-    private static void Scan(EditorFileSystemDirectory dir, List<(string Path, string Class)> files)
-    {
-        if (dir == null) return;
-        for (int i = 0; i < dir.GetFileCount(); i++)
-        {
-            var cls = AssetClassOf(dir.GetFilePath(i));
-            if (cls != null) files.Add((dir.GetFilePath(i), cls));
-        }
-        for (int i = 0; i < dir.GetSubdirCount(); i++) Scan(dir.GetSubdir(i), files);
-    }
-
-    /// <summary>
-    /// Which of the three assets a text resource is, from the script class its header names (the
-    /// editor's file index only knows script classes of script files, not of resources); null if none.
-    /// </summary>
-    private static string AssetClassOf(string path)
-    {
-        if (!path.EndsWith(".tres", StringComparison.OrdinalIgnoreCase)) return null;
-        using var file = FileAccess.Open(path, FileAccess.ModeFlags.Read);
-        if (file == null) return null;
-        var header = file.GetLine();
-        foreach (var cls in AssetClasses)
-            if (header.Contains($"script_class=\"{cls}\"", StringComparison.Ordinal)) return cls;
-        return null;
     }
 
     // Rows of the Mappings tree. Column 0 metadata: the mapping context's path; column 1: what the row
@@ -1146,7 +1116,7 @@ public partial class EnhancedInputDock : VBoxContainer
         else if (type == "resource" && data["resource"].AsGodotObject() is EnhancedInputAction r) actions.Add(r);
         else if (type == "files")
             foreach (var path in data["files"].AsStringArray())
-                if (AssetClassOf(path) == nameof(EnhancedInputAction) && ResourceLoader.Load(path) is EnhancedInputAction f) actions.Add(f);
+                if (EnhancedInputAssets.ClassOf(path) == nameof(EnhancedInputAction) && ResourceLoader.Load(path) is EnhancedInputAction f) actions.Add(f);
         return actions;
     }
 
@@ -1299,6 +1269,70 @@ public partial class EnhancedInputDock : VBoxContainer
         dialog.Canceled += () => dialog.QueueFree();
         AddChild(dialog);
         dialog.PopupCentered(new Vector2I(800, 500));
+    }
+
+    private void ImportInputMap()
+    {
+        var dialog = new EditorFileDialog
+        {
+            FileMode = EditorFileDialog.FileModeEnum.OpenDir,
+            Access = EditorFileDialog.AccessEnum.Resources,
+            Title = "Import the Input Map into a folder",
+        };
+        dialog.DirSelected += dir =>
+        {
+            SetStatus(SaveImportedInputMap(dir));
+            EditorInterface.Singleton.GetResourceFilesystem().Scan();
+            Refresh();
+            dialog.QueueFree();
+        };
+        dialog.Canceled += () => dialog.QueueFree();
+        AddChild(dialog);
+        dialog.PopupCentered(new Vector2I(800, 500));
+    }
+
+    /// <summary>
+    /// Saves the project's Input Map as action files and one mapping context in a folder; existing action
+    /// files of the same name are used as they are, never overwritten. Returns what happened.
+    /// </summary>
+    internal static string SaveImportedInputMap(string dir)
+    {
+        var imported = InputMapImporter.FromProjectSettings();
+        if (imported.Actions.Count == 0) return "The Input Map has no actions of its own (Godot's built-in ui_* actions are left out).";
+        DirAccess.MakeDirRecursiveAbsolute(dir);
+        var saved = new Dictionary<EnhancedInputAction, EnhancedInputAction>();
+        int created = 0, reused = 0;
+        foreach (var action in imported.Actions)
+        {
+            var path = dir.PathJoin(FileNameFor(action.Name) + ".tres");
+            if (FileAccess.FileExists(path) && ResourceLoader.Load(path) is EnhancedInputAction existing)
+            {
+                saved[action] = existing;
+                reused++;
+                continue;
+            }
+            var error = ResourceSaver.Save(action, path);
+            if (error != Error.Ok) return $"Could not save {path}: {error}";
+            saved[action] = ResourceLoader.Load<EnhancedInputAction>(path);
+            created++;
+        }
+        foreach (var binding in imported.Context.Bindings) binding.Action = saved[binding.Action];
+        var contextPath = dir.PathJoin("input_map.tres");
+        for (int n = 2; FileAccess.FileExists(contextPath); n++) contextPath = dir.PathJoin($"input_map_{n}.tres");
+        var contextError = ResourceSaver.Save(imported.Context, contextPath);
+        if (contextError != Error.Ok) return $"Could not save {contextPath}: {contextError}";
+        var text = $"Imported {imported.Actions.Count} action(s) ({created} new, {reused} existing) and {imported.Context.Bindings.Count} mapping(s) into {contextPath}.";
+        if (imported.Skipped.Count > 0) text += $" Skipped {imported.Skipped.Count} event(s) without an equivalent: {string.Join("; ", imported.Skipped)}.";
+        if (imported.Approximated.Count > 0) text += $" Approximated {imported.Approximated.Count}: {string.Join("; ", imported.Approximated)}.";
+        return text;
+    }
+
+    private static string FileNameFor(string name)
+    {
+        var chars = (name ?? "action").ToCharArray();
+        for (int i = 0; i < chars.Length; i++)
+            if (!char.IsLetterOrDigit(chars[i]) && chars[i] != '_' && chars[i] != '-') chars[i] = '_';
+        return chars.Length == 0 ? "action" : new string(chars);
     }
 
     private void NewAction()

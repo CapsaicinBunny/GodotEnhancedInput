@@ -56,6 +56,12 @@ public partial class EnhancedInputAction : EnhancedInputResource
     [Export] public string DisplayName { get; set; } = string.Empty;
 
     /// <summary>
+    /// The name of a Godot InputMap action to press while this action is triggered (with its strength), so
+    /// addons and code that read <c>Input.IsActionPressed</c> keep working; empty: none. See <see cref="InputMapBridge"/>.
+    /// </summary>
+    [Export] public string MirrorToInputMap { get; set; } = string.Empty;
+
+    /// <summary>
     /// Input buffering (<see cref="InputPlayer.ConsumeTriggered"/>): keep a buffered press when the action is
     /// cut off (its context removed, the action disabled, focus lost…). Off by default: a cut-off forgets it.
     /// </summary>
