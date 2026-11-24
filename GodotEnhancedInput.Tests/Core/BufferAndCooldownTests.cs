@@ -51,6 +51,24 @@ public class BufferAndCooldownTests
     }
 
     [Fact]
+    public void ConsumeTriggered_ForgetsPresses_ThatWereCutOff()
+    {
+        var jump = Make.Action("jump");
+        var gameplay = Make.Context("gameplay", Make.Bind(jump, Key.Space, new PressedTrigger()));
+        using var rig = new Rig().Add(gameplay);
+        rig.Press(Key.Space).Tick().Release(Key.Space).Tick();
+        rig.Player.RemoveContext(gameplay);
+        rig.Tick();
+        rig.Player.ConsumeTriggered(jump, 1.0).Should().BeFalse("the context it came from is gone");
+
+        jump.KeepBufferedWhenCanceled = true;
+        rig.Add(gameplay).Press(Key.Space).Tick().Release(Key.Space).Tick();
+        rig.Player.RemoveContext(gameplay);
+        rig.Tick();
+        rig.Player.ConsumeTriggered(jump, 1.0).Should().BeTrue("kept on purpose");
+    }
+
+    [Fact]
     public void ConsumeTriggered_DoesNotChangePhasesOrEvents()
     {
         var (rig, jump) = JumpRig();

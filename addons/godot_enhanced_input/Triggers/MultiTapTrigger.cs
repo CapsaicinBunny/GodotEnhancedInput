@@ -27,11 +27,7 @@ public partial class MultiTapTrigger : InputTrigger
     /// </summary>
     [Export(PropertyHint.Range, "0,200,1,or_greater,suffix:px")] public float MaxDistance { get; set; }
 
-    private static Vector2 Pointer(in TriggerContext context)
-    {
-        var p = context.Player?.Raw.GetCurrent(SourceKey.MousePosition) ?? Vector4.Zero;
-        return new Vector2(p.X, p.Y);
-    }
+    private static Vector2 Pointer(in TriggerContext context) => context.Player?.Raw.MousePosition ?? Vector2.Zero;
 
     /// <inheritdoc/>
     protected override TriggerPhase Update(in TriggerContext context, bool actuated, bool wasActuated)

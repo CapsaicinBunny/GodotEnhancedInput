@@ -171,6 +171,9 @@ public partial class InputPlayer : IChannelMask
                     : null);   // only injected input drove it: its end is a genuine release
                 state.HadBindings = false;
                 state.Advance(TriggerPhase.Idle, ActionValue.Zero(kind), _delta, ActionValue.Zero(kind), _tick, why);
+                // Taken away (context removed, disabled, paused…): a buffered press is not used later.
+                if (why.HasValue && why.Value != InputEndReason.Released && !action.KeepBufferedWhenCanceled)
+                    state.ConsumedActivation = state.TriggerCount;
             }
             else
             {
@@ -217,6 +220,8 @@ public partial class InputPlayer : IChannelMask
                 if (state.Value.Raw != value) state.LastChangeTime = StepClock;
                 state.Advance(finalPhase, new ActionValue(kind, value), _delta, new ActionValue(kind, Trim(kind, raw)), _tick, cut);
                 if (latched) state.HoldOver();   // carried to the frame's end: nothing new happened
+                else if (cut.HasValue && state.Phase == TriggerPhase.Idle && !action.KeepBufferedWhenCanceled)
+                    state.ConsumedActivation = state.TriggerCount;   // cut off: a buffered press is forgotten
                 else if (state.Phase == TriggerPhase.Triggered && state.PreviousPhase != TriggerPhase.Triggered)
                 {
                     state.TriggerCount++;

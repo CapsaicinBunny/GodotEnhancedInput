@@ -56,6 +56,12 @@ public partial class EnhancedInputAction : EnhancedInputResource
     [Export] public string DisplayName { get; set; } = string.Empty;
 
     /// <summary>
+    /// Input buffering (<see cref="InputPlayer.ConsumeTriggered"/>): keep a buffered press when the action is
+    /// cut off (its context removed, the action disabled, focus lost…). Off by default: a cut-off forgets it.
+    /// </summary>
+    [Export] public bool KeepBufferedWhenCanceled { get; set; }
+
+    /// <summary>
     /// How the action reports while it is held (see <see cref="ActionEvaluation"/>): every frame
     /// (default), only when its value changes, only on presses and releases, per control, or as a
     /// tracked pose.
