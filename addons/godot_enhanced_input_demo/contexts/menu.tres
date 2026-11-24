@@ -1,86 +1,48 @@
-[gd_resource type="Resource" script_class="EnhancedInputMappingContext" format=3]
+[gd_resource type="Resource" script_class="EnhancedInputMappingContext" format=3 uid="uid://dhqn0er58h2p1"]
 
-[ext_resource type="Script" path="res://addons/godot_enhanced_input/Resources/ActionBinding.cs" id="1"]
-[ext_resource type="Resource" path="res://addons/godot_enhanced_input_demo/actions/resume.tres" id="2"]
-[ext_resource type="Script" path="res://addons/godot_enhanced_input/Modifiers/InputModifier.cs" id="3"]
-[ext_resource type="Script" path="res://addons/godot_enhanced_input/Resources/InputSource.cs" id="4"]
-[ext_resource type="Script" path="res://addons/godot_enhanced_input/Triggers/InputTrigger.cs" id="5"]
-[ext_resource type="Script" path="res://addons/godot_enhanced_input/Triggers/PressedTrigger.cs" id="6"]
-[ext_resource type="Script" path="res://addons/godot_enhanced_input/Resources/EnhancedInputMappingContext.cs" id="7"]
+[ext_resource type="Script" uid="uid://qx7n2odsjp8c" path="res://addons/godot_enhanced_input/Resources/ActionBinding.cs" id="1"]
+[ext_resource type="Resource" uid="uid://dh7vqweklieve" path="res://addons/godot_enhanced_input_demo/actions/resume.tres" id="2"]
+[ext_resource type="Script" uid="uid://bd47mq6r5wa3m" path="res://addons/godot_enhanced_input/Modifiers/InputModifier.cs" id="3"]
+[ext_resource type="Script" uid="uid://b2xr30ivy03xb" path="res://addons/godot_enhanced_input/Resources/InputSource.cs" id="4"]
+[ext_resource type="Script" uid="uid://bqayc8j5ubd3o" path="res://addons/godot_enhanced_input/Triggers/InputTrigger.cs" id="5"]
+[ext_resource type="Script" uid="uid://ooe3lmigcdky" path="res://addons/godot_enhanced_input/Triggers/PressedTrigger.cs" id="6"]
+[ext_resource type="Script" uid="uid://dhx6nm02j5k0w" path="res://addons/godot_enhanced_input/Resources/EnhancedInputMappingContext.cs" id="7"]
 
 [sub_resource type="Resource" id="Resource_mcnv4"]
 script = ExtResource("4")
-TouchIndex = -1
-TouchChannel = 0
-VirtualName = ""
-InputMapAction = ""
-Device = -1
-JoyStick = 0
-AxisRange = 0
-JoyAxis = 0
-JoyButton = 0
-MouseButton = 1
-DownKey = 83
-UpKey = 87
-NegativeKey = 65
-PositiveKey = 68
 Key = 4194305
-KeyMatch = 0
-Kind = 1
 
 [sub_resource type="Resource" id="Resource_753ie"]
 script = ExtResource("6")
-ActuationThreshold = 0.5
 
 [sub_resource type="Resource" id="Resource_y8jde"]
 script = ExtResource("1")
-RebindFormerIds = PackedStringArray()
-RebindCategory = "Keyboard"
-RebindDisplayName = "Pause"
-RebindId = "pause_key"
-Triggers = Array[ExtResource("5")]([SubResource("Resource_753ie")])
-Modifiers = Array[ExtResource("3")]([])
-Source = SubResource("Resource_mcnv4")
 Action = ExtResource("2")
+Id = "pause_key"
+Source = SubResource("Resource_mcnv4")
+Triggers = Array[ExtResource("5")]([SubResource("Resource_753ie")])
+RebindId = "pause_key"
+RebindDisplayName = "Pause"
+RebindCategory = "Keyboard"
 
 [sub_resource type="Resource" id="Resource_eu4xt"]
 script = ExtResource("4")
-TouchIndex = -1
-TouchChannel = 0
-VirtualName = ""
-InputMapAction = ""
-Device = -1
-JoyStick = 0
-AxisRange = 0
-JoyAxis = 0
-JoyButton = 6
-MouseButton = 1
-DownKey = 83
-UpKey = 87
-NegativeKey = 65
-PositiveKey = 68
-Key = 0
-KeyMatch = 0
 Kind = 7
+JoyButton = 6
 
 [sub_resource type="Resource" id="Resource_l5ggj"]
 script = ExtResource("6")
-ActuationThreshold = 0.5
 
 [sub_resource type="Resource" id="Resource_pnu8x"]
 script = ExtResource("1")
-RebindFormerIds = PackedStringArray()
-RebindCategory = ""
-RebindDisplayName = ""
-RebindId = ""
-Triggers = Array[ExtResource("5")]([SubResource("Resource_l5ggj")])
-Modifiers = Array[ExtResource("3")]([])
-Source = SubResource("Resource_eu4xt")
 Action = ExtResource("2")
+Source = SubResource("Resource_eu4xt")
+Triggers = Array[ExtResource("5")]([SubResource("Resource_l5ggj")])
 
 [resource]
 script = ExtResource("7")
-Description = "Pause menu: blocks everything below it."
-BlockLowerPriority = true
-Bindings = Array[ExtResource("1")]([SubResource("Resource_y8jde"), SubResource("Resource_pnu8x")])
 Name = "menu"
+Id = "menu"
+Bindings = Array[ExtResource("1")]([SubResource("Resource_y8jde"), SubResource("Resource_pnu8x")])
+BlockLowerPriority = true
+Description = "Pause menu: blocks everything below it."

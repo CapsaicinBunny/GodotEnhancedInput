@@ -33,8 +33,6 @@ public partial class EnhancedInputPlugin : EditorPlugin
         EnsureInspector();
     }
 
-
-
     /// <summary>
     /// Registers the inspector plugin if it is not registered yet. Also called by the dock each frame:
     /// when the editor reloads the C# assembly it keeps the plugin without entering the tree again, so
@@ -60,7 +58,6 @@ public partial class EnhancedInputPlugin : EditorPlugin
         if (@object == null || _content == null) return;
         if (_content.Reveal(@object)) _dock?.MakeVisible();
     }
-
 
     /// <inheritdoc/>
     public override void _ExitTree()
