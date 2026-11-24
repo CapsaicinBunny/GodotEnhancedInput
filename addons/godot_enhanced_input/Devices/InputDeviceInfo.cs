@@ -67,6 +67,19 @@ public sealed class InputDeviceInfo
     public int ConnectionCount { get; internal set; }
 
     /// <summary>
+    /// The pad's model regardless of how it is connected (see <see cref="ControllerDetection.ModelKey"/>);
+    /// a returning pad is matched by serial number and model, so switching between a cable and
+    /// Bluetooth keeps its identity even though its GUID changes.
+    /// </summary>
+    public string ModelKey { get; internal set; } = string.Empty;
+
+    /// <summary>The player that owned the pad when it disconnected (it gets the pad back when it returns).</summary>
+    internal InputPlayer LastOwner;
+
+    /// <summary>Order of disconnection (lower: lost earlier).</summary>
+    internal long LostOrder;
+
+    /// <summary>
     /// A stable identifier that survives reconnecting, also under another index: "keyboard_mouse",
     /// "touch", "pen", "joypad:&lt;guid&gt;:&lt;serial&gt;" (or "joypad:&lt;guid&gt;#n" for identical pads without
     /// serials), "&lt;type&gt;:&lt;index&gt;" for backend devices.

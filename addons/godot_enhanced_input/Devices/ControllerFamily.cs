@@ -98,44 +98,87 @@ public static class ControllerDetection
     /// <summary>The family from a name and USB ids (ids win when known).</summary>
     public static ControllerFamily Detect(string name, int vendor = 0, int product = 0)
     {
-        switch (vendor)
+        var known = FromIds(vendor, product);
+        if (known != ControllerFamily.Unknown) return known;
+        return vendor switch
         {
-            case VendorValve:
-                return product switch
-                {
-                    0x1205 => ControllerFamily.SteamDeck,
-                    0x1102 or 0x1142 => ControllerFamily.SteamController,
-                    0x11FF => ControllerFamily.SteamVirtual,
-                    _ => FromName(name, ControllerFamily.SteamController),
-                };
-            case VendorSony:
-                return product switch
-                {
-                    0x0268 => ControllerFamily.PlayStation3,
-                    0x05C4 or 0x09CC or 0x0BA0 => ControllerFamily.PlayStation4,
-                    0x0CE6 => ControllerFamily.PlayStation5,
-                    0x0DF2 => ControllerFamily.PlayStation5Edge,
-                    _ => FromName(name, ControllerFamily.PlayStation4),
-                };
-            case VendorMicrosoft:
-                return product switch
-                {
-                    0x028E or 0x028F or 0x0719 => ControllerFamily.Xbox360,
-                    0x02E3 or 0x0B00 or 0x0B05 or 0x0B22 => ControllerFamily.XboxElite,
-                    0x0B12 or 0x0B13 => ControllerFamily.XboxSeries,
-                    _ => FromName(name, ControllerFamily.XboxOne),
-                };
-            case VendorNintendo:
-                return product switch
-                {
-                    0x2009 => ControllerFamily.SwitchPro,
-                    0x2006 => ControllerFamily.JoyConLeft,
-                    0x2007 => ControllerFamily.JoyConRight,
-                    0x2008 => ControllerFamily.JoyConPair,
-                    _ => FromName(name, ControllerFamily.NintendoOther),
-                };
-        }
-        return FromName(name, ControllerFamily.Generic);
+            VendorValve => FromName(name, ControllerFamily.SteamController),
+            VendorSony => FromName(name, ControllerFamily.PlayStation4),
+            VendorMicrosoft => FromName(name, ControllerFamily.XboxOne),
+            VendorNintendo => FromName(name, ControllerFamily.NintendoOther),
+            _ => FromName(name, ControllerFamily.Generic),
+        };
+    }
+
+    /// <summary>
+    /// The family of a pad from its USB vendor and product ids alone, or <see cref="ControllerFamily.Unknown"/>
+    /// when the ids are not in the table. Cable and Bluetooth variants of one pad map to the same family.
+    /// </summary>
+    public static ControllerFamily FromIds(int vendor, int product) => vendor switch
+    {
+        VendorValve => product switch
+        {
+            0x1205 => ControllerFamily.SteamDeck,
+            0x1102 or 0x1142 => ControllerFamily.SteamController,
+            0x11FF => ControllerFamily.SteamVirtual,
+            _ => ControllerFamily.Unknown,
+        },
+        VendorSony => product switch
+        {
+            0x0268 => ControllerFamily.PlayStation3,
+            0x05C4 or 0x09CC or 0x0BA0 => ControllerFamily.PlayStation4,
+            0x0CE6 => ControllerFamily.PlayStation5,
+            0x0DF2 => ControllerFamily.PlayStation5Edge,
+            _ => ControllerFamily.Unknown,
+        },
+        VendorMicrosoft => product switch
+        {
+            0x028E or 0x028F or 0x0719 => ControllerFamily.Xbox360,
+            0x02E3 or 0x0B00 or 0x0B05 or 0x0B22 => ControllerFamily.XboxElite,
+            0x0B12 or 0x0B13 => ControllerFamily.XboxSeries,
+            0x02D1 or 0x02DD or 0x02EA or 0x02E0 or 0x02FD => ControllerFamily.XboxOne,
+            _ => ControllerFamily.Unknown,
+        },
+        VendorNintendo => product switch
+        {
+            0x2009 => ControllerFamily.SwitchPro,
+            0x2006 => ControllerFamily.JoyConLeft,
+            0x2007 => ControllerFamily.JoyConRight,
+            0x2008 => ControllerFamily.JoyConPair,
+            _ => ControllerFamily.Unknown,
+        },
+        _ => ControllerFamily.Unknown,
+    };
+
+    /// <summary>
+    /// Reads the connection bus and USB vendor and product ids out of an SDL-style joypad GUID (32 hex
+    /// digits: bus, name checksum, vendor, 0, product, 0, version, driver). False when the GUID does
+    /// not carry ids (other formats, or devices that report none).
+    /// </summary>
+    public static bool TryParseGuid(string guid, out int bus, out int vendor, out int product)
+    {
+        bus = vendor = product = 0;
+        if (guid == null || guid.Length != 32) return false;
+        var b = new byte[16];
+        for (int i = 0; i < 16; i++)
+            if (!byte.TryParse(guid.AsSpan(i * 2, 2), System.Globalization.NumberStyles.HexNumber, null, out b[i])) return false;
+        if (b[6] != 0 || b[7] != 0 || b[10] != 0 || b[11] != 0) return false;
+        bus = b[0] | b[1] << 8;
+        vendor = b[4] | b[5] << 8;
+        product = b[8] | b[9] << 8;
+        return vendor != 0;
+    }
+
+    /// <summary>
+    /// What kind of pad this is, ignoring how it is connected: "vendor/family" for pads in the table
+    /// (so a DualSense or an Xbox Series pad is the same model on a cable and over Bluetooth), else
+    /// "vendor:product", else the GUID itself. Pads of one model without serial numbers cannot be told apart.
+    /// </summary>
+    public static string ModelKey(string guid, int vendor, int product)
+    {
+        if (vendor == 0 && !TryParseGuid(guid, out _, out vendor, out product)) return guid ?? string.Empty;
+        var family = FromIds(vendor, product);
+        return family != ControllerFamily.Unknown ? $"{vendor:x4}/{family}" : $"{vendor:x4}:{product:x4}";
     }
 
     private static ControllerFamily FromName(string name, ControllerFamily fallback)

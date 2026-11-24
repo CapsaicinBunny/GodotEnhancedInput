@@ -84,6 +84,9 @@ debug overlay (`InputDebugOverlay`) open. Tick a box only after seeing the behav
 
 - [ ] Unplug a player's pad and plug it into another port (or reconnect over Bluetooth): it comes back to the same player, `PlayerDeviceLost` / `PlayerDeviceRegained` fire.
 - [ ] Two identical pads keep their players when one reconnects.
+- [ ] Note which pads report a serial number on each platform (`GetJoypadDevice(i).Serial`); those return to their player with certainty.
+- [ ] Switch a DualSense and an Xbox pad between cable and Bluetooth mid-game: the player keeps it.
+- [ ] Two identical serial-less pads both die, then come back in the other order: with `Automatic` the first-lost player gets the first pad and `JoypadReconnectAmbiguous` fires; with `Ask` neither moves until resolved.
 - [ ] Moving between pad, keyboard and mouse and a backend device switches prompts and modes; losing the pad in use falls back to the keyboard.
 - [ ] Families and prompts: Xbox, Elite (back paddles), DualShock 4, DualSense (Edge), Switch Pro, Joy-Con, Steam Deck and Steam Input pads show their own names and button labels.
 

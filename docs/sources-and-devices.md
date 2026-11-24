@@ -64,12 +64,37 @@ mouse, each joypad (name, GUID, guessed role), touch, pen, and devices added by 
 
 ### Identity and reconnection
 
-A device's `Id` stays the same when it reconnects, even under another joypad index: pads are told apart
-by serial number where the platform reports one, else by identity (GUID); identical pads without
-serials get `#2`, `#3`… An owned pad that comes back returns to its player (`PreviousIndex` shows
-where it was). A *different* pad that receives a freed index never inherits the assignment. Every few
-seconds (`DeviceCheckSeconds`) the registry is compared with Godot's list of pads, so a missed
-connection signal fixes itself.
+A device's `Id` stays the same when it reconnects, even under another joypad index. A returning pad
+is recognised by its **serial number** where the platform reports one (Godot's `serial_number`;
+PlayStation and Switch pads usually have one, Xbox pads often do not), and otherwise by its **model**
+(`ModelKey`: the USB vendor and product ids, read from Godot or from the GUID, grouped by
+[family](#controller-families)). The model ignores how the pad is connected, so a pad that switches
+from Bluetooth to a cable — which changes its GUID, and for some Xbox pads its product id — is still
+the same pad. Identical pads without serials get ids ending in `#2`, `#3`…
+
+Ownership follows the pad, not the index: a pad that comes back returns to the player that had it
+when it disconnected, under whatever index it gets (`PreviousIndex` shows where it was), and
+`PlayerDeviceRegained` fires. A pad of another model that receives a freed index never inherits the
+assignment (`JoypadUnassigned` tells the old owner its claim on that index is gone), but the missing
+pad still goes home when it reconnects. `UnassignJoypad` on a missing pad stops it coming back.
+
+**Pads that cannot be told apart.** Without serial numbers, two pads of one model look the same.
+When such a pad connects and only one player is missing a pad of that model, it goes to that player.
+When several are, `ReconnectWithoutSerial` decides:
+
+| `ReconnectPolicy` | What happens |
+|---|---|
+| `Automatic` (default) | the pad goes to the player who lost theirs first; `JoypadReconnectAmbiguous(device, candidates, chosen)` fires so the game can ask and correct it |
+| `Ask` | no guessing, even with only one candidate: the pad stays unassigned, its input reaches nobody (not even players that take unowned pads), and `JoypadReconnectAmbiguous` fires with `chosen` null |
+
+Either way, `ResolveJoypadReconnect(device, player)` settles it — for example after "Player 2,
+press a button on your controller": the pad takes that player's identity and goes to it, and a player
+it had been given to by mistake is missing a pad again (`PlayerDeviceLost`).
+`GetReconnectCandidates(device)` and `IsJoypadReconnectPending(device)` tell where things stand.
+Assigning the pad to one of its candidates with `AssignJoypad` resolves it too.
+
+Every few seconds (`DeviceCheckSeconds`) the registry is compared with Godot's list of pads, so a
+missed connection signal fixes itself; being told twice that a pad connected is not a reconnection.
 
 ### What the player is using
 

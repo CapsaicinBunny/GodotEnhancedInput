@@ -182,6 +182,14 @@ public partial class EnhancedInput : Node
     public void AssignJoypad(InputPlayer player, int device, string guid)
     {
         if (player == null || device < 0) return;
+        if (_ambiguous.TryGetValue(device, out var doubt))
+        {
+            // Assigning a doubtful pad to one of its candidates settles whose it is.
+            if (doubt.Entries.Exists(x => x.Owner == player)) ResolveJoypadReconnect(device, player);
+            _ambiguous.Remove(device);
+        }
+        var record = GetJoypadDevice(device);
+        if (record != null && !record.IsConnected) record.LastOwner = player;   // a missing pad: it comes back to this player
         foreach (var other in _players)
             if (other != player) other.JoypadDevices.Remove(device);
         if (!player.JoypadDevices.Contains(device)) player.JoypadDevices.Add(device);
@@ -197,6 +205,9 @@ public partial class EnhancedInput : Node
     {
         bool removed = false;
         _joypadGuids.Remove(device);
+        _ambiguous.Remove(device);
+        var record = GetJoypadDevice(device);
+        if (record != null && !record.IsConnected) record.LastOwner = null;   // a missing pad no longer returns to anyone
         foreach (var player in _players)
             if (player.JoypadDevices.Remove(device))
             {
@@ -252,8 +263,9 @@ public partial class EnhancedInput : Node
         if (!connected)
         {
             foreach (var player in _players) player.Raw.ClearDevice(device);
-            var gone = UpdateJoypadDevice(device, false, guid);
-            if (gone != null)
+            var gone = DisconnectJoypadRecord(device);
+            bool wasPending = _ambiguous.Remove(device, out var pending) && pending.Pending == gone && gone != null;
+            if (gone != null && !wasPending)
                 foreach (var player in _players)
                 {
                     bool owned = player.JoypadDevices.Contains(device);
@@ -262,38 +274,56 @@ public partial class EnhancedInput : Node
                     player.OnDeviceLost(gone);
                     if (owned && !player.HasOtherJoypad(device)) EmitSignal(SignalName.PlayerDeviceLost, player, gone.Id);
                 }
+            if (wasPending) _devices.Remove(gone);   // it never became anyone's
         }
         else
         {
-            var info = UpdateJoypadDevice(device, true, guid, serial, name);
-            int previous = info.PreviousIndex;
-            if (previous >= 0 && previous != device && !ConnectedJoypadsContains(previous))
+            var reading = ReadJoypad(device, guid, serial, name);
+            bool refresh = ConnectedJoypadAt(device) is { } same && same.ModelKey == reading.Model;
+            var info = ConnectJoypadRecord(device, reading, out bool returning, out bool bySerial);
+            if (!refresh)
             {
-                // The same pad came back under another index: its owner keeps it.
-                foreach (var player in _players)
+                var owner = returning ? AliveOwner(info) : null;
+                int oldIndex = info.PreviousIndex >= 0 ? info.PreviousIndex : device;
+                info.LastOwner = null;
+                bool ambiguous = !bySerial && (_owned.Count >= 2 || (ReconnectWithoutSerial == ReconnectPolicy.Ask && _owned.Count >= 1));
+                var candidates = ambiguous ? new List<(InputDeviceInfo, InputPlayer, int)>(_owned) : null;
+
+                // Nobody keeps a claim on this index for some other pad that is still missing, and a pad
+                // seen for the first time never inherits an assignment meant for a different one.
+                foreach (var player in _players.ToArray())
                 {
-                    int at = player.JoypadDevices.IndexOf(previous);
-                    if (at < 0) continue;
-                    foreach (var other in _players) other.JoypadDevices.Remove(device);
-                    player.JoypadDevices[at] = device;
-                    if (_joypadGuids.Remove(previous, out var g)) _joypadGuids[device] = g;
+                    if (player == owner || !player.JoypadDevices.Contains(device)) continue;
+                    bool stale = IsStaleClaim(player, device, info)
+                        || (!returning && !HasJoypadRecordAt(device, info) && !string.IsNullOrEmpty(reading.Guid)
+                            && _joypadGuids.TryGetValue(device, out var known) && known != reading.Guid);
+                    if (!stale) continue;
+                    player.JoypadDevices.Remove(device);
+                    _joypadGuids.Remove(device);
+                    EmitSignal(SignalName.JoypadUnassigned, player, device);
                 }
+
+                if (owner != null)
+                {
+                    GiveJoypadIndex(owner, oldIndex, device);
+                    EmitSignal(SignalName.PlayerDeviceRegained, owner, info.Id);
+                }
+                if (ambiguous)
+                {
+                    var a = new Ambiguity { Pending = returning ? null : info };
+                    var list = new Godot.Collections.Array<InputPlayer>();
+                    foreach (var c in candidates)
+                    {
+                        a.Entries.Add(c);
+                        list.Add(c.Item2);
+                    }
+                    _ambiguous[device] = a;
+                    EmitSignal(SignalName.JoypadReconnectAmbiguous, device, list, owner);
+                }
+                else _ambiguous.Remove(device);
             }
-            else if (!string.IsNullOrEmpty(guid) && _joypadGuids.TryGetValue(device, out var known) && known != guid)
-            {
-                UnassignJoypad(device);
-            }
-            var owner = GetJoypadOwner(device);
-            if (owner != null && info.ConnectionCount > 1) EmitSignal(SignalName.PlayerDeviceRegained, owner, info.Id);
         }
         EmitSignal(SignalName.JoypadConnectionChanged, device, connected);
-    }
-
-    private bool ConnectedJoypadsContains(int index)
-    {
-        foreach (var d in _devices)
-            if (d.Kind == InputDeviceKind.Joypad && d.IsConnected && d.Index == index) return true;
-        return false;
     }
 
     /// <summary>When on (default), losing window or application focus releases all held input of every player.</summary>
@@ -362,6 +392,7 @@ public partial class EnhancedInput : Node
         if (@event is InputEventJoypadButton or InputEventJoypadMotion)
         {
             int device = @event.Device;
+            if (IsJoypadReconnectPending(device)) return false;   // whose pad it is has not been decided yet
             var owner = GetJoypadOwner(device);
             if (owner == null && JoinMode == JoinMode.OnButtonPress && stage != IntakeStage.Unhandled
                 && @event is InputEventJoypadButton { Pressed: true })

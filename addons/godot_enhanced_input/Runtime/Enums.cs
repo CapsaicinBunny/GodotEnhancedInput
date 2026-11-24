@@ -364,3 +364,22 @@ public enum IntakeStage
     /// <summary>Offered from <c>_UnhandledInput</c>, after the GUI declined it.</summary>
     Unhandled,
 }
+
+/// <summary>How <see cref="EnhancedInput"/> decides whose pad a reconnected pad without a serial number is.</summary>
+public enum ReconnectPolicy
+{
+    /// <summary>
+    /// Give it back: to the only player who lost a pad of that model, or — when several did — to the
+    /// one who lost theirs first. <see cref="EnhancedInput.JoypadReconnectAmbiguous"/> fires in the
+    /// second case so the game can correct it with <see cref="EnhancedInput.ResolveJoypadReconnect"/>.
+    /// </summary>
+    Automatic,
+
+    /// <summary>
+    /// Never guess for pads without a serial number: such a pad that could be a player's missing pad
+    /// stays unassigned and its input reaches nobody until the game calls
+    /// <see cref="EnhancedInput.ResolveJoypadReconnect"/> (for example after "Player 2, press a button").
+    /// Pads with serial numbers still return on their own.
+    /// </summary>
+    Ask,
+}
