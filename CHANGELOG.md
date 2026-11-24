@@ -3,7 +3,28 @@
 All notable changes to Godot Enhanced Input are documented here. Versions follow
 [Semantic Versioning](https://semver.org/); 0.x releases may change the API.
 
-## [0.1.0] — unreleased
+## [0.2.0] — unreleased
+
+### Added
+- Input buffering: `InputPlayer.ConsumeTriggered(action, withinSeconds)` (and `action.ConsumeTriggered()`)
+  uses each activation of an action once, within a window of input time; `WasTriggeredWithin`;
+  `BufferTrigger` keeps a press triggered for a window; `InputPlayer.InputTime`;
+  `ActionState.TriggerCount` and `LastTriggeredTime`.
+- Triggers: `CooldownTrigger` (blocker, shared per action), `DirectionTrigger` (sectors, 4/8-way),
+  `ReleaseVelocityTrigger` (throws, flings); `MultiTapTrigger.MaxDistance` (double-click on one spot);
+  `ComboTrigger.ToleranceSeconds` and `IgnoreOutOfOrder` (fighting-game motions).
+- Modifiers: `AdaptiveDeadzoneModifier` (learns a drifting stick's rest point and jitter),
+  `SpringDamperModifier` (second-order follower with momentum).
+- Opposing inputs (SOCD): `InputSource.Opposing` / `OpposingVertical` — neutral, last wins, first wins,
+  negative or positive wins — on key axes and axis composites; `ISourceReader.PressOrder`.
+- Sensor fusion: `MotionSensor.Orientation` (`pad:orientation`, `device:orientation`), a complementary
+  filter of gyroscope and gravity; `InputPlayer.OrientationGravityRate`, `ResetOrientation`,
+  `GetOrientation`, `FuseStep`.
+- Typed C# generation: `InputCodeGenerator` writes a class per config (`input.Gameplay.Jump`), from the
+  config's Inspector or the dock; the demo ships `DemoInput.cs` from `demo_input.tres`.
+- `TriggerContext.Action` (the action being evaluated) and a `TriggerSet.Evaluate` overload that passes it.
+
+## [0.1.0] — 2026-11-24
 
 First version of Godot Enhanced Input.
 

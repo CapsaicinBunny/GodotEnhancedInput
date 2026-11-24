@@ -5,6 +5,35 @@ An `InputSource` says what a binding reads. Make one in the Inspector (type a pa
 (`InputSource.ForKey(Key.Space)`, `InputSource.ForJoyStick(JoyStickSide.Left)`…), or from a short
 text path (`InputSourcePath.Parse("pad:left_stick")`).
 
+## Opposing inputs
+
+When both sides of an axis are held — A and D, or left and right on a hitbox — the axis reads 0 by
+default. `Opposing` (horizontal, and 1D axes) and `OpposingVertical` choose another rule on key axes
+(`KeyAxis1D`, `KeyAxis2D`) and on Axis1D / Axis2D composites:
+
+| Rule | Both held reads |
+|---|---|
+| `Neutral` | 0 (default) |
+| `LastWins` | the side pressed last — hold A, tap D to switch, release D to go back |
+| `FirstWins` | the side pressed first; the other is ignored until released |
+| `NegativeWins` / `PositiveWins` | always that side; on the vertical, up is the negative side |
+
+The common arcade rule is `Opposing = Neutral`, `OpposingVertical = NegativeWins` (left + right = neutral,
+up + down = up). The rule is kept in saved profiles and when a path is typed over the source; it is
+set in the Inspector (source paths do not spell it out).
+
+## Fused orientation
+
+`pad:orientation` (or `pad0:orientation`) and `device:orientation` read an orientation as a quaternion,
+fused by the player each tick from the gyroscope and the accelerometer (pads) or gravity sensor (phones
+and tablets): the gyroscope turns it, and gravity slowly pulls its tilt back so it does not drift
+(`InputPlayer.OrientationGravityRate`, 1 per second by default; 0 = gyroscope only). It starts level with
+the measured tilt; heading has no reference and drifts slowly, so give players a recenter button —
+`player.ResetOrientation()`. Accelerometer readings far from 1 g (shaking) are not used for the tilt
+correction. Use it on a Quaternion action (it counts as tracked input, so it is triggered even at the
+identity); `InputPlayer.FuseStep` is the filter on its own. The accelerometer is taken to read like
+gravity (pointing to the ground at rest).
+
 ## Source kinds
 
 | Kind | Reads | Path examples | Value nature |
