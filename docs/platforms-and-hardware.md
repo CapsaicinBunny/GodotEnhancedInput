@@ -49,7 +49,9 @@ debug overlay (`InputDebugOverlay`) open. Tick a box only after seeing the behav
 - [ ] **Non-QWERTY layouts** (AZERTY, QWERTZ, Dvorak): physical bindings stay in place; label bindings follow the printed key; prompts show the printed key.
 - [ ] **Modifier chords** (Ctrl/Shift/Alt + key) and key repeat (echo events ignored).
 - [ ] **Mouse**: extra buttons, wheel notches and smooth scrolling, high-DPI mice with `DpiScale` / sensitivity settings, raw motion vs pointer position.
-- [ ] **Focus loss**: alt-tab while holding a key — the action completes, nothing stays stuck.
+- [ ] **Focus loss**: alt-tab while holding a key — the action is canceled (a release-to-throw does not throw), nothing stays stuck.
+- [ ] **Stuck keys**: hold a key, click another window, release, come back — `ReleaseStuckInput` lets go of it within a frame.
+- [ ] **Low frame rate**: at 5–10 fps, quick taps, double taps and chords pressed in order still register in the frame they happened.
 
 ### Pen and touch
 
@@ -67,7 +69,27 @@ debug overlay (`InputDebugOverlay`) open. Tick a box only after seeing the behav
 
 ### XR
 
-- [ ] Controller poses (`position`, `rotation`, velocities) and inputs map through `XRInputBackend`; trackers appearing late or disappearing are handled.
+- [ ] Controller poses (`position`, `orientation` quaternion, `rotation` Euler, velocities) and inputs map through `XRInputBackend`; trackers appearing late or disappearing are handled.
+- [ ] **Hand tracking**: `hand/pinch` and `hand/grab` reach 1 for a real pinch and fist and fall back to 0; `PinchRange` / `GrabRange` suit adult and child hands.
+- [ ] **Face and eye tracking** (headsets that have it): `eyes/gaze` follows the eyes; blinks reach `eyes/closed_*`.
+- [ ] **Per-hand haptics**: an effect played on the left controller buzzes only the left one, at the effect's frequency.
+
+### Eye trackers (desktop)
+
+- [ ] An `IEyeTracker` adapter for the vendor SDK (Tobii and similar): `gaze` follows where you look across the whole screen and on multiple monitors; `gaze_valid` drops while blinking or looking away; `present` follows sitting down and leaving.
+- [ ] Dwell selection (`DwellTrigger`) feels right; `Radius` suits the tracker's accuracy at the screen's size.
+- [ ] Unplugging the tracker disconnects the device and prompts fall back to the other devices.
+
+### Device identity and switching
+
+- [ ] Unplug a player's pad and plug it into another port (or reconnect over Bluetooth): it comes back to the same player, `PlayerDeviceLost` / `PlayerDeviceRegained` fire.
+- [ ] Two identical pads keep their players when one reconnects.
+- [ ] Moving between pad, keyboard and mouse and a backend device switches prompts and modes; losing the pad in use falls back to the keyboard.
+- [ ] Families and prompts: Xbox, Elite (back paddles), DualShock 4, DualSense (Edge), Switch Pro, Joy-Con, Steam Deck and Steam Input pads show their own names and button labels.
+
+### Force feedback
+
+- [ ] A wheel backend applies `SetForceFeedback` (centring spring, damper, constant push, jolts); `force_feedback_strength` scales it and 0 turns it off.
 
 ### Accessibility and comfort
 

@@ -32,6 +32,7 @@ as actuated. Zero is never actuated.
 | `HysteresisTrigger` | explicit | Down while actuated, but turns on at `PressThreshold` and off only below `ReleaseThreshold` — for analog triggers resting near a threshold. | `PressThreshold`, `ReleaseThreshold` |
 | `FlickTrigger` | explicit | Triggered for one tick when a stick goes from rest to nearly full travel within `MaxSeconds`. Read the direction from the value on that tick. | `RestRadius`, `FlickRadius`, `MaxSeconds` |
 | `DistanceTrigger` | explicit | For movement (mouse motion, drags): triggered once the movement since it started adds up to `Distance` — "drag 20 px before it counts". | `Distance`, `ResetSeconds`, `OneShot` |
+| `DwellTrigger` | explicit | Look (or point) and hold still to select: ongoing while a position stays within `Radius` of where it settled, triggered once after `DwellSeconds` (again only after it moves away, or every `DwellSeconds` with `Repeat`). Zero counts as "no gaze". For eye trackers, head pointers, accessibility. | `Radius`, `DwellSeconds`, `Repeat` |
 | `PredicateTrigger` | any | Its phase comes from a C# function (`Evaluator`), for one-off rules. Set in code. | `Evaluator`, `TriggerRole` |
 
 ## Timing settings

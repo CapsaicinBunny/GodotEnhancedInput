@@ -11,9 +11,17 @@
 ## Game actions and values
 
 A `GameAction` is a resource describing something the player wants to do. Its **value kind** is
-`Digital`, `Axis1D`, `Axis2D` or `Axis3D`. Values are `ActionValue`s: a kind plus a `Vector3`.
+`Digital`, `Axis1D`, `Axis2D`, `Axis3D`, `Axis4D`, `Quaternion` or `Euler`. Values are
+`ActionValue`s: a kind plus a `Vector4`.
 
-- `AsBool()`, `AsFloat()`, `AsVector2()`, `AsVector3()` read it; implicit conversions exist too.
+- `AsBool()`, `AsFloat()`, `AsVector2()`, `AsVector3()`, `AsVector4()`, `AsQuaternion()`,
+  `AsEuler()` and `AsBasis()` read it; implicit conversions exist too.
+- **Rotations.** A `Quaternion` value holds (x, y, z, w), reads normalized, and the identity (no
+  rotation) counts as no input; its `Magnitude` is the angle as a fraction of half a turn, so
+  thresholds and deadzones work on it. An `Euler` value holds angles in radians (Godot's YXZ order).
+  Use them for XR controllers, headsets, phone orientation and gyro aiming; the
+  [rotation modifiers](modifiers.md#rotations) convert between forms.
+- `ActionState.InputValue` is the untouched input before any modifier, next to the processed `Value`.
 - A source's value is **shaped** to the action's kind before anything else: extra components are
   dropped. A digital action keeps the source's strength in X (so an analog trigger at 0.3 gives
   0.3), and reads as `true` whenever it is non-zero.
@@ -59,12 +67,15 @@ player.RemoveContext(menu);
 - **Blocking.** A context with *Block lower priority* hides *all* sources from lower contexts.
 - **Ignore held sources until released.** Sources that are down when the context is added read as
   zero in it until released once — the key that opened a menu does not also act inside it.
-- When an action loses its input (context removed, source consumed), it simply finishes on the
-  next tick: completed if it was triggered, canceled if it was ongoing.
+- When an action loses its input without being released (context removed, blocked, paused, its
+  pad disconnected or given to another player, the window losing focus, its binding changed), it
+  ends as **canceled**, never completed, and `ActionState.EndReason` says why. Release-based
+  triggers (released, tap, hold-release) do not fire for it, so alt-tab never throws the grenade.
 
 ## The tick
 
-Events only record raw input. Once per tick (by default in `_Process`) each player:
+Events only record raw input. Once per frame, right after Godot delivers the frame's input (see
+[ticking](godot-integration.md#the-autoload-and-ticking)), each player:
 
 1. orders its contexts and works out which sources each one consumes or blocks;
 2. evaluates each action: reads its bindings' sources, applies **binding modifiers** then
@@ -72,11 +83,15 @@ Events only record raw input. Once per tick (by default in `_Process`) each play
    **triggers**;
 3. moves the action's phase and records events and timings;
 4. calls callbacks and emits signals;
-5. moves every channel on by one queued change and forgets per-tick data (mouse motion, one-tick injections).
+5. forgets per-tick data (mouse motion, scrolling, one-tick injections).
 
-No press is lost: each on/off change of a channel is queued, and each tick observes one. A press and
-release between two ticks are seen on two consecutive ticks; two quick presses become press, release,
-press, release over four ticks, in order.
+**No press is lost or delayed.** Every on/off change of a channel is queued in the order it arrived,
+and one tick evaluates all of them in steps: each step takes the longest run of changes in which no
+channel changes twice. A press and release within one frame are both seen in that frame — a tap
+fires `Started`, `Triggered` and `Completed` on the same tick, in that order — and changes on
+different keys keep their order, so a chord pressed in order works even at 4 fps. Callbacks run per
+step; polling (`WasTriggered`, `WasCompleted`, `GetEvents`) sees every event of the frame and the
+frame's final value and phase. Mouse motion and other per-frame amounts belong to the last step.
 
 Bindings are **suppressed** — not evaluated at all — while their context is blocked, all their
 sources are consumed or ignored, or the tree is paused (for actions that do not run while paused).

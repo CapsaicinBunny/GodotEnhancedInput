@@ -58,9 +58,48 @@ Rebinding can replace a single part (`RebindPart`, see [rebinding](rebinding.md#
 
 `EnhancedInput.Devices` lists every device the system knows about as `InputDeviceInfo`: keyboard and
 mouse, each joypad (name, GUID, guessed role), touch, pen, and devices added by backends.
-`DeviceConnected` and `DeviceDisconnected` report changes; `GetJoypadDevice(index)` and
-`GetDevice(id)` look one up; `AssignDevice(player, device)` and `GetDeviceOwner(device)` work for any
-device, not only joypads.
+`DeviceConnected` and `DeviceDisconnected` (and the `DeviceConnectionChanged` signal) report changes;
+`GetJoypadDevice(index)` and `GetDevice(id)` look one up; `AssignDevice(player, device)` and
+`GetDeviceOwner(device)` work for any device, not only joypads.
+
+### Identity and reconnection
+
+A device's `Id` stays the same when it reconnects, even under another joypad index: pads are told apart
+by serial number where the platform reports one, else by identity (GUID); identical pads without
+serials get `#2`, `#3`… An owned pad that comes back returns to its player (`PreviousIndex` shows
+where it was). A *different* pad that receives a freed index never inherits the assignment. Every few
+seconds (`DeviceCheckSeconds`) the registry is compared with Godot's list of pads, so a missed
+connection signal fixes itself.
+
+### What the player is using
+
+`player.CurrentDevice` is the device the player last gave deliberate input with — a pad, the keyboard
+and mouse, touch, or a backend device (a button or axis pushed past halfway; poses and sensors do not
+count). `DeviceSwitched` reports changes; prompts and [input modes](modes-and-accessibility.md)
+follow it. When the device in use disconnects, the player falls back to another one it can use
+(another pad, then keyboard and mouse, then touch). When a player loses its only pad,
+`EnhancedInput.PlayerDeviceLost(player, deviceId)` fires — pause and show "reconnect your
+controller" — and `PlayerDeviceRegained` when it is back.
+
+### Controller families
+
+Each pad gets a `Family` from its name and USB vendor and product ids (`ControllerDetection`):
+
+| Family | Recognised as |
+|---|---|
+| `Xbox360`, `XboxOne`, `XboxSeries`, `XboxElite` | Xbox pads; Elite with back paddles |
+| `PlayStation3`, `PlayStation4`, `PlayStation5`, `PlayStation5Edge` | DualShock 3/4, DualSense, DualSense Edge |
+| `SwitchPro`, `JoyConLeft`, `JoyConRight`, `JoyConPair`, `NintendoOther` | Nintendo pads |
+| `SteamDeck`, `SteamController`, `SteamVirtual` | Valve hardware and Steam Input's virtual pad |
+| `WebStandard` | a pad the browser maps to the standard layout (web exports) |
+| `Generic`, `Unknown` | anything else / not yet known |
+
+`device.DisplayName` ("DualSense", "Steam Deck"), `device.Style` (the prompt style: Steam Deck pads
+show L1/R1, L4/L5/R4/R5 for the back buttons), `device.HardwareFeatures` (what the hardware has:
+`Rumble`, `TriggerRumble`, `AdaptiveTriggers`, `Light`, `MotionSensors`, `Touchpad`, `BackButtons`,
+`Trackpads`, `Microphone`, `ShareButton`, `HDHaptics`) and `device.Features` (what Godot can use on this
+platform now) follow from it. Modes can require features and roles (`InputMode.RequiredFeatures`,
+`RequiredRoles` — e.g. a wheel **and** pedals as separate devices).
 
 ### Device profiles
 
@@ -84,9 +123,34 @@ Hardware Godot does not expose as a joypad can be added with an `InputBackend`: 
 when they change. Bind its controls with
 `DeviceControl` sources (`@wheel:steering`). Register it with `EnhancedInput.AddBackend`.
 
-`XRInputBackend` is included: it follows Godot's XR trackers and exposes each controller's inputs and
-its pose (`<pose>/position`, `<pose>/rotation`, `<pose>/linear_velocity`, `<pose>/angular_velocity`)
-as device controls of type `xr`.
+### XR
+
+`XRInputBackend` follows Godot's XR trackers (VR, AR and mixed reality alike) and makes each a device of
+type `xr`:
+
+| Tracker | Controls |
+|---|---|
+| Controllers and the head | every button, trigger and stick by its XR name (`trigger`, `grip`, `primary`, `ax_button`…); each pose (`default`, `aim`, `grip`, `palm`, `eye_gaze_pose`) as `<pose>/position`, `<pose>/orientation` (quaternion), `<pose>/rotation` (Euler), `<pose>/linear_velocity`, `<pose>/angular_velocity` |
+| Hands (hand tracking) | `hand/tracked`, `hand/<joint>/position` and `/orientation` for wrist, palm and fingertips, `hand/pinch` and `hand/grab` (0…1; ranges in `PinchRange`, `GrabRange`) |
+| Face | `eyes/gaze` (−1…1, right and down positive), `eyes/closed_left`, `eyes/closed_right`, `eyes/wide`, `jaw_open` |
+
+```csharp
+EnhancedInput.Instance.AddBackend(new XRInputBackend());
+// aim: a Quaternion action bound to @xr:aim/orientation
+var rotation = player.GetValue(aim).AsQuaternion();
+```
+
+Haptics played on an XR controller go to that hand only, at the effect's `Frequency`.
+
+### Eye trackers
+
+Godot has no desktop eye-tracker API, so a few lines of adapter around the vendor SDK (Tobii and
+similar) implement `IEyeTracker` (`IsAvailable`, `TryGetGaze`, `IsUserPresent`, `TryGetHead`), and
+`EyeTrackerBackend` does the rest: a device of type `eye` with `gaze` (0…1 screen),
+`gaze_pixels`, `gaze_centered` (−1…1), `gaze_valid`, `present`, `head/position`,
+`head/orientation` and `head/rotation`. The device disconnects while the tracker is unavailable.
+`MouseGazeSimulator` follows the mouse, for building gaze features without the hardware. Pair
+`@eye:gaze` with a [`DwellTrigger`](triggers.md) for look-to-select.
 
 ### Haptics and lights
 
@@ -95,8 +159,30 @@ player.Rumble(weak: 0.3f, strong: 0.8f, seconds: 0.25f);   // every pad the play
 player.StopRumble();
 player.SetJoypadLight(Colors.Red);
 player.VibrateHandheld(200);                               // phones and tablets
+
+var engine = player.Haptics.Play(HapticEffect.Engine(0.4f), loop: true);
+player.Haptics.Play(HapticEffect.Explosion());             // mixes with the engine
+engine.Strength = 0.8f;                                    // follow the revs
+player.Haptics.Stop(engine);
+player.BindHaptic(fire, ActionEvents.Triggered, HapticEffect.Click());
 ```
 
-Rumble and handheld vibration scale by the player's `vibration_strength` setting (0 turns them
-off; see [modes and accessibility](modes-and-accessibility.md)). Backends receive rumble for their devices.
-Swap `HapticsOutput` for a test double or another output.
+A `HapticEffect` resource describes a pattern: `Weak` and `Strong` motor strengths, `Duration`,
+`Attack` and `Release`, an optional `Envelope` curve, `Repeats` with a `Gap`, `Loop`, a `Frequency`
+(XR controllers), `TriggerLeft` / `TriggerRight` (trigger motors, for outputs that support them) and
+whether it also buzzes the handheld device. Presets: `Tap`, `Click`, `Bump`, `Thud`, `Heartbeat`,
+`Explosion`, `Engine`, `Constant`. Effects play per device and end on their own; several on one device
+mix per motor by their `Blend` — `Max` (default: the strongest wins), `Add`, or `Override`
+(silences lower `Priority` effects while it plays). `PlayOn(deviceId, …)` targets one device;
+effects only ever reach devices the player owns or may use.
+
+Everything scales by the player's `vibration_strength` setting, running effects included (0 turns
+haptics off; see [modes and accessibility](modes-and-accessibility.md)). Backends receive rumble for
+their devices. Swap `HapticsOutput` for a test double or another output.
+
+### Force feedback
+
+For wheels: `player.SetForceFeedback(new ForceFeedback { Spring = 0.5f, Damper = 0.2f, Constant = slip })`
+each physics step (or `ForceFeedback.Centering()`, `ForceFeedback.None` to release). It reaches the
+player's backend devices (`InputBackend.SetForceFeedback`) and pads whose `HapticsOutput` implements
+`IForceFeedbackOutput`, scaled by the `force_feedback_strength` setting.

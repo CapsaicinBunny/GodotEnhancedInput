@@ -51,7 +51,8 @@ player.ResetAllRebinds();
 ```
 
 Changes apply from the next tick, to every binding with the id. If the slot's input is held at that
-moment, its action simply completes. Assigning the default source removes the override, so profiles
+moment, its action is canceled (`EndReason` `BindingChanged`, no release), and half-done holds or
+smoothing on that binding start over. Assigning the default source removes the override, so profiles
 only store what differs.
 
 ### Conflicts

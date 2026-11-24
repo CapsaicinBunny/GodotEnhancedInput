@@ -17,7 +17,13 @@ player.Modes.Add(gamepad);
 | `InputMode` field | Meaning |
 |---|---|
 | `Groups` | binding groups evaluated in this mode |
-| `RequiredDevices`, `OptionalDevices` | devices the mode needs / can use (`RequiredDevicesAvailable(mode)`) |
+| `RequiredDevices`, `OptionalDevices` | device kinds the mode needs / can use |
+| `RequiredRoles` | roles that must each be a separate device, e.g. `Wheel` and `Pedals`, or `FlightStick` and `Throttle` |
+| `RequiredFeatures` | capabilities some usable device must have, e.g. `MotionSensors` for gyro aiming |
+
+`player.RequiredDevicesAvailable(mode)` checks all three against the devices the player can use
+right now — connected, and its own or unowned (`player.GetUsableDevices()`); a mode whose
+requirements are not met is never chosen automatically.
 | `SwitchOn` | using one of these device kinds switches to this mode |
 | `SettingDefaults` | setting values for this mode when the profile has none (e.g. a higher `sensitivity` for sticks) |
 

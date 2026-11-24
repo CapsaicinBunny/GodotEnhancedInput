@@ -7,14 +7,16 @@ action gets a typed value and a phase, and raises events your code can subscribe
 > C# · Godot 4.7+ · configured in the Inspector or in code · works with the InputMap, physical
 > keys and GUI focus · testable headless
 
-Status: **0.1.0** — all five stages of [the plan](docs/design.md#6-staged-plan) are done: the core,
-rebinding, local players and touch, prompts and debugging, and the extended feature set (more
-sources and devices, modes and accessibility, recording, editor tools). Not yet released.
+Status: **0.1.0** — all six stages of [the plan](docs/design.md#6-staged-plan) are done: the core,
+rebinding, local players and touch, prompts and debugging, the extended feature set (more sources
+and devices, modes and accessibility, recording, editor tools), and rotations, device handling and
+correctness (quaternions, XR hands and eyes, eye trackers, haptic effects, reconnection, ordered
+input within a frame). Not yet released.
 
 ## What it does
 
-- **Typed game actions.** Digital (on/off), 1D, 2D and 3D values; several bindings per action,
-  combined by strongest value or by sum.
+- **Typed game actions.** Digital (on/off), 1D, 2D, 3D and 4D values, quaternions and Euler angles;
+  several bindings per action, combined by strongest value or by sum.
 - **Binding contexts with priorities.** Add and remove sets of bindings at runtime. A higher
   context can *consume* the keys it uses, or *block* everything below it (pause menus). A context
   can ignore keys that are already held when it opens.
@@ -26,13 +28,16 @@ sources and devices, modes and accessibility, recording, editor tools). Not yet 
 - **Modifiers** shape values: axial and radial deadzones, anti-deadzone, scale, player sensitivity,
   acceleration, delta-time scale, negate, swizzle, smoothing, hysteresis, exponent and `Curve`
   response, remap, calibration, quantize, integrate, differentiate, normalize, clamp, DPI scale,
-  gyro drift removal, 2D → world axes, view-relative (camera) rotation, field-of-view scaling.
+  gyro drift removal, 2D → world axes, view-relative (camera) rotation, field-of-view scaling, and
+  rotation conversion, offset and smoothing.
 - **Triggers** decide when an action fires: down, pressed, released, hold, hold-and-release, tap,
-  multi-tap, toggle, pulse, repeat, threshold, hysteresis, flick, distance, chord, chord blocker,
-  combo and code-defined predicates — with explicit, implicit and blocker roles.
+  multi-tap, toggle, pulse, repeat, threshold, hysteresis, flick, distance, gaze dwell, chord, chord
+  blocker, combo and code-defined predicates — with explicit, implicit and blocker roles.
 - **A per-tick state machine** turns phases (idle, ongoing, triggered) into events: started,
   ongoing, triggered, completed, canceled — with elapsed and triggered time. Hold and pulse work
-  while nothing new arrives.
+  while nothing new arrives. Every change within a frame is evaluated in that frame, in order, so a
+  tap or a chord is never lost or late even at low frame rates; input that is cut off (alt-tab, a
+  pad unplugged, a menu opening) is canceled with a reason and never looks like a release.
 - **Player rebinding.** Mark bindings rebindable, list them as slots for a settings menu, rebind
   in code or by capturing the next press (with exclusions, filters, chords and timeouts), rebind one
   part of a composite, handle conflicts (allow, reject, swap, clear), and save each player's profiles
@@ -40,9 +45,14 @@ sources and devices, modes and accessibility, recording, editor tools). Not yet 
 - **Modes, settings and accessibility.** Input modes switch binding groups with the device in use;
   per-player settings (sensitivity, inversion, deadzones, timing scales, vibration strength) live in
   the profile; hold-to-toggle for any action and ready-made accessibility presets.
-- **Devices.** A device registry with connect and disconnect events, device profiles that calibrate
-  and name wheels, pedals and flight sticks, pluggable backends for other hardware, an XR backend,
-  rumble, joypad lights and handheld vibration.
+- **Devices.** A device registry whose identities survive reconnecting, controller families
+  (Xbox, Elite, DualShock, DualSense, Switch, Joy-Con, Steam Deck, Steam Input) with their features,
+  device switching with fallback when a pad is lost, device profiles that calibrate and name wheels,
+  pedals and flight sticks, pluggable backends for other hardware, force feedback for wheels.
+- **XR and eye tracking.** Controller and headset poses as quaternions, hand tracking (pinch, grab,
+  joints), face and eye gaze, per-hand vibration; desktop eye trackers through a small adapter.
+- **Haptics.** Effects with envelopes, repeats and loops, mixed per motor with priorities, scaled by
+  the player's vibration setting; joypad lights and handheld vibration.
 - **Local multiplayer.** Several players, each with its own contexts and profile; exclusive joypad
   assignment; players join by pressing a button on a new joypad.
 - **Touch.** Touch sources (pressed, position, drag), gestures (pinch, twist, two-finger drag,
@@ -54,7 +64,8 @@ sources and devices, modes and accessibility, recording, editor tools). Not yet 
   own artwork.
 - **Debugging and tools.** A text dump of every player's contexts and actions, an F3 overlay,
   recording and deterministic replay of a player's input, a binding validator, and an editor dock
-  that lists every context, shows problems, assigns inputs by listening, and lists connected pads.
+  that edits bindings in place (actions, inputs by typing or listening, groups, modifiers, triggers,
+  with undo), shows problems, and inspects connected pads live with an input log.
 - **Fast.** Bindings are compiled once and reused; steady-state ticks allocate nothing.
 - **Godot-friendly.** Physical key positions by default; InputMap actions as sources;
   `InputEventAction` drives game actions directly (great for tests); never marks events handled

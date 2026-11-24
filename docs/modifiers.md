@@ -38,6 +38,19 @@ Modifiers know the **nature** of what they receive (`context.Nature`: state, del
 [sources](sources-and-devices.md#value-natures)), so the same modifier can treat a held stick and a
 mouse movement correctly.
 
+## Rotations
+
+| Modifier | What it does | Settings |
+|---|---|---|
+| `RotationConvertModifier` | Converts Euler angles (radians) ↔ quaternion, degrees → radians, rotation vector (axis × angle, as gyroscopes give) ↔ quaternion. Lets any rotation source drive any rotation action. | `Conversion` |
+| `RotationOffsetModifier` | Turns a quaternion by a fixed offset (a controller's grip angle, a sensor mounted sideways), applied in the rotation's own frame or before it; the offset can come from player settings (`<prefix>_x/_y/_z`, degrees) for a "recenter" option. | `OffsetDegrees`, `Local`, `SettingPrefix` |
+| `RotationSmoothingModifier` | Follows a quaternion along the shortest arc at `Rate` per second, frame-rate independent; per-component smoothing would bend the rotation. | `Rate` |
+
+`DeadzoneModifier`, `ScaleModifier`, `NegateModifier` and `NormalizeModifier` understand rotations: on a
+`Quaternion` action they work on the rotation angle instead of on the four raw numbers: a deadzone
+ignores small rotations (its `Lower` is a fraction of half a turn, so 0.03 is about 5°), a scale of 0.5
+halves the turn, negate inverts it, normalize keeps it a unit quaternion.
+
 ## Recipes
 
 **Four keys as four bindings** (instead of a `KeyAxis2D` source), with `Sum` accumulation:

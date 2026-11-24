@@ -7,9 +7,14 @@ Enabling the plugin adds the `EnhancedInput` autoload. It processes while the tr
 
 | `TickMode` | When |
 |---|---|
-| `Process` (default) | in `_Process` |
-| `Physics` | in `_PhysicsProcess` — pick this when gameplay reads input in physics |
+| `Auto` (default) | once per frame, right after the frame's input is delivered — before the first physics step and before `_Process`, so both see the same, current input |
+| `Process` | in `_Process` |
+| `Physics` | in every `_PhysicsProcess` step |
 | `Manual` | only when you call `EnhancedInput.Tick(delta)` or `InputPlayer.Tick(delta)` |
+
+`ReleaseStuckInput` (on by default) compares held keys and buttons with Godot's own state each
+tick and releases any whose release never arrived (it went to another window, or an overlay ate
+it). It never presses anything, and leaves replays alone.
 
 An `InputPlayer` also works on its own, without the autoload or a scene tree: feed it events with
 `FeedEvent` and call `Tick`. That is how the test suite drives it.
@@ -38,10 +43,11 @@ filters and what the GUI accepted; turn `PollInputMap` off to use only the event
 
 ## Focus loss
 
-When the window or application loses focus, or the app is suspended, `EnhancedInput` releases every
+When the window or application loses focus, or the app is suspended, `EnhancedInput` cuts off every
 player's held input (`ResetInputOnFocusLoss`, on by default) and on-screen controls let go of their
-fingers, so nothing stays stuck after alt-tab or a phone call. `ResetAllInput()` does the same on
-demand.
+fingers, so nothing stays stuck after alt-tab or a phone call. Cut off is not released: held actions
+end as `Canceled` with `EndReason` `FocusLost` or `ApplicationSuspended`, and release triggers do not
+fire. `ResetAllInput(reason)` does the same on demand.
 
 `InputEventAction`s have no real device, so through the autoload they reach only players with
 `AcceptActionEvents` on — player 0 by default. To drive another player in a test, feed the event to

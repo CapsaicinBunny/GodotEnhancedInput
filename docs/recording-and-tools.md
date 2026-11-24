@@ -34,12 +34,19 @@ The file is compact JSON: one entry per tick with its time step and inputs.
 With the plugin enabled, the **Enhanced Input** dock in the bottom panel shows:
 
 - **Bindings** — every `BindingContext` resource in the project with its bindings: action, input
-  (as a [source path](sources-and-devices.md)), modifiers, triggers, groups and rebind id. Select a
-  binding and press **Listen for input** (or double-click it), then press a key or button or move a
-  stick: it becomes the binding's input and the context is saved. Esc cancels; undo works.
-- **Problems** — what `BindingValidator` finds (below). Double-click one to open its context.
-- **Devices** — the joypads connected now, with their GUIDs, guessed role, and whether Godot reports
-  a light or motion sensors.
+  (as a [source path](sources-and-devices.md), with a device icon), modifiers, triggers, groups and
+  rebind id; bindings with problems are coloured. Search by action, input, group, rebind id or
+  modifier. The side panel edits the selected binding: pick its action or create a new one (saved
+  next to the context), type an input path (checked as you type) or press **Listen** and press a key
+  or button or move a stick (Esc cancels), set groups and the rebind id, and add, remove or reorder
+  modifiers and triggers (double-click one to tune it in the Inspector). The toolbar adds contexts and
+  bindings. Every change can be undone and is saved at once.
+- **Actions** — every action with its value kind, how many bindings use it and in which contexts.
+- **Problems** — what `BindingValidator` finds (below). Double-click one to jump to its binding.
+- **Devices** — the joypads connected now with their family ("DualSense", "Steam Deck"), name, GUID,
+  USB ids and features; live axes and buttons; a rumble test and the light colour. Turn on **Log
+  input** to see each event with its source path — handy for unusual hardware — and double-click a
+  line to use it for the selected binding.
 
 ## Validation
 
